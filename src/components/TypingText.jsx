@@ -4,32 +4,37 @@ function TypingText({
   paragraph = "",
   characterStates = [],
   activeIndex = -1,
-  caretSessionKey,
   currentWordIndex = 0,
   className = "",
   isDark = true,
-  fontScale = 1
+  fontScale = 1,
+  focused = false,
+  onPointerDown,
+  onKeyDown,
+  onFocus,
+  onBlur
 }) {
   const containerRef = useRef(null);
   const characterRefs = useRef([]);
+  const words = useMemo(() => paragraph.split(" "), [paragraph]);
 
   const stateClasses = isDark
     ? {
-        default: "text-slate-500",
+        default: "text-slate-200",
         correct: "text-emerald-300",
-        incorrect: "text-rose-400"
+        incorrect: "text-rose-300"
       }
     : {
-        default: "text-slate-600",
+        default: "text-slate-800",
         correct: "text-emerald-700",
-        incorrect: "text-rose-600"
+        incorrect: "text-rose-700"
       };
 
   const wordRanges = useMemo(() => {
     const ranges = [];
     let index = 0;
 
-    paragraph.split(" ").forEach((word) => {
+    words.forEach((word) => {
       const start = index;
       const end = index + word.length - 1;
       ranges.push([start, end]);
@@ -37,7 +42,7 @@ function TypingText({
     });
 
     return ranges;
-  }, [paragraph]);
+  }, [words]);
 
   useEffect(() => {
     const handleResize = () => {};
@@ -65,13 +70,18 @@ function TypingText({
     <div
       ref={containerRef}
       style={{ "--typing-scale": fontScale, lineHeight: 1.6 }}
-      className={`typing-area relative rounded-2xl p-8 font-mono text-[calc(1.875rem*var(--typing-scale))] md:text-[calc(2.25rem*var(--typing-scale))] leading-loose tracking-wide cursor-text focus:outline-none overflow-x-auto whitespace-pre-wrap ${className}`}
+      className={`typing-area relative min-h-[200px] rounded-2xl p-6 sm:p-8 font-mono text-[calc(1.5rem*var(--typing-scale))] sm:text-[calc(1.875rem*var(--typing-scale))] md:text-[calc(2.25rem*var(--typing-scale))] leading-loose tracking-wide cursor-text outline-none overflow-x-auto whitespace-pre-wrap ${focused ? (isDark ? "ring-2 ring-cyan-400/50" : "ring-2 ring-cyan-500/45") : ""} ${className}`}
       tabIndex={0}
       role="textbox"
+      aria-label="Typing area"
       aria-readonly="true"
+      onPointerDown={onPointerDown}
+      onKeyDown={onKeyDown}
+      onFocus={onFocus}
+      onBlur={onBlur}
     >
       <div className="flex flex-wrap gap-x-6 gap-y-3 items-center">
-        {paragraph.split(" ").map((word, wordIndex) => {
+        {words.map((word, wordIndex) => {
           const [start, end] = wordRanges[wordIndex] || [0, -1];
           let wordState = "default";
           if (end >= start) {
@@ -88,24 +98,20 @@ function TypingText({
           return (
             <span
               key={`${word}-${wordIndex}`}
-              className={`inline-flex items-center rounded-xl border px-2.5 py-1.5 transition-all duration-150 ${
-                currentWordIndex === wordIndex ? "scale-[1.03]" : "scale-100"
+              className={`inline-flex items-center px-0.5 py-0.5 transition-all duration-150 ${
+                currentWordIndex === wordIndex ? "scale-[1.01]" : "scale-100"
               } ${
                 wordState === "correct"
                   ? isDark
-                    ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
-                    : "border-emerald-500/15 bg-emerald-100/80 text-emerald-900"
+                    ? "text-emerald-200"
+                    : "text-emerald-900"
                   : wordState === "incorrect"
                     ? isDark
-                      ? "border-rose-500/20 bg-rose-500/10 text-rose-200"
-                      : "border-rose-500/15 bg-rose-100/80 text-rose-900"
+                      ? "text-rose-300"
+                      : "text-rose-900"
                     : isDark
-                      ? "border-slate-700/40 bg-slate-900/20 text-slate-300"
-                      : "border-slate-300/70 bg-white/70 text-slate-700"
-              } ${currentWordIndex === wordIndex ? "shadow-lg" : ""} ${
-                currentWordIndex === wordIndex
-                  ? (isDark ? "bg-yellow-500/30 rounded px-1" : "bg-yellow-500/20 rounded px-1")
-                  : ""
+                      ? "text-slate-200"
+                      : "text-slate-800"
               }`}
             >
               {word.split("").map((character, characterIndex) => {
@@ -118,20 +124,39 @@ function TypingText({
                     }}
                     className={`${stateClasses[characterStates[index]] || stateClasses.default} transition-colors duration-150`}
                   >
+                    {focused && activeIndex === index ? (
+                      <span
+                        className={`caret-blink mr-[1px] inline-block h-[1.1em] align-[-0.12em] border-l-2 ${isDark ? "border-cyan-300" : "border-cyan-600"}`}
+                        aria-hidden="true"
+                      />
+                    ) : null}
                     {character}
                   </span>
                 );
               })}
 
-              {wordIndex < paragraph.split(" ").length - 1 ? (
+              {wordIndex < words.length - 1 ? (
                 <span
                   ref={(node) => {
                     characterRefs.current[end + 1] = node;
                   }}
                   className={`${stateClasses[characterStates[end + 1]] || stateClasses.default} inline-block w-[0.6ch]`}
                 >
+                  {focused && activeIndex === end + 1 ? (
+                    <span
+                      className={`caret-blink mr-[1px] inline-block h-[1.1em] align-[-0.12em] border-l-2 ${isDark ? "border-cyan-300" : "border-cyan-600"}`}
+                      aria-hidden="true"
+                    />
+                  ) : null}
                   {" "}
                 </span>
+              ) : null}
+
+              {focused && wordIndex === words.length - 1 && activeIndex === paragraph.length ? (
+                <span
+                  className={`caret-blink ml-[1px] inline-block h-[1.1em] align-[-0.12em] border-l-2 ${isDark ? "border-cyan-300" : "border-cyan-600"}`}
+                  aria-hidden="true"
+                />
               ) : null}
             </span>
           );

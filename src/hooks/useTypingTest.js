@@ -87,6 +87,8 @@ export const useTypingTest = () => {
   const goalMilestoneResetTimerRef = useRef(null);
   const latestRawWpmRef = useRef(0);
   const latestLiveWpmRef = useRef(0);
+  const lastWordBoundaryRef = useRef(0);
+  const canDeleteTrailingSpaceRef = useRef(false);
   const {
     playCorrectKey,
     playMilestoneSound,
@@ -155,6 +157,8 @@ export const useTypingTest = () => {
       typedWordsRef.current = [];
       wordCorrectnessRef.current = [];
       mistypedCharactersRef.current = [];
+      lastWordBoundaryRef.current = 0;
+      canDeleteTrailingSpaceRef.current = false;
       resetWordsWithError();
 
       setParagraph(updatedParagraph);
@@ -359,6 +363,9 @@ export const useTypingTest = () => {
         }
       }
 
+      lastWordBoundaryRef.current = text.lastIndexOf(" ") + 1;
+      canDeleteTrailingSpaceRef.current = text.endsWith(" ");
+
       commitSnapshot();
     },
     [commitSnapshot, paragraph]
@@ -437,12 +444,36 @@ export const useTypingTest = () => {
           completedWordsRef.current += 1;
           currentWordIndexRef.current += 1;
           currentWordRef.current = "";
+          if (typedIndex < paragraph.length - 1) {
+            lastWordBoundaryRef.current = nextValue.length;
+            canDeleteTrailingSpaceRef.current = true;
+          }
         } else {
+          if (typedIndex === 0 || typedText[typedIndex - 1] === " ") {
+            lastWordBoundaryRef.current = typedIndex;
+          }
+          canDeleteTrailingSpaceRef.current = false;
           currentWordRef.current += newChar;
         }
       }
 
       if (isBackspace) {
+        if (nextValue.length < lastWordBoundaryRef.current) {
+          const removedIndex = typedText.length - 1;
+          const removedChar = typedText[removedIndex];
+          const canDeleteTrailingSpace =
+            canDeleteTrailingSpaceRef.current &&
+            removedChar === " " &&
+            typedText.length === lastWordBoundaryRef.current;
+
+          if (!canDeleteTrailingSpace) {
+            return;
+          }
+
+          lastWordBoundaryRef.current = nextValue.lastIndexOf(" ") + 1;
+          canDeleteTrailingSpaceRef.current = false;
+        }
+
         const removedIndex = typedText.length - 1;
         const removedChar = typedText[removedIndex];
         const targetChar = paragraph[removedIndex];

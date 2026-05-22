@@ -4,7 +4,6 @@ import { Moon, Sun, Settings, RotateCcw, Trophy, Type } from "lucide-react";
 import confetti from "canvas-confetti";
 import AppLogo from "./AppLogo";
 import TextSelector from "./TextSelector";
-import TypingInput from "./TypingInput";
 import TypingText from "./TypingText";
 import ResultScreen from "./ResultScreen";
 import SettingsModal from "./SettingsModal";
@@ -39,7 +38,6 @@ function TypingTest({ theme, onToggleTheme }) {
     isActive,
     isFinished,
     focusTrigger,
-    focusTypingInput,
     activeIndex,
     correctCharacters,
     incorrectCharacters,
@@ -72,6 +70,59 @@ function TypingTest({ theme, onToggleTheme }) {
   const didCelebrateBestRef = useRef(false);
   const [prevAccuracy, setPrevAccuracy] = useState(accuracy);
   const [accuracyState, setAccuracyState] = useState(null);
+  const typingSurfaceRef = useRef(null);
+  const hiddenInputRef = useRef(null);
+  const [isTypingAreaFocused, setIsTypingAreaFocused] = useState(false);
+
+  const syncTypingFocusState = useCallback(() => {
+    const wrapper = typingSurfaceRef.current;
+    const activeElement = document.activeElement;
+    setIsTypingAreaFocused(Boolean(wrapper && activeElement && wrapper.contains(activeElement)));
+  }, []);
+
+  const focusTypingArea = useCallback(() => {
+    if (isFinished) return;
+    if (typingSurfaceRef.current) {
+      typingSurfaceRef.current.focus();
+    }
+    if (hiddenInputRef.current) {
+      hiddenInputRef.current.focus({ preventScroll: true });
+    }
+    setIsTypingAreaFocused(true);
+  }, [isFinished]);
+
+  const handleInlineKeyDown = useCallback(
+    (event) => {
+      if (isFinished) return;
+
+      const { key } = event;
+      if (event.ctrlKey || event.metaKey || event.altKey) {
+        return;
+      }
+
+      if (key === "Tab") {
+        return;
+      }
+
+      if (key === "Backspace") {
+        event.preventDefault();
+        handleTyping(typedText.slice(0, -1));
+        return;
+      }
+
+      if (key === " ") {
+        event.preventDefault();
+        handleTyping(`${typedText} `);
+        return;
+      }
+
+      if (key.length === 1) {
+        event.preventDefault();
+        handleTyping(`${typedText}${key}`);
+      }
+    },
+    [handleTyping, isFinished, typedText]
+  );
 
   useEffect(() => {
     if (accuracy === prevAccuracy) return;
@@ -131,17 +182,6 @@ function TypingTest({ theme, onToggleTheme }) {
         return;
       }
 
-      if (event.key === "Tab") {
-        const activeElement = document.activeElement;
-        const typingTag = activeElement?.tagName;
-        const isTypingFocused = typingTag === "TEXTAREA" || typingTag === "INPUT";
-        if (!isTypingFocused) {
-          event.preventDefault();
-          focusTypingInput();
-        }
-        return;
-      }
-
       if (isShortcut && event.shiftKey && event.code === "KeyR") {
         event.preventDefault();
         handleRestart();
@@ -155,7 +195,20 @@ function TypingTest({ theme, onToggleTheme }) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [closeOverlays, focusTypingInput, handleRestart, toggleSound]);
+  }, [closeOverlays, handleRestart, toggleSound]);
+
+  useEffect(() => {
+    const handlePaste = (event) => {
+      event.preventDefault();
+    };
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, []);
+
+  useEffect(() => {
+    focusTypingArea();
+  }, [focusTrigger, focusTypingArea]);
 
   // Show a short, immediate message when the user first reaches the target WPM in Goal mode
   useEffect(() => {
@@ -387,28 +440,43 @@ function TypingTest({ theme, onToggleTheme }) {
                     : "bg-slate-100 border-slate-300"
                 }`}
               >
-                <div className={isDark ? "text-slate-300 text-2xl" : "text-slate-700 text-2xl"}>
+                <div
+                  ref={typingSurfaceRef}
+                  className={isDark ? "text-slate-300 text-2xl" : "text-slate-700 text-2xl"}
+                  onFocusCapture={syncTypingFocusState}
+                  onBlurCapture={() => window.setTimeout(syncTypingFocusState, 0)}
+                >
                   <TypingText
                     paragraph={paragraph || customText}
                     characterStates={characterStates}
                     activeIndex={activeIndex}
+                    currentWordIndex={currentWordIndex}
                     isDark={isDark}
                     fontScale={fontScale}
+                    focused={isTypingAreaFocused}
+                    onPointerDown={focusTypingArea}
+                    onKeyDown={handleInlineKeyDown}
+                    onFocus={syncTypingFocusState}
+                    onBlur={() => window.setTimeout(syncTypingFocusState, 0)}
+                  />
+
+                  <textarea
+                    ref={hiddenInputRef}
+                    value={typedText}
+                    onKeyDown={handleInlineKeyDown}
+                    onChange={() => {}}
+                    onPaste={(event) => event.preventDefault()}
+                    aria-hidden="true"
+                    tabIndex={-1}
+                    className="absolute h-1 w-1 opacity-0 pointer-events-none"
+                    autoComplete="off"
+                    spellCheck={false}
                   />
                 </div>
 
                 <div className="mt-8">
-                  <TypingInput
-                    typedText={typedText}
-                    onType={handleTyping}
-                    disabled={isFinished || (!isActive && typedText !== "")}
-                    focusTrigger={focusTrigger}
-                    maxLength={paragraph?.length || customText?.length || 1000}
-                    fontScale={fontScale}
-                    describedById="typing-input-instructions"
-                  />
                   <div id="typing-input-instructions" className="mt-2 text-center text-sm text-slate-400">
-                    Start typing here. Paste is blocked. Characters typed {typedText.length} / {Math.max((paragraph || customText || "").length, 0)}
+                    Click the text and type directly. Paste is blocked. Characters typed {typedText.length} / {Math.max((paragraph || customText || "").length, 0)}
                   </div>
                 </div>
               </motion.div>
