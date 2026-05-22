@@ -1,19 +1,17 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Award, Lightbulb, Zap, Flame } from "lucide-react";
 import { PRO_TIPS } from "../constants/typingModes";
 import { getStreak } from "../utils/storage";
 
-function SidebarCard({ title, icon: Icon, children, accentClass = "", isDark = true }) {
+function SidebarCard({ title, children, isDark = true }) {
   return (
-    <section className={`rounded-2xl border p-3 shadow-lg backdrop-blur-md transition-all ${
+    <section className={`rounded-2xl border p-3 shadow-sm backdrop-blur-md transition-all ${
       isDark
-        ? "border-gray-700 bg-gray-800/60 hover:bg-gray-800/80"
-        : "border-slate-300 bg-slate-100/80 hover:bg-slate-100/100"
+        ? "border-gray-700/80 bg-gray-900/55 hover:bg-gray-900/70"
+        : "border-slate-200 bg-white/90 hover:bg-white"
     }`}>
-      <div className={`flex items-center gap-2 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-        <Icon size={13} className={accentClass || (isDark ? "text-slate-400" : "text-slate-600")} />
-        <h3 className={`text-[10px] font-semibold uppercase tracking-[0.2em] ${isDark ? "text-slate-300" : "text-slate-700"}`}>{title}</h3>
+      <div className={`flex items-center justify-between ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+        <h3 className={`text-[10px] font-semibold uppercase tracking-[0.18em] ${isDark ? "text-slate-300" : "text-slate-700"}`}>{title}</h3>
       </div>
       <div className="mt-2">{children}</div>
     </section>
@@ -44,45 +42,45 @@ function RightSidebar({ bestWpm, liveWpm, resetKey = 0, isDark = true, streakInf
   const currentTip = useMemo(() => PRO_TIPS[tipIndex % PRO_TIPS.length], [tipIndex]);
 
   return (
-    <div className="space-y-4">
-      <SidebarCard title="Best WPM" icon={Award} accentClass="text-violet-500" isDark={isDark}>
-        <div className="space-y-1.5">
-          <p className={`text-3xl font-bold tracking-tight tabular-nums ${isDark ? "text-blue-400" : "text-blue-600"}`}>{bestWpm}</p>
-          <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>Your personal best</p>
-          <div className={`h-1.5 overflow-hidden rounded-full ${isDark ? "bg-slate-700" : "bg-slate-200"}`}>
+    <div className="space-y-3">
+      <SidebarCard title="Best WPM" isDark={isDark}>
+        <div className="space-y-1">
+          <p className={`text-2xl font-semibold tracking-tight tabular-nums ${isDark ? "text-blue-300" : "text-blue-600"}`}>{bestWpm}</p>
+          <p className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>Personal best</p>
+          <div className={`h-1.5 overflow-hidden rounded-full ${isDark ? "bg-slate-800" : "bg-slate-200"}`}>
             <div className="h-full w-[72%] rounded-full bg-gradient-to-r from-violet-400 to-sky-400" />
           </div>
         </div>
       </SidebarCard>
 
-      <SidebarCard title="Pro Tip" icon={Lightbulb} accentClass="text-amber-500" isDark={isDark}>
+      <SidebarCard title="Pro Tip" isDark={isDark}>
         <p className={`text-[11px] leading-4 ${isDark ? "text-slate-300" : "text-slate-700"}`}>{currentTip}</p>
       </SidebarCard>
 
-      <SidebarCard title="Live WPM" icon={Zap} accentClass="text-emerald-500" isDark={isDark}>
-        <div className="flex items-end justify-between gap-3">
+      <SidebarCard title="Live WPM" isDark={isDark}>
+        <div className="flex items-end justify-between gap-2">
           <div>
             <motion.p
               key={liveWpm}
               initial={{ opacity: 0.65, y: 4, scale: 1.03 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               transition={{ duration: 0.18 }}
-              className={`text-3xl font-bold tracking-tight tabular-nums ${isDark ? "text-white" : "text-slate-900"}`}
+              className={`text-2xl font-semibold tracking-tight tabular-nums ${isDark ? "text-white" : "text-slate-900"}`}
             >
               {liveWpm}
             </motion.p>
-            <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>Rolling speed</p>
+            <p className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>Rolling speed</p>
           </div>
         </div>
       </SidebarCard>
 
-      <SidebarCard title="Streak" icon={Flame} accentClass="text-orange-500" isDark={isDark}>
-        <div className="space-y-1.5">
+      <SidebarCard title="Streak" isDark={isDark}>
+        <div className="space-y-1">
           <div className="flex items-baseline gap-2">
-            <p className={`text-2xl font-bold tracking-tight tabular-nums ${isDark ? "text-orange-400" : "text-orange-600"}`}>🔥 {streakInfo.count}</p>
-            <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>day{streakInfo.count !== 1 ? "s" : ""}</p>
+            <p className={`text-xl font-semibold tracking-tight tabular-nums ${isDark ? "text-orange-300" : "text-orange-600"}`}>{streakInfo.count}</p>
+            <p className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>day{streakInfo.count !== 1 ? "s" : ""}</p>
           </div>
-          <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+          <p className={`text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>
             {streakInfo.count > 0
               ? `Last test: ${streakInfo.lastTestDate ? new Date(streakInfo.lastTestDate).toLocaleDateString() : "Unknown"}`
               : "Complete a test to start"}
@@ -90,9 +88,9 @@ function RightSidebar({ bestWpm, liveWpm, resetKey = 0, isDark = true, streakInf
         </div>
       </SidebarCard>
 
-      <SidebarCard title="Daily Goal" icon={Award} accentClass="text-sky-500" isDark={isDark}>
+      <SidebarCard title="Daily Goal" isDark={isDark}>
         <div className="space-y-2">
-          <div className={`flex items-center justify-between gap-2 text-xs ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+          <div className={`flex items-center justify-between gap-2 text-[11px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>
             <span>Today's goal: 3 tests</span>
             <span>{dailyGoalProgress.count >= 3 ? "Goal completed!" : `${dailyGoalProgress.count}/3`}</span>
           </div>

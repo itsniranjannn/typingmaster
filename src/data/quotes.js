@@ -1,46 +1,112 @@
-export const quotes = [
-  "The only way to do great work is to love what you do. - Steve Jobs",
-  "Success is not final, failure is not fatal: it is the courage to continue that counts. - Winston Churchill",
-  "Life is what happens when you're busy making other plans. - John Lennon",
-  "The future belongs to those who believe in the beauty of their dreams. - Eleanor Roosevelt",
-  "Do what you can, with what you have, where you are. - Theodore Roosevelt",
-  "In the middle of every difficulty lies opportunity. - Albert Einstein",
-  "Be yourself; everyone else is already taken. - Oscar Wilde",
-  "If you tell the truth, you don't have to remember anything. - Mark Twain",
-  "Not all those who wander are lost. - J.R.R. Tolkien",
-  "The journey of a thousand miles begins with one step. - Lao Tzu",
-  "Well done is better than well said. - Benjamin Franklin",
-  "Happiness depends upon ourselves. - Aristotle",
-  "Turn your wounds into wisdom. - Oprah Winfrey",
-  "Stay hungry, stay foolish. - Steve Jobs",
-  "What we think, we become. - Buddha",
-  "Simplicity is the ultimate sophistication. - Leonardo da Vinci",
-  "If you can dream it, you can do it. - Walt Disney",
-  "Do the hard jobs first. The easy jobs will take care of themselves. - Dale Carnegie",
-  "Quality is not an act, it is a habit. - Aristotle",
-  "Great things are done by a series of small things brought together. - Vincent van Gogh",
-  "The expert in anything was once a beginner. - Helen Hayes",
-  "Motivation gets you started. Habit keeps you going. - Jim Ryun",
-  "It always seems impossible until it's done. - Nelson Mandela",
-  "You miss 100 percent of the shots you don't take. - Wayne Gretzky",
-  "A well-typed sentence is a small act of craftsmanship. - TypeMaster"
-];
+import { quotesLarge } from "./quotesLarge";
 
-export const getRandomQuote = () => {
-  const randomIndex = Math.floor(Math.random() * quotes.length);
-  return quotes[randomIndex];
+const QUOTE_HISTORY_KEY = "typingMaster.quoteHistory";
+const QUOTE_HISTORY_LIMIT = 20;
+let lastQuoteInSession = "";
+
+const normalizeQuote = (text) => text.replace(/\s+/g, " ").trim();
+
+const readQuoteHistory = () => {
+  try {
+    if (typeof window === "undefined") return [];
+    const raw = window.localStorage.getItem(QUOTE_HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map((item) => normalizeQuote(String(item))).filter(Boolean).slice(0, QUOTE_HISTORY_LIMIT);
+  } catch {
+    return [];
+  }
 };
 
-export const fetchRemoteQuote = async () => {
+const writeQuoteHistory = (history) => {
   try {
-    const resp = await fetch("https://api.quotable.io/random");
-    if (!resp.ok) throw new Error("network");
-    const data = await resp.json();
-    if (data && data.content) {
-      return `${data.content} - ${data.author || "Unknown"}`;
-    }
-  } catch (e) {
-    // ignore and fall back to local quotes
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(QUOTE_HISTORY_KEY, JSON.stringify(history.slice(0, QUOTE_HISTORY_LIMIT)));
+  } catch {
+    // ignore storage failures
   }
-  return getRandomQuote();
+};
+
+const rememberQuote = (quote) => {
+  const normalized = normalizeQuote(quote);
+  if (!normalized) return;
+  const current = readQuoteHistory().filter((entry) => entry !== normalized);
+  const next = [normalized, ...current].slice(0, QUOTE_HISTORY_LIMIT);
+  writeQuoteHistory(next);
+  lastQuoteInSession = normalized;
+};
+
+const pickNonRepeatingLocalQuote = (exclude = new Set()) => {
+  const pool = quotesLarge.map((quote) => normalizeQuote(quote)).filter(Boolean);
+  const candidates = pool.filter((quote) => !exclude.has(quote));
+
+  if (candidates.length > 0) {
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  const fallback = pool[Math.floor(Math.random() * pool.length)] || "Practice with purpose. - GoType";
+  if (fallback === lastQuoteInSession && pool.length > 1) {
+    const alt = pool.find((quote) => quote !== lastQuoteInSession);
+    return alt || fallback;
+  }
+  return fallback;
+};
+
+const fetchWithTimeout = async (url, timeoutMs) => {
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timeoutId = setTimeout(() => controller?.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, controller ? { signal: controller.signal } : undefined);
+    return response;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
+export const getRandomQuote = () => {
+  const history = readQuoteHistory();
+  const exclude = new Set(history);
+  if (lastQuoteInSession) {
+    exclude.add(lastQuoteInSession);
+  }
+  const quote = pickNonRepeatingLocalQuote(exclude);
+  rememberQuote(quote);
+  return quote;
+};
+
+export const fetchRandomQuote = async ({ timeoutMs = 2000 } = {}) => {
+  const history = readQuoteHistory();
+  const exclude = new Set(history);
+  if (lastQuoteInSession) {
+    exclude.add(lastQuoteInSession);
+  }
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout("https://api.quotable.io/random", timeoutMs);
+      if (!response.ok) {
+        continue;
+      }
+
+      const data = await response.json();
+      if (!data?.content) {
+        continue;
+      }
+
+      const formatted = normalizeQuote(`${data.content} - ${data.author || "Unknown"}`);
+      if (!formatted || exclude.has(formatted)) {
+        continue;
+      }
+
+      rememberQuote(formatted);
+      return formatted;
+    } catch {
+      // try fallback below
+    }
+  }
+
+  const fallback = pickNonRepeatingLocalQuote(exclude);
+  rememberQuote(fallback);
+  return fallback;
 };

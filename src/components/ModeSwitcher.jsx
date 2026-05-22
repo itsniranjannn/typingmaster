@@ -1,24 +1,24 @@
 import { memo } from "react";
-import { TYPING_MODES, WORD_MODE_OPTIONS } from "../constants/typingModes";
+import { TYPING_MODES, WORD_MODE_OPTIONS, TEST_DURATION_SECONDS } from "../constants/typingModes";
 import GoalModeSettings from "./GoalModeSettings";
 
 function ModeSwitcher({ mode, wordCount, customText, targetWpm, goalAchievedSeconds, onModeChange, onWordCountChange, onCustomTextChange, onTargetWpmChange, isDark = true }) {
   return (
-    <section className="space-y-4" aria-label="Typing mode options">
+    <section className="space-y-3" aria-label="Typing mode options">
       <div className="flex flex-wrap gap-2">
         {[
-          { value: TYPING_MODES.TIME, label: "Time: 60 sec" },
+          { value: TYPING_MODES.TIME, label: `Time ${TEST_DURATION_SECONDS}s` },
           { value: TYPING_MODES.WORDS, label: "Words" },
-          { value: TYPING_MODES.GOAL, label: "Goal based" }
+          { value: TYPING_MODES.GOAL, label: "Goal" }
         ].map(({ value, label }) => (
           <button
             key={value}
             type="button"
             onClick={() => onModeChange(value)}
-            className={`rounded-full px-4 py-1.5 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 ${
+            className={`rounded-full border px-3 py-1 text-xs font-medium tracking-[0.08em] uppercase transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 ${
               mode === value
-                ? `${isDark ? "bg-blue-500" : "bg-blue-600"} text-white shadow-md ring-2 ring-blue-400`
-                : `${isDark ? "bg-gray-700 text-slate-200 hover:bg-gray-600" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`
+                ? `${isDark ? "border-slate-500 text-slate-50" : "border-slate-400 text-slate-900"} bg-transparent shadow-none`
+                : `${isDark ? "border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700" : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-200"}`
             }`}
             aria-label={`Switch to ${label} mode`}
           >
@@ -34,8 +34,10 @@ function ModeSwitcher({ mode, wordCount, customText, targetWpm, goalAchievedSeco
               key={option}
               type="button"
               onClick={() => onWordCountChange(option)}
-              className={`rounded-full px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
-                wordCount === option ? "bg-blue-500 text-white shadow-sm" : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              className={`rounded-full border px-3 py-1 text-xs font-medium tracking-[0.08em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
+                wordCount === option
+                  ? `${isDark ? "border-slate-500 text-slate-50" : "border-slate-400 text-slate-900"} bg-transparent`
+                  : `${isDark ? "border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700" : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-200"}`
               }`}
               aria-label={`Set word count to ${option}`}
             >

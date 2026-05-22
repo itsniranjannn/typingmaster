@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import TypingTest from "./components/TypingTest";
+import Footer from "./components/Footer";
 import { getPreferredTheme, setPreferredTheme } from "./utils/storage";
 
 function App() {
@@ -22,12 +23,15 @@ function App() {
   const textColor = isDark ? "text-slate-100" : "text-slate-900";
 
   return (
-    <main className={`app-fade min-h-screen ${bgColor} ${textColor} transition-colors duration-300`}>
-      <TypingTest
-        theme={theme}
-        onToggleTheme={() => setTheme((previous) => (previous === "dark" ? "light" : "dark"))}
-      />
-    </main>
+    <div className={`app-fade min-h-screen ${bgColor} ${textColor} flex flex-col transition-colors duration-300`}>
+      <div className="flex-1">
+        <TypingTest
+          theme={theme}
+          onToggleTheme={() => setTheme((previous) => (previous === "dark" ? "light" : "dark"))}
+        />
+      </div>
+      <Footer isDark={isDark} />
+    </div>
   );
 }
 

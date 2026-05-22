@@ -1,8 +1,8 @@
-# Typing Master - Project Details
+# GoType - Project Details
 
 ## Overview
 
-Typing Master is a React + Vite typing practice app with live feedback, multiple test modes, persisted settings, typing statistics, and a polished responsive UI.
+GoType is a React + Vite typing practice app with live feedback, multiple test modes, persisted settings, typing statistics, and a polished responsive UI.
 
 ## Current Status
 
@@ -142,7 +142,7 @@ Typing Master is a React + Vite typing practice app with live feedback, multiple
 ## Structure Summary
 
 ```text
-Typing master/
+GoType/
 ├─ index.html
 ├─ package.json
 ├─ package-lock.json

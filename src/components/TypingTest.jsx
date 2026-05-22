@@ -52,6 +52,8 @@ function TypingTest({ theme, onToggleTheme }) {
     totalWords,
     goalAchievedSeconds,
     finalResult,
+    isTextLoading,
+    textLoadingMessage,
     bestWpm,
     dailyGoalProgress,
     startTest,
@@ -350,7 +352,7 @@ function TypingTest({ theme, onToggleTheme }) {
           isDark ? "bg-gray-900" : "bg-white"
         }`}
       >
-        <div className="mx-auto grid w-full max-w-6xl gap-6 lg:grid-cols-[minmax(0,1fr)_220px] xl:grid-cols-[minmax(0,1fr)_240px]">
+        <div className="mx-auto grid w-full max-w-6xl gap-5 lg:grid-cols-[minmax(0,1fr)_220px] xl:grid-cols-[minmax(0,1fr)_240px]">
           {!isFinished ? (
             <div className="mx-auto w-full max-w-5xl space-y-8 lg:mx-auto xl:max-w-[58rem]">
               {/* Stats Bar */}
@@ -358,61 +360,61 @@ function TypingTest({ theme, onToggleTheme }) {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className={`flex flex-wrap justify-between sm:justify-center gap-8 rounded-2xl border p-6 sm:p-8 sm:static sticky top-4 z-20 ${
+                className={`flex flex-wrap justify-center gap-3 rounded-2xl border px-4 py-3 sm:px-5 sm:py-3 sm:static sticky top-4 z-20 ${
                   isDark
-                    ? "bg-gray-800 border-gray-700"
-                    : "bg-slate-100 border-slate-300"
+                    ? "bg-gray-900/70 border-gray-700"
+                    : "bg-white border-slate-200"
                 }`}
                 role="status"
                 aria-live="polite"
                 aria-atomic="true"
               >
-                <motion.div className="text-center" whileHover={{ scale: 1.05 }}>
+                <motion.div className="min-w-[78px] text-center" whileHover={{ scale: 1.02 }}>
                   <motion.span
                     key={liveWpm}
                     initial={{ scale: 1.2, opacity: 0.5 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ duration: 0.2 }}
-                    className="text-3xl sm:text-5xl font-bold text-blue-400 tabular-nums font-mono"
+                    className="text-2xl sm:text-3xl font-semibold text-blue-400 tabular-nums font-mono"
                   >
                     {liveWpm}
                   </motion.span>
-                  <div className={`text-xs uppercase tracking-widest ${secondaryText} mt-2 font-semibold`}>WPM</div>
+                  <div className={`text-[10px] uppercase tracking-[0.18em] ${secondaryText} mt-1 font-medium`}>WPM</div>
                 </motion.div>
-                <div className={`hidden h-16 w-px ${isDark ? "bg-gray-700" : "bg-slate-300"} sm:block`} />
-                <motion.div className="text-center" whileHover={{ scale: 1.05 }}>
+                <div className={`hidden h-10 w-px ${isDark ? "bg-gray-700/70" : "bg-slate-200"} sm:block`} />
+                <motion.div className="min-w-[78px] text-center" whileHover={{ scale: 1.02 }}>
                   <motion.span
                     key={accuracy}
                     initial={{ scale: 1.2, opacity: 0.5 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ duration: 0.2 }}
-                    className={`text-3xl sm:text-5xl font-bold tabular-nums font-mono ${accuracyState === 'up' ? 'text-emerald-400' : accuracyState === 'down' ? 'text-rose-400' : 'text-emerald-400'}`}
+                    className={`text-2xl sm:text-3xl font-semibold tabular-nums font-mono ${accuracyState === 'up' ? 'text-emerald-400' : accuracyState === 'down' ? 'text-rose-400' : 'text-emerald-400'}`}
                   >
                     {accuracy}%
                   </motion.span>
-                  <div className={`text-xs uppercase tracking-widest ${secondaryText} mt-2 font-semibold`}>Accuracy</div>
+                  <div className={`text-[10px] uppercase tracking-[0.18em] ${secondaryText} mt-1 font-medium`}>ACC</div>
                 </motion.div>
                 {mode === TYPING_MODES.TIME && (
                   <>
-                    <div className={`hidden h-16 w-px ${isDark ? "bg-gray-700" : "bg-slate-300"} sm:block`} />
-                    <motion.div className="text-center" whileHover={{ scale: 1.05 }}>
+                    <div className={`hidden h-10 w-px ${isDark ? "bg-gray-700/70" : "bg-slate-200"} sm:block`} />
+                    <motion.div className="min-w-[78px] text-center" whileHover={{ scale: 1.02 }}>
                       <motion.span
                         key={timeLeft}
                         initial={{ scale: 1.2, opacity: 0.5 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ duration: 0.2 }}
-                        className="text-3xl sm:text-5xl font-bold text-amber-400 tabular-nums font-mono"
+                        className="text-2xl sm:text-3xl font-semibold text-amber-400 tabular-nums font-mono"
                       >
                         {timeLeft}
                       </motion.span>
-                      <div className={`text-xs uppercase tracking-widest ${secondaryText} mt-2 font-semibold`}>Time Left</div>
+                      <div className={`text-[10px] uppercase tracking-[0.18em] ${secondaryText} mt-1 font-medium`}>LEFT</div>
                     </motion.div>
                   </>
                 )}
-                <div className={`hidden h-16 w-px ${isDark ? "bg-gray-700" : "bg-slate-300"} sm:block`} />
-                <motion.div className="text-center" whileHover={{ scale: 1.05 }}>
-                  <div className="text-3xl sm:text-5xl font-bold text-violet-400 tabular-nums font-mono">{completedWords}/{Math.max(totalWords, 0)}</div>
-                  <div className={`text-xs uppercase tracking-widest ${secondaryText} mt-2 font-semibold`}>Words</div>
+                <div className={`hidden h-10 w-px ${isDark ? "bg-gray-700/70" : "bg-slate-200"} sm:block`} />
+                <motion.div className="min-w-[96px] text-center" whileHover={{ scale: 1.02 }}>
+                  <div className="text-2xl sm:text-3xl font-semibold text-violet-400 tabular-nums font-mono">{completedWords}/{Math.max(totalWords, 0)}</div>
+                  <div className={`text-[10px] uppercase tracking-[0.18em] ${secondaryText} mt-1 font-medium`}>WORDS</div>
                 </motion.div>
               </motion.div>
 
@@ -434,10 +436,10 @@ function TypingTest({ theme, onToggleTheme }) {
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.15 }}
-                className={`rounded-3xl border p-8 sm:p-12 min-h-[250px] shadow-xl leading-loose ${
+                className={`rounded-3xl border p-8 sm:p-10 min-h-[220px] shadow-[0_20px_60px_rgba(0,0,0,0.14)] leading-loose ${
                   isDark
-                    ? "bg-gray-800 border-gray-700"
-                    : "bg-slate-100 border-slate-300"
+                    ? "bg-gray-900/75 border-gray-700"
+                    : "bg-white border-slate-200"
                 }`}
               >
                 <div
@@ -474,10 +476,15 @@ function TypingTest({ theme, onToggleTheme }) {
                   />
                 </div>
 
-                <div className="mt-8">
+                <div className="mt-6">
                   <div id="typing-input-instructions" className="mt-2 text-center text-sm text-slate-400">
                     Click the text and type directly. Paste is blocked. Characters typed {typedText.length} / {Math.max((paragraph || customText || "").length, 0)}
                   </div>
+                  {isTextLoading && textLoadingMessage ? (
+                    <div className={`mt-2 text-center text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                      {textLoadingMessage}
+                    </div>
+                  ) : null}
                 </div>
               </motion.div>
 

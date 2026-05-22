@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { TYPING_MODES, TEST_DURATION_SECONDS, DEFAULT_GOAL_WPM } from "../constants/typingModes";
-import { getRandomParagraph, getRandomWordText } from "../data/paragraphs";
-import { getRandomQuote, fetchRemoteQuote } from "../data/quotes";
+import { getRandomQuote, fetchRandomQuote } from "../data/quotes";
+import { generateRandomParagraph, getFirstNWords } from "../utils/paragraphGenerator";
 import { useTypingSounds } from "./useTypingSounds";
 import { calculateAccuracy, calculateWpm } from "../utils/typingStats";
 import confetti from "canvas-confetti";
@@ -21,13 +21,19 @@ import {
   setSoundEnabled
 } from "../utils/storage";
 
-const DEFAULT_WORD_COUNT = 25;
+const DEFAULT_WORD_COUNT = 35;
+const QUOTE_LOADING_PLACEHOLDER = "Loading quote...";
 const getWordList = (text) => text.split(" ").filter((word) => word.length > 0);
+const getGeneratedTextForMode = (mode, wordCount) => {
+  if (mode === TYPING_MODES.WORDS) {
+    const sourceMin = Math.max(wordCount + 10, 35);
+    const sourceMax = Math.max(wordCount + 25, sourceMin + 10);
+    return getFirstNWords(generateRandomParagraph(sourceMin, sourceMax), wordCount);
+  }
 
-const getNextText = (mode, wordCount) => {
-  if (mode === TYPING_MODES.WORDS) return getRandomWordText(wordCount);
   if (mode === TYPING_MODES.QUOTE) return getRandomQuote();
-  return getRandomParagraph();
+
+  return generateRandomParagraph();
 };
 
 const normalizeMode = (value) => {
@@ -37,12 +43,14 @@ const normalizeMode = (value) => {
 
 export const useTypingTest = () => {
   const initialMode = normalizeMode(getPreferredMode());
-  const initialParagraphRef = useRef(getNextText(initialMode, DEFAULT_WORD_COUNT));
+  const initialParagraphRef = useRef(getGeneratedTextForMode(initialMode, DEFAULT_WORD_COUNT));
   const [mode, setMode] = useState(initialMode);
   const [wordCount, setWordCount] = useState(DEFAULT_WORD_COUNT);
   const [targetWpm, setTargetWpm] = useState(DEFAULT_GOAL_WPM);
   const [customText, setCustomText] = useState("");
   const [paragraph, setParagraph] = useState(initialParagraphRef.current);
+  const [isTextLoading, setIsTextLoading] = useState(false);
+  const [textLoadingMessage, setTextLoadingMessage] = useState("");
   const [typedText, setTypedText] = useState("");
   const [timeLeft, setTimeLeft] = useState(TEST_DURATION_SECONDS);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
@@ -89,6 +97,8 @@ export const useTypingTest = () => {
   const latestLiveWpmRef = useRef(0);
   const lastWordBoundaryRef = useRef(0);
   const canDeleteTrailingSpaceRef = useRef(false);
+  const loadingDelayTimerRef = useRef(null);
+  const quoteRequestIdRef = useRef(0);
   const {
     playCorrectKey,
     playMilestoneSound,
@@ -132,9 +142,44 @@ export const useTypingTest = () => {
     });
   }, [paragraph.length]);
 
+  const clearLoadingDelay = useCallback(() => {
+    if (loadingDelayTimerRef.current) {
+      window.clearTimeout(loadingDelayTimerRef.current);
+      loadingDelayTimerRef.current = null;
+    }
+  }, []);
+
+  const showDelayedGenerationMessage = useCallback(() => {
+    clearLoadingDelay();
+    setIsTextLoading(false);
+    setTextLoadingMessage("");
+    loadingDelayTimerRef.current = window.setTimeout(() => {
+      setIsTextLoading(true);
+      setTextLoadingMessage("Generating new text...");
+      loadingDelayTimerRef.current = null;
+    }, 100);
+  }, [clearLoadingDelay]);
+
+  const hideLoadingMessage = useCallback(() => {
+    clearLoadingDelay();
+    setIsTextLoading(false);
+    setTextLoadingMessage("");
+  }, [clearLoadingDelay]);
+
   const resetTypingState = useCallback(
     ({ nextMode = mode, nextWordCount = wordCount, nextParagraph = null, nextCustomText = "" } = {}) => {
-      const updatedParagraph = nextParagraph ?? (nextCustomText || getNextText(nextMode, nextWordCount));
+      const shouldGenerateText = !nextParagraph && !nextCustomText;
+      const isQuoteMode = nextMode === TYPING_MODES.QUOTE && shouldGenerateText;
+
+      if (shouldGenerateText && !isQuoteMode) {
+        showDelayedGenerationMessage();
+      }
+
+      const updatedParagraph = nextParagraph ?? (
+        nextCustomText || (isQuoteMode
+          ? QUOTE_LOADING_PLACEHOLDER
+          : getGeneratedTextForMode(nextMode, nextWordCount))
+      );
 
       if (nextMode !== mode) {
         setMode(nextMode);
@@ -144,6 +189,10 @@ export const useTypingTest = () => {
       }
       if (nextCustomText) {
         setCustomText(nextCustomText);
+      }
+
+      if (nextMode !== TYPING_MODES.QUOTE) {
+        quoteRequestIdRef.current += 1;
       }
 
       targetWordsRef.current = getWordList(updatedParagraph);
@@ -201,22 +250,49 @@ export const useTypingTest = () => {
         liveWpmTimerRef.current = null;
       }
       setFocusTrigger((previous) => previous + 1);
-    },
-    [mode, resetWordsWithError, wordCount]
-  );
 
-  // Try fetching a fresh remote quote when switching to quote mode, but keep a local quote synchronously
-  const prepareQuoteForMode = useCallback((modeToPrepare) => {
-    if (modeToPrepare !== TYPING_MODES.QUOTE) return;
-    // Start with a local quote immediately
-    const local = getRandomQuote();
-    setParagraph(local);
-    // Attempt to fetch remote quote and update when available
-    fetchRemoteQuote().then((q) => {
-      // If paragraph unchanged or still the local placeholder, update
-      setParagraph((current) => (current === local ? q : current));
-    });
-  }, []);
+      if (isQuoteMode) {
+        setIsTextLoading(true);
+        setTextLoadingMessage("Loading quote...");
+        const requestId = quoteRequestIdRef.current + 1;
+        quoteRequestIdRef.current = requestId;
+
+        fetchRandomQuote({ timeoutMs: 2000 })
+          .then((quote) => {
+            if (requestId !== quoteRequestIdRef.current) return;
+            const nextQuote = quote.trim();
+            if (!nextQuote) return;
+            targetWordsRef.current = getWordList(nextQuote);
+            setParagraph(nextQuote);
+            setTypedText("");
+            setElapsedSeconds(0);
+            setTimeLeft(TEST_DURATION_SECONDS);
+            currentIndexRef.current = 0;
+            currentWordRef.current = "";
+            currentWordIndexRef.current = 0;
+            completedWordsRef.current = 0;
+            correctCompletedWordsRef.current = 0;
+            mistypedCharactersRef.current = [];
+            setEngineSnapshot({
+              correctCharacters: 0,
+              incorrectCharacters: 0,
+              completedWords: 0,
+              currentWordIndex: 0,
+              isCurrentWordCorrect: true,
+              totalWords: getWordList(nextQuote).length,
+              isWordLimitReached: false
+            });
+          })
+          .finally(() => {
+            if (requestId !== quoteRequestIdRef.current) return;
+            hideLoadingMessage();
+          });
+      } else {
+        hideLoadingMessage();
+      }
+    },
+    [hideLoadingMessage, mode, resetWordsWithError, showDelayedGenerationMessage, wordCount]
+  );
 
   const finishTest = useCallback(() => {
     if (isTestFinishedRef.current) return;
@@ -233,6 +309,12 @@ export const useTypingTest = () => {
       setTimeLeft(0);
     }
   }, [commitSnapshot, mode]);
+
+  useEffect(() => {
+    return () => {
+      clearLoadingDelay();
+    };
+  }, [clearLoadingDelay]);
 
   useEffect(() => {
     if (!hasStarted || isFinished || !isActive) return;
@@ -378,6 +460,7 @@ export const useTypingTest = () => {
         setIsComposing(composing);
       }
       if (isFinished) return;
+      if (isTextLoading) return;
 
       if (!paragraph || paragraph.length === 0) {
         return;
@@ -532,6 +615,7 @@ export const useTypingTest = () => {
       finishTest,
       hasStarted,
       isFinished,
+      isTextLoading,
       mode,
       paragraph,
       playCorrectKey,
@@ -568,12 +652,8 @@ export const useTypingTest = () => {
         nextParagraph
       });
 
-      // If switching to quote mode, attempt to prepare remote quote
-      if (normalizedMode === TYPING_MODES.QUOTE) {
-        prepareQuoteForMode(TYPING_MODES.QUOTE);
-      }
     },
-    [customText, prepareQuoteForMode, resetTypingState]
+    [customText, resetTypingState]
   );
 
   const handleCustomTextChange = useCallback(
@@ -869,6 +949,8 @@ export const useTypingTest = () => {
     totalWords: engineSnapshot.totalWords || totalWords,
     goalAchievedSeconds: goalAchievedSecondsRef.current,
     finalResult,
+    isTextLoading,
+    textLoadingMessage,
     bestWpm,
     dailyGoalProgress,
     startTest,

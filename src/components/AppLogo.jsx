@@ -21,11 +21,11 @@ function AppLogo({ isDark = true }) {
         <Keyboard size={22} className="relative z-10 text-cyan-300" />
       </motion.div>
       <div className="flex flex-col leading-none">
-        <span className="font-[Space_Grotesk] text-[1.15rem] font-bold tracking-[-0.04em] text-transparent bg-gradient-to-r from-cyan-300 via-sky-400 to-blue-500 bg-clip-text">
-          TypeMaster
-        </span>
-        <span className={`mt-1 text-[11px] font-medium uppercase tracking-[0.22em] ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-          Learn to type faster
+        <span
+          className="text-[1.15rem] font-semibold tracking-[-0.04em] text-transparent bg-gradient-to-r from-cyan-300 via-sky-400 to-blue-500 bg-clip-text"
+          style={{ fontFamily: "'Space Grotesk', sans-serif" }}
+        >
+          GoType
         </span>
       </div>
     </motion.div>

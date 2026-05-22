@@ -6,9 +6,9 @@ export const TYPING_MODES = {
   GOAL: "goal"
 };
 
-export const WORD_MODE_OPTIONS = [25, 50, 100];
+export const WORD_MODE_OPTIONS = [35, 50, 100];
 
-export const TEST_DURATION_SECONDS = 60;
+export const TEST_DURATION_SECONDS = 30;
 
 export const DEFAULT_GOAL_WPM = 40;
 

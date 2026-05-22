@@ -70,7 +70,7 @@ function TypingText({
     <div
       ref={containerRef}
       style={{ "--typing-scale": fontScale, lineHeight: 1.6 }}
-      className={`typing-area relative min-h-[200px] rounded-2xl p-6 sm:p-8 font-mono text-[calc(1.5rem*var(--typing-scale))] sm:text-[calc(1.875rem*var(--typing-scale))] md:text-[calc(2.25rem*var(--typing-scale))] leading-loose tracking-wide cursor-text outline-none overflow-x-auto whitespace-pre-wrap ${focused ? (isDark ? "ring-2 ring-cyan-400/50" : "ring-2 ring-cyan-500/45") : ""} ${className}`}
+      className={`typing-area relative mx-auto min-h-[180px] w-full max-w-[76rem] rounded-2xl p-6 sm:p-8 font-mono text-[calc(1.6rem*var(--typing-scale))] sm:text-[calc(2.1rem*var(--typing-scale))] md:text-[calc(2.35rem*var(--typing-scale))] leading-[1.72] tracking-[0.01em] cursor-text outline-none overflow-x-auto whitespace-pre-wrap ${focused ? (isDark ? "ring-1 ring-cyan-300/40 shadow-[0_0_0_1px_rgba(103,232,249,0.12),inset_0_0_55px_rgba(34,211,238,0.08)]" : "ring-1 ring-cyan-500/35 shadow-[0_0_0_1px_rgba(14,165,233,0.08),inset_0_0_55px_rgba(14,165,233,0.06)]") : ""} ${className}`}
       tabIndex={0}
       role="textbox"
       aria-label="Typing area"
@@ -80,7 +80,7 @@ function TypingText({
       onFocus={onFocus}
       onBlur={onBlur}
     >
-      <div className="flex flex-wrap gap-x-6 gap-y-3 items-center">
+      <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 items-center text-center">
         {words.map((word, wordIndex) => {
           const [start, end] = wordRanges[wordIndex] || [0, -1];
           let wordState = "default";
@@ -98,7 +98,7 @@ function TypingText({
           return (
             <span
               key={`${word}-${wordIndex}`}
-              className={`inline-flex items-center px-0.5 py-0.5 transition-all duration-150 ${
+              className={`inline-flex items-center px-0.5 py-0 transition-all duration-150 ${
                 currentWordIndex === wordIndex ? "scale-[1.01]" : "scale-100"
               } ${
                 wordState === "correct"
