@@ -165,15 +165,28 @@ function TypingTest({ theme, onToggleTheme }) {
     const warmupSeconds = 3;
     if (typeof liveWpm === 'number' && elapsedSeconds >= warmupSeconds && liveWpm >= targetWpm && targetWpm > 0) {
       setGoalReachedShown(true);
-      if (goalReachedTimeoutRef.current) {
-        window.clearTimeout(goalReachedTimeoutRef.current);
-        goalReachedTimeoutRef.current = null;
-      }
-      goalReachedTimeoutRef.current = window.setTimeout(() => {
-        window.location.reload();
-        goalReachedTimeoutRef.current = null;
-      }, 5000);
     }
+
+    return () => {};
+  }, [mode, liveWpm, elapsedSeconds, targetWpm, goalReachedShown]);
+
+  // When a final result is produced (test finished), and we're in Goal mode,
+  // schedule an SPA restart after showing the banner for a short period.
+  useEffect(() => {
+    if (!finalResult) return;
+    if (mode !== TYPING_MODES.GOAL) return;
+    if (goalReachedTimeoutRef.current) {
+      window.clearTimeout(goalReachedTimeoutRef.current);
+      goalReachedTimeoutRef.current = null;
+    }
+    goalReachedTimeoutRef.current = window.setTimeout(() => {
+      try {
+        handleRestart();
+      } catch (e) {
+        window.location.reload();
+      }
+      goalReachedTimeoutRef.current = null;
+    }, 5000);
 
     return () => {
       if (goalReachedTimeoutRef.current) {
@@ -181,7 +194,7 @@ function TypingTest({ theme, onToggleTheme }) {
         goalReachedTimeoutRef.current = null;
       }
     };
-  }, [mode, liveWpm, elapsedSeconds, targetWpm, goalReachedShown]);
+  }, [finalResult, mode, handleRestart]);
 
   const isDark = theme === "dark";
   const cardBg = isDark
@@ -292,7 +305,7 @@ function TypingTest({ theme, onToggleTheme }) {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className={`flex flex-wrap justify-center gap-8 rounded-2xl border p-6 sm:p-8 ${
+                className={`flex flex-wrap justify-between sm:justify-center gap-8 rounded-2xl border p-6 sm:p-8 sm:static sticky top-4 z-20 ${
                   isDark
                     ? "bg-gray-800 border-gray-700"
                     : "bg-slate-100 border-slate-300"
@@ -307,7 +320,7 @@ function TypingTest({ theme, onToggleTheme }) {
                     initial={{ scale: 1.2, opacity: 0.5 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ duration: 0.2 }}
-                    className="text-5xl font-bold text-blue-400 tabular-nums font-mono"
+                    className="text-3xl sm:text-5xl font-bold text-blue-400 tabular-nums font-mono"
                   >
                     {liveWpm}
                   </motion.span>
@@ -320,7 +333,7 @@ function TypingTest({ theme, onToggleTheme }) {
                     initial={{ scale: 1.2, opacity: 0.5 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ duration: 0.2 }}
-                    className={`text-5xl font-bold tabular-nums font-mono ${accuracyState === 'up' ? 'text-emerald-400' : accuracyState === 'down' ? 'text-rose-400' : 'text-emerald-400'}`}
+                    className={`text-3xl sm:text-5xl font-bold tabular-nums font-mono ${accuracyState === 'up' ? 'text-emerald-400' : accuracyState === 'down' ? 'text-rose-400' : 'text-emerald-400'}`}
                   >
                     {accuracy}%
                   </motion.span>
@@ -335,7 +348,7 @@ function TypingTest({ theme, onToggleTheme }) {
                         initial={{ scale: 1.2, opacity: 0.5 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ duration: 0.2 }}
-                        className="text-5xl font-bold text-amber-400 tabular-nums font-mono"
+                        className="text-3xl sm:text-5xl font-bold text-amber-400 tabular-nums font-mono"
                       >
                         {timeLeft}
                       </motion.span>
@@ -345,7 +358,7 @@ function TypingTest({ theme, onToggleTheme }) {
                 )}
                 <div className={`hidden h-16 w-px ${isDark ? "bg-gray-700" : "bg-slate-300"} sm:block`} />
                 <motion.div className="text-center" whileHover={{ scale: 1.05 }}>
-                  <div className="text-5xl font-bold text-violet-400 tabular-nums font-mono">{completedWords}/{Math.max(totalWords, 0)}</div>
+                  <div className="text-3xl sm:text-5xl font-bold text-violet-400 tabular-nums font-mono">{completedWords}/{Math.max(totalWords, 0)}</div>
                   <div className={`text-xs uppercase tracking-widest ${secondaryText} mt-2 font-semibold`}>Words</div>
                 </motion.div>
               </motion.div>
