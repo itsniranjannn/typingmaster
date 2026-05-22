@@ -10,7 +10,7 @@ function Footer({ isDark = true }) {
         <span className="hidden sm:inline">•</span>
         <p>© {currentYear}</p>
         <a
-          href="https://github.com/itsniranjannn/typingmaster"
+          href="https://github.com/itsniranjannn"
           target="_blank"
           rel="noreferrer"
           className={`transition ${isDark ? "hover:text-slate-200" : "hover:text-slate-900"}`}
