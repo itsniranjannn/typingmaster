@@ -76,8 +76,8 @@ function HistoryInsights({ isDark = true, onExportCsv, closeSignal = 0 }) {
             </button>
           </div>
 
-          <div className="overflow-x-auto rounded-lg border border-slate-700/40">
-            <table className="w-full min-w-[420px] border-collapse text-left text-sm">
+          <div className="rounded-lg border border-slate-700/40">
+            <table className="w-full table-fixed border-collapse text-left text-sm">
               <thead className="bg-slate-800/35 text-xs uppercase tracking-[0.1em] text-slate-400">
                 <tr>
                   <th className="px-3 py-2">WPM</th>
@@ -98,7 +98,7 @@ function HistoryInsights({ isDark = true, onExportCsv, closeSignal = 0 }) {
                   <tr key={result.id} className="border-t border-slate-700/30 text-slate-200">
                     <td className="px-3 py-2 tabular-nums">{result.wpm}</td>
                     <td className="px-3 py-2 tabular-nums">{result.accuracy}%</td>
-                    <td className="px-3 py-2 text-xs sm:text-sm">{new Date(result.id).toLocaleString()}</td>
+                    <td className="px-3 py-2 text-xs sm:text-sm break-words">{new Date(result.id).toLocaleString()}</td>
                     <td className="px-3 py-2">{formatModeLabel(result.mode)}</td>
                   </tr>
                 ))}

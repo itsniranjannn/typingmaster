@@ -1,6 +1,6 @@
 ﻿import { memo, useCallback, useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { Moon, Sun, Settings, RotateCcw, Trophy, Type, BarChart2 } from "lucide-react";
+import { Moon, Sun, Settings, RotateCcw, Trophy, BarChart2 } from "lucide-react";
 import confetti from "canvas-confetti";
 import AppLogo from "./AppLogo";
 import TextSelector from "./TextSelector";
@@ -338,22 +338,6 @@ function TypingTest({ theme, onToggleTheme }) {
             </motion.button>
           </div>
 
-          <div className={`hidden md:flex items-center gap-3 rounded-full border px-4 py-2 ${isDark ? "border-slate-700 bg-slate-900/70" : "border-slate-200 bg-white"}`}>
-            <Type size={16} className={isDark ? "text-cyan-300" : "text-blue-500"} />
-            <div className="flex items-center gap-3">
-              <span className={`text-[11px] font-semibold uppercase tracking-[0.18em] ${secondaryText}`}>Text size</span>
-              <input
-                type="range"
-                min="0.9"
-                max="1.35"
-                step="0.05"
-                value={fontScale}
-                onChange={(event) => setFontScale(Number(event.target.value))}
-                className="w-28 accent-sky-500"
-                aria-label="Text size"
-              />
-            </div>
-          </div>
         </div>
       </motion.header>
 
@@ -431,7 +415,7 @@ function TypingTest({ theme, onToggleTheme }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className={`flex-1 overflow-y-auto px-4 py-6 sm:px-6 sm:py-8 ${
+        className={`flex-1 overflow-y-auto scrollbar-none px-4 py-6 sm:px-6 sm:py-8 ${
           isDark ? "bg-gray-900" : "bg-white"
         }`}
       >

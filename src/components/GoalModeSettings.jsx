@@ -21,7 +21,7 @@ function GoalModeSettings({ targetWpm, onTargetWpmChange, achievedSeconds, isDar
         />
       </div>
 
-      <div className="flex gap-2 overflow-x-auto py-1">
+      <div className="flex flex-wrap gap-2 py-1">
         {GOAL_WPM_OPTIONS.map((wpm) => (
           <button
             key={wpm}

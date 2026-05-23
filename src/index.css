@@ -49,6 +49,29 @@ body {
   background: var(--app-bg);
   color: var(--text-main);
   overflow-x: hidden;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+html {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 #root {
@@ -245,8 +268,8 @@ input:focus {
 }
 
 .typing-area::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 0;
+  height: 0;
 }
 
 .typing-area::-webkit-scrollbar-track {
@@ -264,8 +287,9 @@ input:focus {
 
 /* Firefox scrollbar */
 .typing-area {
-  scrollbar-color: rgba(56, 189, 248, 0.3) transparent;
-  scrollbar-width: thin;
+  -ms-overflow-style: none;
+  scrollbar-color: transparent transparent;
+  scrollbar-width: none;
 }
 
 /* Confetti Animation */
