@@ -14,7 +14,7 @@ import HistoryInsights from "./HistoryInsights";
 import RightSidebar from "./RightSidebar";
 import SidebarModal from "./SidebarModal";
 import { useTypingTest } from "../hooks/useTypingTest";
-import { TYPING_MODES } from "../constants/typingModes";
+import { TYPING_MODES, GOAL_VARIANTS, UNIVERSAL_MODES, CUSTOM_TIME_MIN_SECONDS, CUSTOM_TIME_MAX_SECONDS } from "../constants/typingModes";
 import { exportResultsToCSV } from "../utils/storage";
 
 function TypingTest({ theme, onToggleTheme }) {
@@ -31,6 +31,7 @@ function TypingTest({ theme, onToggleTheme }) {
     handleWordCountChange,
     handleCustomTextChange,
     handleGoalWpmChange,
+    handleTimeLimitChange,
     characterStates,
     timeLeft,
     elapsedSeconds,
@@ -56,6 +57,8 @@ function TypingTest({ theme, onToggleTheme }) {
     isTextLoading,
     textLoadingMessage,
     bestWpm,
+    goalVariant,
+    timeLimitSeconds,
     dailyGoalProgress,
     startTest,
     pauseTest,
@@ -224,7 +227,7 @@ function TypingTest({ theme, onToggleTheme }) {
 
   // Show a short, immediate message when the user first reaches the target WPM in Goal mode
   useEffect(() => {
-    if (mode !== TYPING_MODES.GOAL) return;
+    if (mode !== TYPING_MODES.GOAL || goalVariant !== GOAL_VARIANTS.SUSTAIN) return;
     if (goalReachedShown) return;
     // Show the banner only after a short warmup and use the smoothed liveWpm to avoid spikes
     const warmupSeconds = 3;
@@ -239,7 +242,7 @@ function TypingTest({ theme, onToggleTheme }) {
   // schedule an SPA restart after showing the banner for a short period.
   useEffect(() => {
     if (!finalResult) return;
-    if (mode !== TYPING_MODES.GOAL) return;
+    if (mode !== TYPING_MODES.GOAL || goalVariant !== GOAL_VARIANTS.SUSTAIN) return;
     if (goalReachedTimeoutRef.current) {
       window.clearTimeout(goalReachedTimeoutRef.current);
       goalReachedTimeoutRef.current = null;
@@ -259,13 +262,25 @@ function TypingTest({ theme, onToggleTheme }) {
         goalReachedTimeoutRef.current = null;
       }
     };
-  }, [finalResult, mode, handleRestart]);
+  }, [finalResult, goalVariant, mode, handleRestart]);
 
   const isDark = theme === "dark";
   const cardBg = isDark
     ? "border-gray-700 bg-gray-800"
     : "border-slate-300 bg-slate-100";
   const secondaryText = isDark ? "text-slate-400" : "text-slate-600";
+  const bestWpmLabel =
+    mode === TYPING_MODES.TIME
+      ? `Time ${timeLimitSeconds}s best`
+      : mode === TYPING_MODES.WORDS
+        ? `Words ${wordCount} best`
+        : mode === TYPING_MODES.GOAL
+          ? `Goal (${goalVariant === GOAL_VARIANTS.REACH ? "Reach" : "Sustain"}) best`
+          : mode === TYPING_MODES.QUOTE
+            ? "Quote best"
+            : mode === TYPING_MODES.CUSTOM
+              ? "Custom best"
+              : "Numbers best";
 
   return (
     <div className={`flex h-screen flex-col ${isDark ? "bg-gray-900" : "bg-white"}`}>
@@ -285,6 +300,8 @@ function TypingTest({ theme, onToggleTheme }) {
           <div className="hidden flex-1 sm:block">
             <TextSelector
               mode={mode}
+              goalVariant={goalVariant}
+              timeLimitSeconds={timeLimitSeconds}
               customText={customText}
               onModeChange={handleModeChange}
               onCustomTextChange={handleCustomTextChange}
@@ -342,18 +359,31 @@ function TypingTest({ theme, onToggleTheme }) {
       </motion.header>
 
       {/* Top mode bar (Monkeytype-style) */}
+      {UNIVERSAL_MODES.includes(mode) && (
       <div className={`mx-auto w-full max-w-6xl px-4 sm:px-6`}>
         <div className={`rounded-xl backdrop-blur-sm px-3 py-2 flex flex-wrap items-center gap-2 justify-between ${isDark ? 'bg-gray-900/60 border-gray-700' : 'bg-white/60 border-transparent'} border-b`}>
           <div className="flex items-center gap-2 flex-wrap">
             {/* Mode buttons */}
             <div className="inline-flex items-center gap-2">
               <button
-                onClick={() => { handleModeChange(TYPING_MODES.TIME); setTipSeed((v) => v + 1); setGoalReachedShown(false); if (goalReachedTimeoutRef.current) { window.clearTimeout(goalReachedTimeoutRef.current); goalReachedTimeoutRef.current = null; } }}
+                onClick={() => { handleModeChange(TYPING_MODES.TIME, { timeLimitSeconds }); setTipSeed((v) => v + 1); setGoalReachedShown(false); if (goalReachedTimeoutRef.current) { window.clearTimeout(goalReachedTimeoutRef.current); goalReachedTimeoutRef.current = null; } }}
                 className={`px-3 py-1.5 rounded-full text-sm font-semibold transition ${mode === TYPING_MODES.TIME ? 'bg-sky-500 text-white' : isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-700'}`}
                 aria-pressed={mode === TYPING_MODES.TIME}
               >
-                Time 30s
+                Time {timeLimitSeconds}s
               </button>
+              <div className={`flex items-center gap-2 rounded-full border px-3 py-1.5 ${isDark ? 'border-slate-700 bg-slate-900/70' : 'border-slate-200 bg-white'}`}>
+                <input
+                  type="number"
+                  min={CUSTOM_TIME_MIN_SECONDS}
+                  max={CUSTOM_TIME_MAX_SECONDS}
+                  value={timeLimitSeconds}
+                  onChange={(event) => handleTimeLimitChange(event.target.value)}
+                  className={`w-16 bg-transparent text-sm font-semibold outline-none ${isDark ? 'text-slate-100 placeholder:text-slate-500' : 'text-slate-800 placeholder:text-slate-400'}`}
+                  aria-label="Custom time limit in seconds"
+                />
+                <span className={`text-xs uppercase tracking-[0.18em] ${secondaryText}`}>sec</span>
+              </div>
               <button
                 onClick={() => { handleModeChange(TYPING_MODES.WORDS); setTipSeed((v) => v + 1); setGoalReachedShown(false); if (goalReachedTimeoutRef.current) { window.clearTimeout(goalReachedTimeoutRef.current); goalReachedTimeoutRef.current = null; } }}
                 className={`px-3 py-1.5 rounded-full text-sm font-semibold transition ${mode === TYPING_MODES.WORDS ? 'bg-sky-500 text-white' : isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-700'}`}
@@ -362,11 +392,28 @@ function TypingTest({ theme, onToggleTheme }) {
                 Words
               </button>
               <button
-                onClick={() => { handleModeChange(TYPING_MODES.GOAL); setTipSeed((v) => v + 1); setGoalReachedShown(false); if (goalReachedTimeoutRef.current) { window.clearTimeout(goalReachedTimeoutRef.current); goalReachedTimeoutRef.current = null; } }}
-                className={`px-3 py-1.5 rounded-full text-sm font-semibold transition ${mode === TYPING_MODES.GOAL ? 'bg-sky-500 text-white' : isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-700'}`}
-                aria-pressed={mode === TYPING_MODES.GOAL}
+                onClick={() => { handleModeChange(TYPING_MODES.GOAL, { goalVariant: GOAL_VARIANTS.SUSTAIN }); setTipSeed((v) => v + 1); setGoalReachedShown(false); if (goalReachedTimeoutRef.current) { window.clearTimeout(goalReachedTimeoutRef.current); goalReachedTimeoutRef.current = null; } }}
+                className={`group px-3 py-1.5 rounded-full text-sm font-semibold transition ${mode === TYPING_MODES.GOAL && goalVariant === GOAL_VARIANTS.SUSTAIN ? 'bg-sky-500 text-white' : isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-700'}`}
+                aria-pressed={mode === TYPING_MODES.GOAL && goalVariant === GOAL_VARIANTS.SUSTAIN}
+                aria-label="Goal (Sustain). Hold the target WPM for a short window to finish."
+                title="Goal (Sustain): hold the target WPM briefly to finish."
               >
-                Goal
+                <span className="inline-flex items-center gap-1">
+                  <span>Goal (Sustain)</span>
+                  <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100">?</span>
+                </span>
+              </button>
+              <button
+                onClick={() => { handleModeChange(TYPING_MODES.GOAL, { goalVariant: GOAL_VARIANTS.REACH }); setTipSeed((v) => v + 1); setGoalReachedShown(false); if (goalReachedTimeoutRef.current) { window.clearTimeout(goalReachedTimeoutRef.current); goalReachedTimeoutRef.current = null; } }}
+                className={`group px-3 py-1.5 rounded-full text-sm font-semibold transition ${mode === TYPING_MODES.GOAL && goalVariant === GOAL_VARIANTS.REACH ? 'bg-sky-500 text-white' : isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-700'}`}
+                aria-pressed={mode === TYPING_MODES.GOAL && goalVariant === GOAL_VARIANTS.REACH}
+                aria-label="Goal (Reach). Finish the full text and meet the target WPM to score."
+                title="Goal (Reach): complete the full text and hit the target WPM to score."
+              >
+                <span className="inline-flex items-center gap-1">
+                  <span>Goal (Reach)</span>
+                  <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100">?</span>
+                </span>
               </button>
             </div>
 
@@ -409,6 +456,7 @@ function TypingTest({ theme, onToggleTheme }) {
           </div>
         </div>
       </div>
+      )}
 
       {/* Main Content */}
       <motion.main
@@ -581,7 +629,7 @@ function TypingTest({ theme, onToggleTheme }) {
           {!isFinished ? (
             <aside className="hidden lg:block w-full max-w-[260px]">
               <div className="sticky top-24">
-                <RightSidebar bestWpm={bestWpm} liveWpm={liveWpm} resetKey={tipSeed} isDark={isDark} streakInfo={streakInfo} dailyGoalProgress={dailyGoalProgress} />
+                <RightSidebar bestWpm={bestWpm} bestWpmLabel={bestWpmLabel} liveWpm={liveWpm} resetKey={tipSeed} isDark={isDark} streakInfo={streakInfo} dailyGoalProgress={dailyGoalProgress} />
               </div>
             </aside>
           ) : null}
@@ -607,6 +655,7 @@ function TypingTest({ theme, onToggleTheme }) {
             onClose={() => setIsSidebarOpen(false)}
             isDark={isDark}
             bestWpm={bestWpm}
+            bestWpmLabel={bestWpmLabel}
             liveWpm={liveWpm}
             resetKey={tipSeed}
             streakInfo={streakInfo}

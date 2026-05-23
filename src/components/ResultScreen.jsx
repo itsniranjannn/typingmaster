@@ -7,6 +7,7 @@ function ResultScreen({ result, bestWpm, onRestart, isDark = true }) {
   const textClass = isDark ? "text-white" : "text-slate-900";
   const cardClass = isDark ? "bg-slate-800/30 border-slate-700/50" : "bg-slate-100 border-slate-300";
   const secondaryText = isDark ? "text-slate-400" : "text-slate-600";
+  const goalFailure = result.goalVariant === "reach" && result.goalSuccess === false;
 
   return (
     <section
@@ -24,7 +25,11 @@ function ResultScreen({ result, bestWpm, onRestart, isDark = true }) {
       <div className="relative space-y-2">
         <h2 className={`text-4xl font-bold ${textClass} md:text-5xl`}>Test Complete!</h2>
         <p className={`text-base ${secondaryText} md:text-lg`}>
-          {result.improvedBest ? "🎉 You beat your personal best!" : "Great effort!"}
+          {goalFailure
+            ? "You finished the run, but the target WPM was not reached."
+            : result.improvedBest
+              ? "🎉 You beat your personal best!"
+              : "Great effort!"}
         </p>
       </div>
 

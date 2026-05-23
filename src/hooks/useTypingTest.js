@@ -1,13 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { TYPING_MODES, TEST_DURATION_SECONDS, DEFAULT_GOAL_WPM } from "../constants/typingModes";
+import {
+  TYPING_MODES,
+  TEST_DURATION_SECONDS,
+  DEFAULT_GOAL_WPM,
+  GOAL_VARIANTS,
+  CUSTOM_TIME_MIN_SECONDS,
+  CUSTOM_TIME_MAX_SECONDS,
+  UNIVERSAL_MODES
+} from "../constants/typingModes";
 import { getRandomQuote, fetchRandomQuote } from "../data/quotes";
-import { generateRandomParagraph, getFirstNWords } from "../utils/paragraphGenerator";
+import { generateRandomParagraph, getFirstNWords, generateMixedNumbersParagraph, generateEndlessChunk } from "../utils/paragraphGenerator";
 import { useTypingSounds } from "./useTypingSounds";
 import { calculateAccuracy, calculateWpm } from "../utils/typingStats";
 import confetti from "canvas-confetti";
 import {
   addResult,
-  getBestWpm,
+  getBestWpmByMode,
   getStreak,
   updateStreakWithTimestamp,
   getDailyGoalProgress,
@@ -15,13 +23,17 @@ import {
   syncLeaderboard,
   updateLeaderboard,
   getPreferredMode,
+  getPreferredGoalVariant,
+  getPreferredTimeLimitSeconds,
   getSoundEnabled,
-  setBestWpm as saveBestWpm,
+  setBestWpmByMode,
   setPreferredMode,
+  setPreferredGoalVariant,
+  setPreferredTimeLimitSeconds,
   setSoundEnabled
 } from "../utils/storage";
 
-const DEFAULT_WORD_COUNT = 35;
+const DEFAULT_WORD_COUNT = 25;
 const QUOTE_LOADING_PLACEHOLDER = "Loading quote...";
 const getWordList = (text) => text.split(" ").filter((word) => word.length > 0);
 const getGeneratedTextForMode = (mode, wordCount) => {
@@ -31,35 +43,69 @@ const getGeneratedTextForMode = (mode, wordCount) => {
     return getFirstNWords(generateRandomParagraph(sourceMin, sourceMax), wordCount);
   }
 
+  if (mode === TYPING_MODES.NUMBERS) return generateMixedNumbersParagraph();
+
+  if (mode === TYPING_MODES.TIME) return generateRandomParagraph(30, 30);
+
   if (mode === TYPING_MODES.QUOTE) return getRandomQuote();
 
   return generateRandomParagraph();
 };
 
 const normalizeMode = (value) => {
-  const validModes = [TYPING_MODES.TIME, TYPING_MODES.WORDS, TYPING_MODES.QUOTE, TYPING_MODES.CUSTOM, TYPING_MODES.GOAL];
+  const validModes = [TYPING_MODES.TIME, TYPING_MODES.WORDS, TYPING_MODES.QUOTE, TYPING_MODES.CUSTOM, TYPING_MODES.GOAL, TYPING_MODES.NUMBERS];
   return validModes.includes(value) ? value : TYPING_MODES.TIME;
+};
+
+const normalizeGoalVariant = (value) => (value === GOAL_VARIANTS.REACH ? GOAL_VARIANTS.REACH : GOAL_VARIANTS.SUSTAIN);
+
+const normalizeTimeLimitSeconds = (value) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return TEST_DURATION_SECONDS;
+  return Math.min(Math.max(Math.round(parsed), CUSTOM_TIME_MIN_SECONDS), CUSTOM_TIME_MAX_SECONDS);
+};
+
+const getBestWpmModeKey = ({ mode, wordCount, goalVariant, timeLimitSeconds }) => {
+  if (mode === TYPING_MODES.WORDS) {
+    const count = Number.isFinite(Number(wordCount)) ? Number(wordCount) : DEFAULT_WORD_COUNT;
+    return `words${count}`;
+  }
+
+  if (mode === TYPING_MODES.GOAL) {
+    return goalVariant === GOAL_VARIANTS.REACH ? "goalReach" : "goalSustain";
+  }
+
+  if (mode === TYPING_MODES.QUOTE) return "quote";
+  if (mode === TYPING_MODES.CUSTOM) return "custom";
+  if (mode === TYPING_MODES.NUMBERS) return "numbers";
+  if (mode === TYPING_MODES.TIME) return timeLimitSeconds > TEST_DURATION_SECONDS ? "time" : "time";
+
+  return "time";
 };
 
 export const useTypingTest = () => {
   const initialMode = normalizeMode(getPreferredMode());
+  const initialGoalVariant = normalizeGoalVariant(getPreferredGoalVariant());
+  const initialTimeLimitSeconds = normalizeTimeLimitSeconds(getPreferredTimeLimitSeconds());
   const initialParagraphRef = useRef(getGeneratedTextForMode(initialMode, DEFAULT_WORD_COUNT));
   const [mode, setMode] = useState(initialMode);
   const [wordCount, setWordCount] = useState(DEFAULT_WORD_COUNT);
   const [targetWpm, setTargetWpm] = useState(DEFAULT_GOAL_WPM);
+  const [goalVariant, setGoalVariant] = useState(initialGoalVariant);
+  const [timeLimitSeconds, setTimeLimitSeconds] = useState(initialTimeLimitSeconds);
   const [customText, setCustomText] = useState("");
   const [paragraph, setParagraph] = useState(initialParagraphRef.current);
   const [isTextLoading, setIsTextLoading] = useState(false);
   const [textLoadingMessage, setTextLoadingMessage] = useState("");
   const [typedText, setTypedText] = useState("");
-  const [timeLeft, setTimeLeft] = useState(TEST_DURATION_SECONDS);
+  const [timeLeft, setTimeLeft] = useState(initialTimeLimitSeconds);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [isComposing, setIsComposing] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
   const [isActive, setIsActive] = useState(false);
   const [focusTrigger, setFocusTrigger] = useState(0);
   const [isSoundEnabled, setIsSoundEnabled] = useState(getSoundEnabled());
-  const [bestWpm, setBestWpm] = useState(getBestWpm());
+  const [bestWpmByMode, setBestWpmByModeState] = useState(() => getBestWpmByMode());
   const [streakInfo, setStreakInfo] = useState(() => getStreak());
   const [dailyGoalProgress, setDailyGoalProgress] = useState(() => getDailyGoalProgress());
   const [liveWpm, setLiveWpm] = useState(0);
@@ -99,6 +145,13 @@ export const useTypingTest = () => {
   const canDeleteTrailingSpaceRef = useRef(false);
   const loadingDelayTimerRef = useRef(null);
   const quoteRequestIdRef = useRef(0);
+  const lastAppendedElapsedRef = useRef(0);
+  const lastAppendedCorrectCharsRef = useRef(0);
+  const currentBestKey = useMemo(
+    () => getBestWpmModeKey({ mode, wordCount, goalVariant, timeLimitSeconds }),
+    [goalVariant, mode, timeLimitSeconds, wordCount]
+  );
+  const bestWpm = useMemo(() => bestWpmByMode[currentBestKey] || 0, [bestWpmByMode, currentBestKey]);
   const {
     playCorrectKey,
     playMilestoneSound,
@@ -111,9 +164,14 @@ export const useTypingTest = () => {
   const isFinished = useMemo(() => {
     if (mode === TYPING_MODES.TIME) return timeLeft === 0;
     if (mode === TYPING_MODES.WORDS) return engineSnapshot.isWordLimitReached;
-    if (mode === TYPING_MODES.GOAL) return goalAchievedSecondsRef.current >= 5 || timeLeft === 0;
+    if (mode === TYPING_MODES.GOAL) {
+      if (goalVariant === GOAL_VARIANTS.REACH) {
+        return timeLeft === 0 || engineSnapshot.isWordLimitReached;
+      }
+      return goalAchievedSecondsRef.current >= 5 || timeLeft === 0;
+    }
     return paragraph.length > 0 && typedText.length >= paragraph.length;
-  }, [engineSnapshot.isWordLimitReached, mode, paragraph.length, timeLeft, typedText.length]);
+  }, [engineSnapshot.isWordLimitReached, goalVariant, mode, paragraph.length, timeLeft, typedText.length]);
 
   const commitSnapshot = useCallback(() => {
     const totalWords = targetWordsRef.current.length;
@@ -167,7 +225,14 @@ export const useTypingTest = () => {
   }, [clearLoadingDelay]);
 
   const resetTypingState = useCallback(
-    ({ nextMode = mode, nextWordCount = wordCount, nextParagraph = null, nextCustomText = "" } = {}) => {
+    ({
+      nextMode = mode,
+      nextWordCount = wordCount,
+      nextParagraph = null,
+      nextCustomText = "",
+      nextGoalVariant = goalVariant,
+      nextTimeLimitSeconds = timeLimitSeconds
+    } = {}) => {
       const shouldGenerateText = !nextParagraph && !nextCustomText;
       const isQuoteMode = nextMode === TYPING_MODES.QUOTE && shouldGenerateText;
 
@@ -186,6 +251,12 @@ export const useTypingTest = () => {
       }
       if (nextWordCount !== wordCount) {
         setWordCount(nextWordCount);
+      }
+      if (nextGoalVariant !== goalVariant) {
+        setGoalVariant(nextGoalVariant);
+      }
+      if (nextTimeLimitSeconds !== timeLimitSeconds) {
+        setTimeLimitSeconds(nextTimeLimitSeconds);
       }
       if (nextCustomText) {
         setCustomText(nextCustomText);
@@ -209,10 +280,12 @@ export const useTypingTest = () => {
       lastWordBoundaryRef.current = 0;
       canDeleteTrailingSpaceRef.current = false;
       resetWordsWithError();
+      lastAppendedElapsedRef.current = 0;
+      lastAppendedCorrectCharsRef.current = 0;
 
       setParagraph(updatedParagraph);
       setTypedText("");
-      setTimeLeft(TEST_DURATION_SECONDS);
+      setTimeLeft(nextMode === TYPING_MODES.TIME || nextMode === TYPING_MODES.GOAL ? nextTimeLimitSeconds : TEST_DURATION_SECONDS);
       setElapsedSeconds(0);
       setIsComposing(false);
       setHasStarted(false);
@@ -291,7 +364,7 @@ export const useTypingTest = () => {
         hideLoadingMessage();
       }
     },
-    [hideLoadingMessage, mode, resetWordsWithError, showDelayedGenerationMessage, wordCount]
+    [goalVariant, hideLoadingMessage, mode, resetWordsWithError, showDelayedGenerationMessage, timeLimitSeconds, wordCount]
   );
 
   const finishTest = useCallback(() => {
@@ -329,25 +402,28 @@ export const useTypingTest = () => {
       setElapsedSeconds((previousElapsed) => {
         const nextElapsed = previousElapsed + 1;
 
-        // Goal mode: check if the smoothed WPM target has been held for 5 consecutive seconds
         if (mode === TYPING_MODES.GOAL) {
-          // Avoid premature spikes in the first few seconds by only starting
-          // the goal check after a short warm-up (e.g., 3 seconds).
-          const warmupSeconds = 3;
-          const currentWpm = latestLiveWpmRef.current;
-          if (nextElapsed >= warmupSeconds && currentWpm >= targetWpm) {
-            goalAchievedSecondsRef.current += 1;
-            if (goalAchievedSecondsRef.current >= 5 && !isTestFinishedRef.current) {
+          setTimeLeft((previousTime) => {
+            const nextTime = previousTime <= 1 ? 0 : previousTime - 1;
+            if (nextTime === 0 && !isTestFinishedRef.current) {
               finishTest();
             }
-          } else {
-            // Reset if below target or still in warmup
-            goalAchievedSecondsRef.current = 0;
-          }
+            return nextTime;
+          });
 
-          // Also finish on 60-second timeout
-          if (nextElapsed >= TEST_DURATION_SECONDS && !isTestFinishedRef.current) {
-            finishTest();
+          if (goalVariant === GOAL_VARIANTS.SUSTAIN) {
+            // Avoid premature spikes in the first few seconds by only starting
+            // the goal check after a short warm-up (e.g., 3 seconds).
+            const warmupSeconds = 3;
+            const currentWpm = latestLiveWpmRef.current;
+            if (nextElapsed >= warmupSeconds && currentWpm >= targetWpm) {
+              goalAchievedSecondsRef.current += 1;
+              if (goalAchievedSecondsRef.current >= 5 && !isTestFinishedRef.current) {
+                finishTest();
+              }
+            } else {
+              goalAchievedSecondsRef.current = 0;
+            }
           }
         }
 
@@ -372,7 +448,7 @@ export const useTypingTest = () => {
         timerRef.current = null;
       }
     };
-  }, [hasStarted, isFinished, mode, targetWpm, finishTest]);
+  }, [goalVariant, hasStarted, isFinished, mode, targetWpm, finishTest]);
 
   // Control helpers for keyboard shortcuts
   const startTest = useCallback(() => {
@@ -580,8 +656,17 @@ export const useTypingTest = () => {
       const userInput = nextValue;
       const text = paragraph;
 
-      // Time mode, quote mode, and custom mode: finish when the full text is matched
-      if (mode !== TYPING_MODES.WORDS && userInput === text && text.length > 0) {
+      // Time mode and non-goal free-form modes finish when the full text is matched.
+      if (
+        (mode === TYPING_MODES.TIME || mode === TYPING_MODES.QUOTE || mode === TYPING_MODES.CUSTOM || mode === TYPING_MODES.NUMBERS) &&
+        userInput === text &&
+        text.length > 0
+      ) {
+        finishTest();
+        return;
+      }
+
+      if (mode === TYPING_MODES.GOAL && goalVariant === GOAL_VARIANTS.REACH && userInput === text && text.length > 0) {
         finishTest();
         return;
       }
@@ -603,6 +688,7 @@ export const useTypingTest = () => {
     },
     [
       finishTest,
+      goalVariant,
       hasStarted,
       isFinished,
       isTextLoading,
@@ -630,20 +716,26 @@ export const useTypingTest = () => {
   }, [customText, mode, resetTypingState]);
 
   const handleModeChange = useCallback(
-    (nextMode) => {
+    (nextMode, options = {}) => {
       const normalizedMode = normalizeMode(nextMode);
+      const nextGoal = normalizeGoalVariant(options.goalVariant ?? goalVariant);
+      const nextTimeLimit = normalizeTimeLimitSeconds(options.timeLimitSeconds ?? timeLimitSeconds);
       setPreferredMode(normalizedMode);
+      setPreferredGoalVariant(nextGoal);
+      setPreferredTimeLimitSeconds(nextTimeLimit);
       const nextParagraph =
         normalizedMode === TYPING_MODES.CUSTOM ? (customText && customText.trim().length > 0 ? customText.trim() : null) : null;
 
       resetTypingState({
         nextMode: normalizedMode,
         nextWordCount: DEFAULT_WORD_COUNT,
-        nextParagraph
+        nextParagraph,
+        nextGoalVariant: nextGoal,
+        nextTimeLimitSeconds: nextTimeLimit
       });
 
     },
-    [customText, resetTypingState]
+    [customText, goalVariant, resetTypingState, timeLimitSeconds]
   );
 
   const handleCustomTextChange = useCallback(
@@ -680,6 +772,32 @@ export const useTypingTest = () => {
     [mode, resetTypingState]
   );
 
+  const handleGoalVariantChange = useCallback(
+    (nextGoalVariant) => {
+      const normalizedGoal = normalizeGoalVariant(nextGoalVariant);
+      setPreferredGoalVariant(normalizedGoal);
+      if (mode === TYPING_MODES.GOAL) {
+        resetTypingState({ nextMode: TYPING_MODES.GOAL, nextGoalVariant: normalizedGoal });
+      } else {
+        setGoalVariant(normalizedGoal);
+      }
+    },
+    [mode, resetTypingState]
+  );
+
+  const handleTimeLimitChange = useCallback(
+    (nextSeconds) => {
+      const normalizedSeconds = normalizeTimeLimitSeconds(nextSeconds);
+      setPreferredTimeLimitSeconds(normalizedSeconds);
+      if (mode === TYPING_MODES.TIME) {
+        resetTypingState({ nextMode: TYPING_MODES.TIME, nextTimeLimitSeconds: normalizedSeconds });
+      } else {
+        setTimeLimitSeconds(normalizedSeconds);
+      }
+    },
+    [mode, resetTypingState]
+  );
+
   const toggleSound = useCallback(() => {
     setIsSoundEnabled((previous) => {
       const next = !previous;
@@ -707,10 +825,12 @@ export const useTypingTest = () => {
     () => {
       if (!hasStarted) return 0;
       // Use actual elapsed time based on mode
-      const actualElapsed = mode === TYPING_MODES.TIME ? TEST_DURATION_SECONDS - timeLeft : Math.max(elapsedSeconds, 1);
+      const actualElapsed = mode === TYPING_MODES.TIME || mode === TYPING_MODES.GOAL
+        ? Math.max(timeLimitSeconds - timeLeft, 1)
+        : Math.max(elapsedSeconds, 1);
       return calculateWpm(engineSnapshot.correctCharacters, actualElapsed);
     },
-    [engineSnapshot.correctCharacters, elapsedSeconds, hasStarted, mode, timeLeft]
+    [engineSnapshot.correctCharacters, elapsedSeconds, hasStarted, mode, timeLeft, timeLimitSeconds]
   );
   useEffect(() => {
     latestRawWpmRef.current = rawWpm;
@@ -748,6 +868,33 @@ export const useTypingTest = () => {
   useEffect(() => {
     latestLiveWpmRef.current = liveWpm;
   }, [liveWpm]);
+
+  useEffect(() => {
+    const canExtendText =
+      hasStarted &&
+      isActive &&
+      !isFinished &&
+      timeLimitSeconds > TEST_DURATION_SECONDS &&
+      (mode === TYPING_MODES.TIME || (mode === TYPING_MODES.GOAL && goalVariant === GOAL_VARIANTS.SUSTAIN));
+
+    if (!canExtendText) return;
+
+    const nearEnd = paragraph.length - typedText.length < 90;
+    const elapsedTrigger = elapsedSeconds > 0 && elapsedSeconds % 10 === 0 && lastAppendedElapsedRef.current !== elapsedSeconds;
+    const correctTrigger =
+      engineSnapshot.correctCharacters > 0 &&
+      engineSnapshot.correctCharacters % 20 === 0 &&
+      lastAppendedCorrectCharsRef.current !== engineSnapshot.correctCharacters;
+
+    if (!nearEnd && !elapsedTrigger && !correctTrigger) return;
+
+    const nextParagraph = `${paragraph} ${generateEndlessChunk(12, 20)}`.trim();
+    targetWordsRef.current = getWordList(nextParagraph);
+    setParagraph(nextParagraph);
+    commitSnapshot();
+    lastAppendedElapsedRef.current = elapsedSeconds;
+    lastAppendedCorrectCharsRef.current = engineSnapshot.correctCharacters;
+  }, [commitSnapshot, elapsedSeconds, engineSnapshot.correctCharacters, goalVariant, hasStarted, isActive, isFinished, mode, paragraph, timeLimitSeconds, typedText.length]);
 
   useEffect(() => {
     if (!hasStarted || !isActive || isFinished || !isSoundEnabled) return;
@@ -825,7 +972,16 @@ export const useTypingTest = () => {
   useEffect(() => {
     if (!hasStarted || isTestFinishedRef.current || !paragraph) return;
 
-    if (mode !== TYPING_MODES.WORDS && typedText === paragraph && paragraph.length > 0) {
+    if (
+      (mode === TYPING_MODES.TIME || mode === TYPING_MODES.QUOTE || mode === TYPING_MODES.CUSTOM || mode === TYPING_MODES.NUMBERS) &&
+      typedText === paragraph &&
+      paragraph.length > 0
+    ) {
+      finishTest();
+      return;
+    }
+
+    if (mode === TYPING_MODES.GOAL && goalVariant === GOAL_VARIANTS.REACH && typedText === paragraph && paragraph.length > 0) {
       finishTest();
       return;
     }
@@ -845,21 +1001,32 @@ export const useTypingTest = () => {
   useEffect(() => {
     if (!isFinished || !hasStarted || hasSavedResultRef.current) return;
 
-    const timeUsed = Math.max(elapsedSeconds, 1);
+    const timeUsed = Math.max(mode === TYPING_MODES.TIME || mode === TYPING_MODES.GOAL ? timeLimitSeconds - timeLeft : elapsedSeconds, 1);
     // Recalculate WPM using the actual time used so final WPM matches the live pace the user saw.
     const finalWpm = calculateWpm(engineSnapshot.correctCharacters, timeUsed);
-    const previousBest = bestWpm;
+    const currentBestKey = getBestWpmModeKey({ mode, wordCount, goalVariant, timeLimitSeconds });
+    const previousBest = bestWpmByMode[currentBestKey] || 0;
+    const goalSuccess =
+      mode !== TYPING_MODES.GOAL
+        ? true
+        : goalVariant === GOAL_VARIANTS.SUSTAIN
+          ? goalAchievedSecondsRef.current >= 5
+          : finalWpm >= targetWpm && accuracy >= 90 && typedText === paragraph;
     const nextBest = Math.max(previousBest, finalWpm);
 
     if (nextBest !== previousBest) {
-      setBestWpm(nextBest);
-      saveBestWpm(nextBest);
+      const nextBestMap = { ...bestWpmByMode, [currentBestKey]: nextBest };
+      setBestWpmByModeState(nextBestMap);
+      setBestWpmByMode(nextBestMap);
     }
 
     const result = {
       id: Date.now(),
       mode,
       wordCount: mode === TYPING_MODES.WORDS ? wordCount : null,
+      goalVariant: mode === TYPING_MODES.GOAL ? goalVariant : null,
+      timeLimitSeconds: mode === TYPING_MODES.TIME || mode === TYPING_MODES.GOAL ? timeLimitSeconds : null,
+      modeKey: currentBestKey,
       wpm: finalWpm,
       accuracy,
       correctCharacters: engineSnapshot.correctCharacters,
@@ -867,11 +1034,14 @@ export const useTypingTest = () => {
       mistypedCharacters: mistypedCharactersRef.current,
       timeUsed,
       previousBest,
-      improvedBest: finalWpm > previousBest
+      improvedBest: finalWpm > previousBest,
+      goalSuccess
     };
 
     const storedResults = addResult(result);
-    syncLeaderboard(storedResults);
+    if (goalSuccess || mode !== TYPING_MODES.GOAL) {
+      syncLeaderboard(storedResults);
+    }
     try {
       // attempt to add to explicit leaderboard store if it qualifies
       if (typeof updateLeaderboard === "function") updateLeaderboard(result);
@@ -891,13 +1061,18 @@ export const useTypingTest = () => {
     } catch {}
   }, [
     accuracy,
-    bestWpm,
+    bestWpmByMode,
+    goalVariant,
     elapsedSeconds,
     engineSnapshot.correctCharacters,
     engineSnapshot.incorrectCharacters,
     hasStarted,
     isFinished,
     mode,
+    paragraph,
+    targetWpm,
+    timeLeft,
+    timeLimitSeconds,
     wordCount,
     rawWpm
   ]);
@@ -915,11 +1090,15 @@ export const useTypingTest = () => {
     handleWordCountChange,
     handleCustomTextChange,
     handleGoalWpmChange,
+    handleGoalVariantChange,
+    handleTimeLimitChange,
     characterStates,
     timeLeft,
     elapsedSeconds,
     rawWpm,
     liveWpm,
+    goalVariant,
+    timeLimitSeconds,
     accuracy,
     isActive,
     isFinished,
@@ -942,6 +1121,7 @@ export const useTypingTest = () => {
     isTextLoading,
     textLoadingMessage,
     bestWpm,
+    bestWpmByMode,
     dailyGoalProgress,
     startTest,
     pauseTest,

@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 function TypingText({
   paragraph = "",
@@ -17,6 +17,7 @@ function TypingText({
   const containerRef = useRef(null);
   const characterRefs = useRef([]);
   const wordRefs = useRef([]);
+  const appendScrollHeightRef = useRef(0);
 
   const words = useMemo(() => paragraph.split(" "), [paragraph]);
 
@@ -44,6 +45,11 @@ function TypingText({
     return ranges;
   }, [words]);
 
+  const getCurrentWordNode = () => {
+    const firstIndex = wordRanges[currentWordIndex]?.[0] ?? activeIndex;
+    return characterRefs.current[firstIndex] || characterRefs.current[activeIndex] || null;
+  };
+
   useEffect(() => {
     const handleResize = () => {};
     const handleContainerScroll = () => {};
@@ -52,24 +58,76 @@ function TypingText({
     const containerNode = containerRef.current;
     containerNode?.addEventListener("scroll", handleContainerScroll);
 
+    if (containerNode) {
+      appendScrollHeightRef.current = containerNode.scrollHeight;
+    }
+
     return () => {
       window.removeEventListener("resize", handleResize);
       containerNode?.removeEventListener("scroll", handleContainerScroll);
     };
   }, []);
 
-  useEffect(() => {
-    if (activeIndex < 0) return;
-    const firstIndex = wordRanges[currentWordIndex]?.[0] ?? activeIndex;
-    const currentWordNode = characterRefs.current[firstIndex] || characterRefs.current[activeIndex];
-    currentWordNode?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
-  }, [activeIndex, currentWordIndex, wordRanges]);
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container || activeIndex < 0) {
+      return;
+    }
+
+    const currentWordNode = getCurrentWordNode();
+    if (!currentWordNode) return;
+
+    const currentTop = currentWordNode.offsetTop;
+    const currentHeight = currentWordNode.offsetHeight || 0;
+    const currentBottom = currentTop + currentHeight;
+    const visibleTop = container.scrollTop;
+    const visibleBottom = visibleTop + container.clientHeight;
+    const bottomPadding = 48;
+
+    const needsScrollDown = currentBottom > visibleBottom - bottomPadding;
+    if (!needsScrollDown) return;
+
+    try {
+      currentWordNode.scrollIntoView({ block: "nearest", inline: "nearest" });
+    } catch (e) {
+      const targetTop = Math.max(0, currentTop - container.clientHeight * 0.36 + currentHeight / 2);
+      const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+      container.scrollTop = Math.min(targetTop, maxScrollTop);
+    }
+  }, [activeIndex, currentWordIndex]);
+
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const previousHeight = appendScrollHeightRef.current || container.scrollHeight;
+    const currentHeight = container.scrollHeight;
+    const delta = currentHeight - previousHeight;
+
+    if (appendScrollHeightRef.current === 0) {
+      appendScrollHeightRef.current = currentHeight;
+      return;
+    }
+
+    if (delta > 0) {
+      const bottomGapBefore = previousHeight - (container.scrollTop + container.clientHeight);
+      const shouldKeepBottomAnchored = bottomGapBefore <= 80;
+
+      if (shouldKeepBottomAnchored) {
+        const maxScrollTop = Math.max(0, currentHeight - container.clientHeight);
+        container.scrollTop = Math.min(container.scrollTop + delta, maxScrollTop);
+      }
+    }
+
+    appendScrollHeightRef.current = currentHeight;
+  }, [paragraph.length]);
 
   const [caret, setCaret] = useState({ left: 0, top: 0, height: 18, visible: false });
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    appendScrollHeightRef.current = container.scrollHeight;
 
     // Hide caret when unfocused
     if (!focused) {
@@ -119,7 +177,7 @@ function TypingText({
         lineHeight: 1.4,
         fontFamily: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace"
       }}
-      className={`typing-area relative mx-auto min-h-[140px] w-full max-w-[76rem] rounded-2xl p-4 sm:p-6 font-mono text-[calc(1.2rem*var(--typing-scale))] sm:text-[calc(1.6rem*var(--typing-scale))] md:text-[calc(1.8rem*var(--typing-scale))] leading-[1.5] tracking-[0.01em] cursor-text outline-none overflow-x-hidden whitespace-pre-wrap ${
+      className={`typing-area relative mx-auto min-h-[140px] max-h-[55vh] w-full max-w-[76rem] rounded-2xl p-4 sm:p-6 font-mono text-[calc(1.2rem*var(--typing-scale))] sm:text-[calc(1.6rem*var(--typing-scale))] md:text-[calc(1.8rem*var(--typing-scale))] leading-[1.5] tracking-[0.01em] cursor-text outline-none overflow-x-hidden overflow-y-auto overscroll-contain whitespace-pre-wrap ${
         focused ? (isDark ? "ring-1 ring-cyan-300/40 shadow-[0_0_0_1px_rgba(103,232,249,0.12),inset_0_0_55px_rgba(34,211,238,0.08)]" : "ring-1 ring-cyan-500/35 shadow-[0_0_0_1px_rgba(14,165,233,0.08),inset_0_0_55px_rgba(14,165,233,0.06)]") : ""
       } ${className}`}
       tabIndex={0}

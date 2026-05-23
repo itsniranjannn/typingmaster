@@ -18,7 +18,7 @@ function SidebarCard({ title, children, isDark = true }) {
   );
 }
 
-function RightSidebar({ bestWpm, liveWpm, resetKey = 0, isDark = true, streakInfo: streakInfoProp = null, dailyGoalProgress = { count: 0, date: null } }) {
+function RightSidebar({ bestWpm, bestWpmLabel = "Current mode", liveWpm, resetKey = 0, isDark = true, streakInfo: streakInfoProp = null, dailyGoalProgress = { count: 0, date: null } }) {
   const [tipIndex, setTipIndex] = useState(0);
   const [streakInfo, setStreakInfo] = useState(() => streakInfoProp || getStreak());
 
@@ -46,7 +46,7 @@ function RightSidebar({ bestWpm, liveWpm, resetKey = 0, isDark = true, streakInf
       <SidebarCard title="Best WPM" isDark={isDark}>
         <div className="space-y-1">
           <p className={`text-xl font-semibold tracking-tight tabular-nums ${isDark ? "text-blue-300" : "text-blue-600"}`}>{bestWpm}</p>
-          <p className={`text-[10px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>Personal best</p>
+          <p className={`text-[10px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>{bestWpmLabel}</p>
           <div className={`h-1 overflow-hidden rounded-full ${isDark ? "bg-slate-800" : "bg-slate-200"}`}>
             <div className="h-full w-[72%] rounded-full bg-gradient-to-r from-violet-400 to-sky-400" />
           </div>

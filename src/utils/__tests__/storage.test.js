@@ -81,6 +81,8 @@ describe("storage helpers", () => {
     expect(settings).toEqual({
       theme: "light",
       mode: "quote",
+      goalVariant: "sustain",
+      timeLimitSeconds: 30,
       soundEnabled: false,
       soundVolume: 0.7,
       hasSeenTour: true
@@ -98,6 +100,8 @@ describe("storage helpers", () => {
     expect(settings).toEqual({
       theme: "dark",
       mode: "time",
+      goalVariant: "sustain",
+      timeLimitSeconds: 30,
       soundEnabled: true,
       soundVolume: 0.5,
       hasSeenTour: false

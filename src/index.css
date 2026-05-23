@@ -265,31 +265,29 @@ input:focus {
   background: var(--surface-soft);
   border: 1px solid var(--card-border);
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.12);
+  overflow-anchor: none;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(56, 189, 248, 0.72) rgba(15, 23, 42, 0.28);
 }
 
 .typing-area::-webkit-scrollbar {
-  width: 0;
-  height: 0;
+  width: 10px;
+  height: 10px;
 }
 
 .typing-area::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(15, 23, 42, 0.22);
+  border-radius: 9999px;
 }
 
 .typing-area::-webkit-scrollbar-thumb {
-  background: rgba(56, 189, 248, 0.3);
-  border-radius: 4px;
+  background: linear-gradient(180deg, rgba(56, 189, 248, 0.95), rgba(96, 165, 250, 0.72));
+  border-radius: 9999px;
+  border: 2px solid rgba(15, 23, 42, 0.2);
 }
 
 .typing-area::-webkit-scrollbar-thumb:hover {
-  background: rgba(56, 189, 248, 0.6);
-}
-
-/* Firefox scrollbar */
-.typing-area {
-  -ms-overflow-style: none;
-  scrollbar-color: transparent transparent;
-  scrollbar-width: none;
+  background: linear-gradient(180deg, rgba(125, 211, 252, 1), rgba(59, 130, 246, 0.88));
 }
 
 /* Confetti Animation */

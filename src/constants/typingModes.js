@@ -3,16 +3,27 @@ export const TYPING_MODES = {
   WORDS: "words",
   QUOTE: "quote",
   CUSTOM: "custom",
-  GOAL: "goal"
+  GOAL: "goal",
+  NUMBERS: "numbers"
 };
 
-export const WORD_MODE_OPTIONS = [35, 50, 100];
+export const WORD_MODE_OPTIONS = [25, 50, 100];
 
 export const TEST_DURATION_SECONDS = 30;
+
+export const CUSTOM_TIME_MIN_SECONDS = 10;
+export const CUSTOM_TIME_MAX_SECONDS = 300;
 
 export const DEFAULT_GOAL_WPM = 40;
 
 export const GOAL_WPM_OPTIONS = [30, 40, 50, 60, 75, 100];
+
+export const GOAL_VARIANTS = {
+  SUSTAIN: "sustain",
+  REACH: "reach"
+};
+
+export const UNIVERSAL_MODES = [TYPING_MODES.TIME, TYPING_MODES.WORDS, TYPING_MODES.GOAL];
 
 export const PRO_TIPS = [
   "Focus on accuracy first. Speed will follow naturally.",

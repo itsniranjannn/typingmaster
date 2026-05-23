@@ -1,11 +1,14 @@
 const STORAGE_KEYS = {
   BEST_WPM: "typingMaster.bestWpm",
+  BEST_WPM_BY_MODE: "typingMaster.bestWpmByMode",
   RESULTS: "typing_results",
   RESULTS_LEGACY: "typingMaster.results",
   LEADERBOARD: "typing_leaderboard",
   LEADERBOARD_LEGACY: "typingMaster.leaderboard",
   THEME: "typingMaster.theme",
   MODE: "typingMaster.mode",
+  GOAL_VARIANT: "typingMaster.goalVariant",
+  TIME_LIMIT_SECONDS: "typingMaster.timeLimitSeconds",
   SOUND: "typingMaster.soundEnabled",
   SOUND_VOLUME: "typingMaster.soundVolume",
   HAS_SEEN_TOUR: "typingMaster.hasSeenTour"
@@ -52,8 +55,16 @@ const sanitizeAccuracy = (value) => {
 };
 
 const sanitizeMode = (value) => {
-  const validModes = new Set(["time", "words", "quote", "custom", "goal"]);
+  const validModes = new Set(["time", "words", "quote", "custom", "goal", "numbers"]);
+  if (value === "goal_sustain" || value === "goal_reach") return "goal";
   return validModes.has(value) ? value : "time";
+};
+
+const sanitizeGoalVariant = (value) => (value === "reach" ? "reach" : "sustain");
+
+const sanitizeTimeLimitSeconds = (value) => {
+  if (!isFiniteNumber(value)) return 30;
+  return Math.min(Math.max(Math.round(value), 10), 300);
 };
 
 const sanitizeTheme = (value) => (value === "light" ? "light" : "dark");
@@ -86,6 +97,10 @@ const sanitizeResult = (result) => {
           .slice(0, 5000)
       : [],
     timeUsed: sanitizeNumber(result.timeUsed, 0),
+    timeLimitSeconds: sanitizeTimeLimitSeconds(result.timeLimitSeconds || result.timeLimit || 30),
+    goalVariant: sanitizeGoalVariant(result.goalVariant),
+    goalSuccess: typeof result.goalSuccess === "boolean" ? result.goalSuccess : null,
+    modeKey: typeof result.modeKey === "string" ? result.modeKey : null,
     previousBest: sanitizeNumber(result.previousBest, 0),
     improvedBest: typeof result.improvedBest === "boolean" ? result.improvedBest : false
   };
@@ -97,8 +112,59 @@ const getLeaderboardCandidates = (results) =>
     .sort((left, right) => right.wpm - left.wpm || right.accuracy - left.accuracy)
     .slice(0, 10);
 
-export const getBestWpm = () => sanitizeNumber(safeRead(STORAGE_KEYS.BEST_WPM, 0), 0);
-export const setBestWpm = (value) => safeWrite(STORAGE_KEYS.BEST_WPM, sanitizeNumber(value, 0));
+const createDefaultBestWpmByMode = () => ({
+  time: 0,
+  words25: 0,
+  words35: 0,
+  words50: 0,
+  words100: 0,
+  goalSustain: 0,
+  goalReach: 0,
+  quote: 0,
+  custom: 0,
+  numbers: 0
+});
+
+const sanitizeBestWpmByMode = (value) => {
+  const defaults = createDefaultBestWpmByMode();
+  if (!value || typeof value !== "object") return defaults;
+  return Object.keys(defaults).reduce((accumulator, key) => {
+    accumulator[key] = sanitizeNumber(value[key], 0);
+    return accumulator;
+  }, {});
+};
+
+const getLegacyBestWpm = () => sanitizeNumber(safeRead(STORAGE_KEYS.BEST_WPM, 0), 0);
+
+export const getBestWpmByMode = () => {
+  const stored = safeRead(STORAGE_KEYS.BEST_WPM_BY_MODE, null);
+  const legacyBest = getLegacyBestWpm();
+  if (stored === null) {
+    const migrated = createDefaultBestWpmByMode();
+    migrated.time = legacyBest;
+    return migrated;
+  }
+
+  const sanitized = sanitizeBestWpmByMode(stored);
+  if (legacyBest > (sanitized.time || 0)) {
+    sanitized.time = legacyBest;
+  }
+  return sanitized;
+};
+
+export const setBestWpmByMode = (value) => safeWrite(STORAGE_KEYS.BEST_WPM_BY_MODE, sanitizeBestWpmByMode(value));
+
+export const getBestWpm = (modeKey = "time") => {
+  const bestWpmByMode = getBestWpmByMode();
+  return sanitizeNumber(bestWpmByMode[modeKey], 0);
+};
+
+export const setBestWpm = (value, modeKey = "time") => {
+  const bestWpmByMode = getBestWpmByMode();
+  bestWpmByMode[modeKey] = sanitizeNumber(value, 0);
+  setBestWpmByMode(bestWpmByMode);
+  safeWrite(STORAGE_KEYS.BEST_WPM, sanitizeNumber(bestWpmByMode.time, 0));
+};
 
 export const getLastResults = () => {
   const stored = safeRead(STORAGE_KEYS.RESULTS, null);
@@ -141,6 +207,8 @@ export const updateLeaderboard = (result) => {
   try {
     const candidate = sanitizeResult(result);
     if (!candidate || !isFiniteNumber(candidate.wpm) || candidate.wpm <= 0 || candidate.accuracy < 90) return getLeaderboard();
+    if (candidate.goalVariant === "reach" && candidate.goalSuccess === false) return getLeaderboard();
+    if (candidate.goalVariant === "sustain" && candidate.goalSuccess === false) return getLeaderboard();
     const current = getLeaderboard();
     const next = [...current, candidate].sort((a, b) => b.wpm - a.wpm).slice(0, 10);
     safeWrite(STORAGE_KEYS.LEADERBOARD, next);
@@ -155,6 +223,12 @@ export const setPreferredTheme = (theme) => safeWrite(STORAGE_KEYS.THEME, saniti
 
 export const getPreferredMode = () => sanitizeMode(safeRead(STORAGE_KEYS.MODE, "time"));
 export const setPreferredMode = (mode) => safeWrite(STORAGE_KEYS.MODE, sanitizeMode(mode));
+
+export const getPreferredGoalVariant = () => sanitizeGoalVariant(safeRead(STORAGE_KEYS.GOAL_VARIANT, "sustain"));
+export const setPreferredGoalVariant = (variant) => safeWrite(STORAGE_KEYS.GOAL_VARIANT, sanitizeGoalVariant(variant));
+
+export const getPreferredTimeLimitSeconds = () => sanitizeTimeLimitSeconds(safeRead(STORAGE_KEYS.TIME_LIMIT_SECONDS, 30));
+export const setPreferredTimeLimitSeconds = (seconds) => safeWrite(STORAGE_KEYS.TIME_LIMIT_SECONDS, sanitizeTimeLimitSeconds(seconds));
 
 export const getSoundEnabled = () => sanitizeBoolean(safeRead(STORAGE_KEYS.SOUND, true), true);
 export const setSoundEnabled = (enabled) => safeWrite(STORAGE_KEYS.SOUND, sanitizeBoolean(enabled, true));
@@ -205,6 +279,12 @@ export const saveSettings = (settings) => {
   if (Object.prototype.hasOwnProperty.call(payload, "mode")) {
     setPreferredMode(payload.mode);
   }
+  if (Object.prototype.hasOwnProperty.call(payload, "goalVariant")) {
+    setPreferredGoalVariant(payload.goalVariant);
+  }
+  if (Object.prototype.hasOwnProperty.call(payload, "timeLimitSeconds")) {
+    setPreferredTimeLimitSeconds(payload.timeLimitSeconds);
+  }
   if (Object.prototype.hasOwnProperty.call(payload, "soundEnabled")) {
     setSoundEnabled(payload.soundEnabled);
   }
@@ -219,6 +299,8 @@ export const saveSettings = (settings) => {
 export const loadSettings = () => ({
   theme: getPreferredTheme(),
   mode: getPreferredMode(),
+  goalVariant: getPreferredGoalVariant(),
+  timeLimitSeconds: getPreferredTimeLimitSeconds(),
   soundEnabled: getSoundEnabled(),
   soundVolume: getSoundVolume(),
   hasSeenTour: getHasSeenTour()
