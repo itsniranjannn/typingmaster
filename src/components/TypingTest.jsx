@@ -1,4 +1,4 @@
-﻿import { memo, useCallback, useEffect, useState, useRef } from "react";
+﻿import { memo, useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Moon, Sun, Settings, RotateCcw, Trophy, BarChart2 } from "lucide-react";
 import confetti from "canvas-confetti";
@@ -13,9 +13,10 @@ import SoundControls from "./SoundControls";
 import HistoryInsights from "./HistoryInsights";
 import RightSidebar from "./RightSidebar";
 import SidebarModal from "./SidebarModal";
+import WelcomeTour from "./WelcomeTour";
 import { useTypingTest } from "../hooks/useTypingTest";
 import { TYPING_MODES, GOAL_VARIANTS, UNIVERSAL_MODES, CUSTOM_TIME_MIN_SECONDS, CUSTOM_TIME_MAX_SECONDS } from "../constants/typingModes";
-import { exportResultsToCSV } from "../utils/storage";
+import { exportResultsToCSV, getHasSeenTour, setHasSeenTour } from "../utils/storage";
 
 function TypingTest({ theme, onToggleTheme }) {
   const {
@@ -80,12 +81,77 @@ function TypingTest({ theme, onToggleTheme }) {
   const typingSurfaceRef = useRef(null);
   const hiddenInputRef = useRef(null);
   const [isTypingAreaFocused, setIsTypingAreaFocused] = useState(false);
+  const [isWelcomeTourOpen, setIsWelcomeTourOpen] = useState(() => !getHasSeenTour());
+  const [welcomeTourStep, setWelcomeTourStep] = useState(0);
+  const [welcomeTourRect, setWelcomeTourRect] = useState(null);
+  const [timeInput, setTimeInput] = useState(String(timeLimitSeconds));
+  const headerControlsRef = useRef(null);
+  const modeBarRef = useRef(null);
+  const typingPanelRef = useRef(null);
+  const statsBarRef = useRef(null);
 
   const syncTypingFocusState = useCallback(() => {
     const wrapper = typingSurfaceRef.current;
     const activeElement = document.activeElement;
     setIsTypingAreaFocused(Boolean(wrapper && activeElement && wrapper.contains(activeElement)));
   }, [mode]);
+
+  useEffect(() => {
+    setTimeInput(String(timeLimitSeconds));
+  }, [timeLimitSeconds]);
+
+  const commitTimeInput = useCallback(
+    (value) => {
+      const trimmedValue = String(value).trim();
+      if (trimmedValue.length === 0) return;
+
+      const parsedValue = Number(trimmedValue);
+      if (!Number.isFinite(parsedValue)) return;
+
+      handleTimeLimitChange(parsedValue);
+    },
+    [handleTimeLimitChange]
+  );
+
+  const welcomeTourSteps = useMemo(
+    () => [
+      {
+        target: "modeBar",
+        title: "Pick a test mode",
+        description:
+          "Use this bar for the core tests: Time, Words, and Goal. The header mode picker also includes Quote, Custom text, and Numbers."
+      },
+      {
+        target: "typingPanel",
+        title: "Type in the panel",
+        description:
+          "Click the prompt to start typing. The current word stays anchored while the text can grow during long sessions."
+      },
+      {
+        target: "statsBar",
+        title: "Watch live progress",
+        description:
+          "WPM, accuracy, remaining time, and completed words update live above the typing area."
+      },
+      {
+        target: "headerControls",
+        title: "Use the top-right tools",
+        description:
+          "Sound, theme, leaderboard, and settings live here. The right sidebar and mobile drawer show best WPM, streak, and daily goals."
+      }
+    ],
+    []
+  );
+
+  const tourTargetRefs = useMemo(
+    () => ({
+      modeBar: modeBarRef,
+      typingPanel: typingPanelRef,
+      statsBar: statsBarRef,
+      headerControls: headerControlsRef
+    }),
+    []
+  );
 
   const focusTypingArea = useCallback(() => {
     if (isFinished) return;
@@ -225,6 +291,60 @@ function TypingTest({ theme, onToggleTheme }) {
 
   const toggleSidebar = useCallback(() => setIsSidebarOpen((v) => !v), []);
 
+  const closeWelcomeTour = useCallback(() => {
+    setIsWelcomeTourOpen(false);
+    setHasSeenTour(true);
+  }, []);
+
+  const advanceWelcomeTour = useCallback(() => {
+    setWelcomeTourStep((currentStep) => {
+      const nextStep = currentStep + 1;
+      if (nextStep >= welcomeTourSteps.length) {
+        closeWelcomeTour();
+        return currentStep;
+      }
+      return nextStep;
+    });
+  }, [closeWelcomeTour, welcomeTourSteps.length]);
+
+  useEffect(() => {
+    if (!isWelcomeTourOpen) return undefined;
+
+    const measure = () => {
+      const currentStep = welcomeTourSteps[welcomeTourStep];
+      const currentTarget = currentStep ? tourTargetRefs[currentStep.target] : null;
+      const element = currentTarget?.current || null;
+
+      if (!element) {
+        setWelcomeTourRect(null);
+        return;
+      }
+
+      const rect = element.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) {
+        setWelcomeTourRect(null);
+        return;
+      }
+
+      setWelcomeTourRect({
+        top: rect.top,
+        left: rect.left,
+        width: rect.width,
+        height: rect.height
+      });
+    };
+
+    const rafId = window.requestAnimationFrame(measure);
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
+    };
+  }, [isWelcomeTourOpen, tourTargetRefs, welcomeTourStep, welcomeTourSteps]);
+
   // Show a short, immediate message when the user first reaches the target WPM in Goal mode
   useEffect(() => {
     if (mode !== TYPING_MODES.GOAL || goalVariant !== GOAL_VARIANTS.SUSTAIN) return;
@@ -309,7 +429,7 @@ function TypingTest({ theme, onToggleTheme }) {
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div ref={headerControlsRef} className="flex items-center gap-2">
             <SoundControls
               isSoundEnabled={isSoundEnabled}
               onToggleSound={toggleSound}
@@ -360,13 +480,13 @@ function TypingTest({ theme, onToggleTheme }) {
 
       {/* Top mode bar (Monkeytype-style) */}
       {UNIVERSAL_MODES.includes(mode) && (
-      <div className={`mx-auto w-full max-w-6xl px-4 sm:px-6`}>
+      <div ref={modeBarRef} className={`mx-auto w-full max-w-6xl px-4 sm:px-6`}>
         <div className={`rounded-xl backdrop-blur-sm px-3 py-2 flex flex-wrap items-center gap-2 justify-between ${isDark ? 'bg-gray-900/60 border-gray-700' : 'bg-white/60 border-transparent'} border-b`}>
           <div className="flex items-center gap-2 flex-wrap">
             {/* Mode buttons */}
             <div className="inline-flex items-center gap-2">
               <button
-                onClick={() => { handleModeChange(TYPING_MODES.TIME, { timeLimitSeconds }); setTipSeed((v) => v + 1); setGoalReachedShown(false); if (goalReachedTimeoutRef.current) { window.clearTimeout(goalReachedTimeoutRef.current); goalReachedTimeoutRef.current = null; } }}
+                onClick={() => { commitTimeInput(timeInput); handleModeChange(TYPING_MODES.TIME, { timeLimitSeconds: Number(timeInput) || timeLimitSeconds }); setTipSeed((v) => v + 1); setGoalReachedShown(false); if (goalReachedTimeoutRef.current) { window.clearTimeout(goalReachedTimeoutRef.current); goalReachedTimeoutRef.current = null; } }}
                 className={`px-3 py-1.5 rounded-full text-sm font-semibold transition ${mode === TYPING_MODES.TIME ? 'bg-sky-500 text-white' : isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-700'}`}
                 aria-pressed={mode === TYPING_MODES.TIME}
               >
@@ -377,8 +497,23 @@ function TypingTest({ theme, onToggleTheme }) {
                   type="number"
                   min={CUSTOM_TIME_MIN_SECONDS}
                   max={CUSTOM_TIME_MAX_SECONDS}
-                  value={timeLimitSeconds}
-                  onChange={(event) => handleTimeLimitChange(event.target.value)}
+                  value={timeInput}
+                  onChange={(event) => {
+                    setTimeInput(event.target.value);
+                  }}
+                  onBlur={() => {
+                    if (String(timeInput).trim().length === 0) {
+                      setTimeInput(String(timeLimitSeconds));
+                      return;
+                    }
+
+                    commitTimeInput(timeInput);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                    }
+                  }}
                   className={`w-16 bg-transparent text-sm font-semibold outline-none ${isDark ? 'text-slate-100 placeholder:text-slate-500' : 'text-slate-800 placeholder:text-slate-400'}`}
                   aria-label="Custom time limit in seconds"
                 />
@@ -475,6 +610,7 @@ function TypingTest({ theme, onToggleTheme }) {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
+                ref={statsBarRef}
                 className={`flex flex-wrap justify-center gap-2 rounded-2xl border px-4 py-2 sm:px-5 sm:py-2 ${
                   isDark
                     ? "bg-gray-900/70 border-gray-700"
@@ -551,6 +687,7 @@ function TypingTest({ theme, onToggleTheme }) {
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.15 }}
+                ref={typingPanelRef}
                 className={`rounded-3xl border p-6 sm:p-8 min-h-[220px] shadow-[0_20px_60px_rgba(0,0,0,0.14)] leading-loose ${
                   isDark
                     ? "bg-gray-900/75 border-gray-700"
@@ -672,6 +809,14 @@ function TypingTest({ theme, onToggleTheme }) {
         onThemeChange={onToggleTheme}
       />
       <LeaderboardModal isOpen={isLeaderboardOpen} onClose={() => setIsLeaderboardOpen(false)} isDark={isDark} />
+      <WelcomeTour
+        isOpen={isWelcomeTourOpen}
+        stepIndex={welcomeTourStep}
+        steps={welcomeTourSteps}
+        highlightRect={welcomeTourRect}
+        onNext={advanceWelcomeTour}
+        onSkip={closeWelcomeTour}
+      />
     </div>
   );
 }

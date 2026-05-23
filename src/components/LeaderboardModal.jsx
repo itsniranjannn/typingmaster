@@ -33,7 +33,7 @@ const formatModeVariantLabel = (result) => {
     return `Goal (${result.goalVariant === GOAL_VARIANTS.REACH ? "Reach" : "Sustain"})`;
   }
 
-  if (result.mode === TYPING_MODES.TIME && typeof result.timeLimitSeconds === "number" && result.timeLimitSeconds !== 30) {
+  if (result.mode === TYPING_MODES.TIME && typeof result.timeLimitSeconds === "number" && result.timeLimitSeconds !== 25) {
     return `Time (${result.timeLimitSeconds}s)`;
   }
 

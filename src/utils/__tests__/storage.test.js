@@ -82,7 +82,7 @@ describe("storage helpers", () => {
       theme: "light",
       mode: "quote",
       goalVariant: "sustain",
-      timeLimitSeconds: 30,
+      timeLimitSeconds: 25,
       soundEnabled: false,
       soundVolume: 0.7,
       hasSeenTour: true
@@ -101,7 +101,7 @@ describe("storage helpers", () => {
       theme: "dark",
       mode: "time",
       goalVariant: "sustain",
-      timeLimitSeconds: 30,
+      timeLimitSeconds: 25,
       soundEnabled: true,
       soundVolume: 0.5,
       hasSeenTour: false

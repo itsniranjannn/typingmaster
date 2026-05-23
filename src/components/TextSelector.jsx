@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { BookOpen, Edit3, ChevronDown, Globe, Hash, TimerReset, Target, Target as TargetIcon } from "lucide-react";
 import { TYPING_MODES, GOAL_VARIANTS } from "../constants/typingModes";
 
-function TextSelector({ mode, goalVariant = GOAL_VARIANTS.SUSTAIN, timeLimitSeconds = 30, onModeChange, customText, onCustomTextChange, isDark }) {
+function TextSelector({ mode, goalVariant = GOAL_VARIANTS.SUSTAIN, timeLimitSeconds = 25, onModeChange, customText, onCustomTextChange, isDark }) {
   const [isOpen, setIsOpen] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
 

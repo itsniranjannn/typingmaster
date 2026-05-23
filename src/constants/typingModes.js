@@ -9,7 +9,7 @@ export const TYPING_MODES = {
 
 export const WORD_MODE_OPTIONS = [25, 50, 100];
 
-export const TEST_DURATION_SECONDS = 30;
+export const TEST_DURATION_SECONDS = 25;
 
 export const CUSTOM_TIME_MIN_SECONDS = 10;
 export const CUSTOM_TIME_MAX_SECONDS = 300;

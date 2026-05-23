@@ -22,6 +22,8 @@ const DAILY_GOAL_KEYS = {
   PROGRESS: "typingMaster.dailyGoalProgress"
 };
 
+const DEFAULT_TIME_LIMIT_SECONDS = 25;
+
 const safeRead = (key, fallbackValue) => {
   try {
     if (typeof window === "undefined") return fallbackValue;
@@ -63,7 +65,7 @@ const sanitizeMode = (value) => {
 const sanitizeGoalVariant = (value) => (value === "reach" ? "reach" : "sustain");
 
 const sanitizeTimeLimitSeconds = (value) => {
-  if (!isFiniteNumber(value)) return 30;
+  if (!isFiniteNumber(value)) return DEFAULT_TIME_LIMIT_SECONDS;
   return Math.min(Math.max(Math.round(value), 10), 300);
 };
 
@@ -97,7 +99,7 @@ const sanitizeResult = (result) => {
           .slice(0, 5000)
       : [],
     timeUsed: sanitizeNumber(result.timeUsed, 0),
-    timeLimitSeconds: sanitizeTimeLimitSeconds(result.timeLimitSeconds || result.timeLimit || 30),
+    timeLimitSeconds: sanitizeTimeLimitSeconds(result.timeLimitSeconds || result.timeLimit || DEFAULT_TIME_LIMIT_SECONDS),
     goalVariant: sanitizeGoalVariant(result.goalVariant),
     goalSuccess: typeof result.goalSuccess === "boolean" ? result.goalSuccess : null,
     modeKey: typeof result.modeKey === "string" ? result.modeKey : null,
@@ -227,7 +229,7 @@ export const setPreferredMode = (mode) => safeWrite(STORAGE_KEYS.MODE, sanitizeM
 export const getPreferredGoalVariant = () => sanitizeGoalVariant(safeRead(STORAGE_KEYS.GOAL_VARIANT, "sustain"));
 export const setPreferredGoalVariant = (variant) => safeWrite(STORAGE_KEYS.GOAL_VARIANT, sanitizeGoalVariant(variant));
 
-export const getPreferredTimeLimitSeconds = () => sanitizeTimeLimitSeconds(safeRead(STORAGE_KEYS.TIME_LIMIT_SECONDS, 30));
+export const getPreferredTimeLimitSeconds = () => sanitizeTimeLimitSeconds(safeRead(STORAGE_KEYS.TIME_LIMIT_SECONDS, DEFAULT_TIME_LIMIT_SECONDS));
 export const setPreferredTimeLimitSeconds = (seconds) => safeWrite(STORAGE_KEYS.TIME_LIMIT_SECONDS, sanitizeTimeLimitSeconds(seconds));
 
 export const getSoundEnabled = () => sanitizeBoolean(safeRead(STORAGE_KEYS.SOUND, true), true);

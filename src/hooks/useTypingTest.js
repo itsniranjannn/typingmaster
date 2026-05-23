@@ -147,6 +147,7 @@ export const useTypingTest = () => {
   const quoteRequestIdRef = useRef(0);
   const lastAppendedElapsedRef = useRef(0);
   const lastAppendedCorrectCharsRef = useRef(0);
+  const lastAppendTriggerRef = useRef("");
   const currentBestKey = useMemo(
     () => getBestWpmModeKey({ mode, wordCount, goalVariant, timeLimitSeconds }),
     [goalVariant, mode, timeLimitSeconds, wordCount]
@@ -888,6 +889,10 @@ export const useTypingTest = () => {
 
     if (!nearEnd && !elapsedTrigger && !correctTrigger) return;
 
+    const appendTriggerKey = `${elapsedSeconds}:${engineSnapshot.correctCharacters}`;
+    if (lastAppendTriggerRef.current === appendTriggerKey) return;
+    lastAppendTriggerRef.current = appendTriggerKey;
+
     const nextParagraph = `${paragraph} ${generateEndlessChunk(12, 20)}`.trim();
     targetWordsRef.current = getWordList(nextParagraph);
     setParagraph(nextParagraph);
@@ -965,8 +970,8 @@ export const useTypingTest = () => {
   );
 
   const activeIndex = useMemo(() => {
-    if (isFinished || typedText.length >= paragraph.length) return -1;
-    return typedText.length;
+    if (isFinished || currentIndexRef.current >= paragraph.length) return -1;
+    return Math.min(currentIndexRef.current, paragraph.length);
   }, [isFinished, paragraph.length, typedText.length]);
 
   useEffect(() => {
@@ -1115,6 +1120,7 @@ export const useTypingTest = () => {
     wordProgress,
     completedWords: engineSnapshot.completedWords,
     currentWordIndex: engineSnapshot.currentWordIndex,
+    currentIndex: currentIndexRef.current,
     totalWords: engineSnapshot.totalWords || totalWords,
     goalAchievedSeconds: goalAchievedSecondsRef.current,
     finalResult,

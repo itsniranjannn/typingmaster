@@ -1,10 +1,11 @@
 import { memo, useMemo } from "react";
 
-const TOOLTIP_WIDTH = 320;
-const TOOLTIP_HEIGHT = 150;
+const TOOLTIP_WIDTH = 360;
+const TOOLTIP_HEIGHT = 200;
 
 function WelcomeTour({ isOpen, stepIndex, steps, highlightRect, onNext, onSkip }) {
-  const isLastStep = stepIndex >= steps.length - 1;
+  const safeSteps = Array.isArray(steps) ? steps : [];
+  const isLastStep = stepIndex >= Math.max(safeSteps.length - 1, 0);
 
   const tooltipStyle = useMemo(() => {
     if (!highlightRect) {
@@ -35,7 +36,10 @@ function WelcomeTour({ isOpen, stepIndex, steps, highlightRect, onNext, onSkip }
 
   if (!isOpen) return null;
 
-  const step = steps[stepIndex];
+  const step = safeSteps[stepIndex] || safeSteps[0] || {
+    title: "Welcome to GoType",
+    description: "Use the guided tour to learn the current typing layout."
+  };
 
   return (
     <div className="fixed inset-0 z-[60]" aria-live="polite" aria-label="Welcome tour">
@@ -54,7 +58,7 @@ function WelcomeTour({ isOpen, stepIndex, steps, highlightRect, onNext, onSkip }
       )}
 
       <div
-        className="absolute rounded-xl border border-slate-600/60 bg-slate-900/95 p-4 text-slate-100 shadow-2xl"
+        className="absolute max-w-[360px] rounded-xl border border-slate-600/60 bg-slate-900/95 p-4 text-slate-100 shadow-2xl"
         style={tooltipStyle}
         role="dialog"
         aria-modal="true"

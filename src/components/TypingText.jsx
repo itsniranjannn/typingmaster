@@ -1,4 +1,143 @@
-import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+
+const TOKEN_SPLIT_REGEX = /\S+|\s+/g;
+const SPACE_REGEX = /^\s+$/;
+
+const tokenizeParagraph = (paragraph) => {
+  const segments = [];
+  const wordTokens = [];
+  let charIndex = 0;
+  let wordIndex = 0;
+
+  (paragraph.match(TOKEN_SPLIT_REGEX) || []).forEach((segment) => {
+    const start = charIndex;
+    const end = start + segment.length - 1;
+    const isSpace = SPACE_REGEX.test(segment);
+    const token = {
+      id: `${isSpace ? "space" : "word"}-${start}-${segment.length}`,
+      text: segment,
+      start,
+      end,
+      isSpace,
+      wordIndex: isSpace ? -1 : wordIndex
+    };
+
+    segments.push(token);
+    if (!isSpace) {
+      wordTokens.push(token);
+      wordIndex += 1;
+    }
+    charIndex += segment.length;
+  });
+
+  return { segments, wordTokens };
+};
+
+const getTokenState = (characterStates, start, end) => {
+  if (end < start) return "default";
+
+  let allCorrect = true;
+  let anyIncorrect = false;
+  for (let index = start; index <= end; index += 1) {
+    if (characterStates[index] === "incorrect") anyIncorrect = true;
+    if (characterStates[index] !== "correct") allCorrect = false;
+  }
+
+  if (allCorrect) return "correct";
+  if (anyIncorrect) return "incorrect";
+  return "default";
+};
+
+const areTokenPropsEqual = (previousProps, nextProps) => {
+  const previousToken = previousProps.token;
+  const nextToken = nextProps.token;
+
+  if (previousProps.isDark !== nextProps.isDark) return false;
+  if (previousProps.fontScale !== nextProps.fontScale) return false;
+  if (previousProps.focused !== nextProps.focused) return false;
+  if (previousProps.currentWordIndex !== nextProps.currentWordIndex) return false;
+  if (previousToken.id !== nextToken.id) return false;
+  if (previousToken.text !== nextToken.text) return false;
+  if (previousToken.start !== nextToken.start || previousToken.end !== nextToken.end) return false;
+  if (previousToken.isSpace !== nextToken.isSpace) return false;
+  if (previousToken.wordIndex !== nextToken.wordIndex) return false;
+
+  for (let index = previousToken.start; index <= previousToken.end; index += 1) {
+    if (previousProps.characterStates[index] !== nextProps.characterStates[index]) {
+      return false;
+    }
+  }
+
+  return true;
+};
+
+const TypingToken = memo(function TypingToken({
+  token,
+  characterStates,
+  currentWordIndex,
+  isDark,
+  registerWordRef,
+  registerCharacterRef,
+  registerCharacterRangeRef
+}) {
+  const tokenState = getTokenState(characterStates, token.start, token.end);
+  const tokenClass = isDark
+    ? {
+        default: "text-slate-200",
+        correct: "text-emerald-200",
+        incorrect: "text-rose-300"
+      }
+    : {
+        default: "text-slate-800",
+        correct: "text-emerald-900",
+        incorrect: "text-rose-900"
+      };
+
+  if (token.isSpace) {
+    return (
+      <span
+        ref={(node) => registerCharacterRangeRef(token.start, token.end, node)}
+        className={`${tokenClass[characterStates[token.start]] || tokenClass.default} inline-block align-top whitespace-pre-wrap`}
+      >
+        {token.text}
+      </span>
+    );
+  }
+
+  return (
+    <span
+      ref={(node) => registerWordRef(token.wordIndex, node)}
+      className={`inline-block align-top transition-transform duration-150 ${
+        currentWordIndex === token.wordIndex ? "scale-[1.01]" : "scale-100"
+      } ${
+        tokenState === "correct"
+          ? isDark
+            ? "text-emerald-200"
+            : "text-emerald-900"
+          : tokenState === "incorrect"
+          ? isDark
+            ? "text-rose-300"
+            : "text-rose-900"
+          : isDark
+          ? "text-slate-200"
+          : "text-slate-800"
+      }`}
+    >
+      {token.text.split("").map((character, characterIndex) => {
+        const index = token.start + characterIndex;
+        return (
+          <span
+            key={`${token.id}-${characterIndex}`}
+            ref={(node) => registerCharacterRef(index, node)}
+            className={`${tokenClass[characterStates[index]] || tokenClass.default} transition-colors duration-150`}
+          >
+            {character}
+          </span>
+        );
+      })}
+    </span>
+  );
+}, areTokenPropsEqual);
 
 function TypingText({
   paragraph = "",
@@ -18,37 +157,46 @@ function TypingText({
   const characterRefs = useRef([]);
   const wordRefs = useRef([]);
   const appendScrollHeightRef = useRef(0);
+  const lastScrollTargetRef = useRef("");
+  const [caret, setCaret] = useState({ left: 0, top: 0, height: 18, visible: false });
 
-  const words = useMemo(() => paragraph.split(" "), [paragraph]);
+  const { segments, wordTokens } = useMemo(() => tokenizeParagraph(paragraph), [paragraph]);
 
-  const stateClasses = isDark
-    ? {
-        default: "text-slate-200",
-        correct: "text-emerald-300",
-        incorrect: "text-rose-300"
-      }
-    : {
-        default: "text-slate-800",
-        correct: "text-emerald-700",
-        incorrect: "text-rose-700"
-      };
+  const stateClasses = useMemo(
+    () =>
+      isDark
+        ? {
+            default: "text-slate-200",
+            correct: "text-emerald-300",
+            incorrect: "text-rose-300"
+          }
+        : {
+            default: "text-slate-800",
+            correct: "text-emerald-700",
+            incorrect: "text-rose-700"
+          },
+    [isDark]
+  );
 
-  const wordRanges = useMemo(() => {
-    const ranges = [];
-    let index = 0;
-    words.forEach((word) => {
-      const start = index;
-      const end = index + word.length - 1;
-      ranges.push([start, end]);
-      index = end + 2; // account for space
-    });
-    return ranges;
-  }, [words]);
+  const registerWordRef = useCallback((wordTokenIndex, node) => {
+    wordRefs.current[wordTokenIndex] = node;
+  }, []);
 
-  const getCurrentWordNode = () => {
-    const firstIndex = wordRanges[currentWordIndex]?.[0] ?? activeIndex;
-    return characterRefs.current[firstIndex] || characterRefs.current[activeIndex] || null;
-  };
+  const registerCharacterRef = useCallback((characterIndex, node) => {
+    characterRefs.current[characterIndex] = node;
+  }, []);
+
+  const registerCharacterRangeRef = useCallback((start, end, node) => {
+    for (let index = start; index <= end; index += 1) {
+      characterRefs.current[index] = node;
+    }
+  }, []);
+
+  const getCurrentWordNode = useCallback(() => {
+    const currentWordToken = wordTokens[currentWordIndex] || null;
+    const firstIndex = currentWordToken?.start ?? activeIndex;
+    return wordRefs.current[currentWordIndex] || characterRefs.current[firstIndex] || characterRefs.current[activeIndex] || null;
+  }, [activeIndex, currentWordIndex, wordTokens]);
 
   useEffect(() => {
     const handleResize = () => {};
@@ -74,6 +222,12 @@ function TypingText({
       return;
     }
 
+    const scrollTargetKey = `${currentWordIndex}:${activeIndex}`;
+    if (lastScrollTargetRef.current === scrollTargetKey) {
+      return;
+    }
+    lastScrollTargetRef.current = scrollTargetKey;
+
     const currentWordNode = getCurrentWordNode();
     if (!currentWordNode) return;
 
@@ -89,12 +243,12 @@ function TypingText({
 
     try {
       currentWordNode.scrollIntoView({ block: "nearest", inline: "nearest" });
-    } catch (e) {
+    } catch (error) {
       const targetTop = Math.max(0, currentTop - container.clientHeight * 0.36 + currentHeight / 2);
       const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
       container.scrollTop = Math.min(targetTop, maxScrollTop);
     }
-  }, [activeIndex, currentWordIndex]);
+  }, [activeIndex, currentWordIndex, getCurrentWordNode]);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -122,52 +276,46 @@ function TypingText({
     appendScrollHeightRef.current = currentHeight;
   }, [paragraph.length]);
 
-  const [caret, setCaret] = useState({ left: 0, top: 0, height: 18, visible: false });
-
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
     appendScrollHeightRef.current = container.scrollHeight;
 
-    // Hide caret when unfocused
     if (!focused) {
-      setCaret((c) => (c.visible ? { ...c, visible: false } : c));
+      setCaret((currentCaret) => (currentCaret.visible ? { ...currentCaret, visible: false } : currentCaret));
       return;
     }
 
-    // Show caret only before typing (activeIndex <= 0)
     if (activeIndex > 0) {
-      setCaret((c) => (c.visible ? { ...c, visible: false } : c));
+      setCaret((currentCaret) => (currentCaret.visible ? { ...currentCaret, visible: false } : currentCaret));
       return;
     }
 
-    // Anchor caret to the start of the current word
-    const currentRange = wordRanges[currentWordIndex] || null;
-    let wnode = wordRefs.current[currentWordIndex] || null;
-    if (!wnode && currentRange) {
-      const [wStart] = currentRange;
-      wnode = characterRefs.current[wStart] || null;
+    const currentWordToken = wordTokens[currentWordIndex] || null;
+    let wordNode = wordRefs.current[currentWordIndex] || null;
+    if (!wordNode && currentWordToken) {
+      wordNode = characterRefs.current[currentWordToken.start] || null;
     }
 
-    if (wnode) {
+    if (wordNode) {
       try {
-        const left = wnode.offsetLeft + 2;
-        const top = wnode.offsetTop;
-        const height = wnode.offsetHeight || parseFloat(getComputedStyle(container).fontSize) * 1.1;
+        const left = wordNode.offsetLeft + 2;
+        const top = wordNode.offsetTop;
+        const height = wordNode.offsetHeight || parseFloat(getComputedStyle(container).fontSize) * 1.1;
         setCaret({ left, top, height, visible: true });
-      } catch (e) {
-        const wRect = wnode.getBoundingClientRect();
-        const cRect = container.getBoundingClientRect();
-        const left = wRect.left - cRect.left + container.scrollLeft + 2;
-        const top = wRect.top - cRect.top + container.scrollTop;
-        const height = wRect.height || parseFloat(getComputedStyle(container).fontSize) * 1.1;
+      } catch (error) {
+        const wordRect = wordNode.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const left = wordRect.left - containerRect.left + container.scrollLeft + 2;
+        const top = wordRect.top - containerRect.top + container.scrollTop;
+        const height = wordRect.height || parseFloat(getComputedStyle(container).fontSize) * 1.1;
         setCaret({ left, top, height, visible: true });
       }
     } else {
       const fallbackHeight = parseFloat(getComputedStyle(container).fontSize) * 1.1;
       setCaret({ left: 6, top: 6, height: fallbackHeight, visible: true });
     }
-  }, [activeIndex, focused, paragraph, fontScale, currentWordIndex, wordRanges]);
+  }, [activeIndex, focused, fontScale, currentWordIndex, wordTokens]);
 
   return (
     <div
@@ -198,72 +346,18 @@ function TypingText({
           />
         ) : null}
 
-        {words.map((word, wordIndex) => {
-          const [start, end] = wordRanges[wordIndex] || [0, -1];
-          let wordState = "default";
-          if (end >= start) {
-            let allCorrect = true;
-            let anyIncorrect = false;
-            for (let index = start; index <= end; index += 1) {
-              if (characterStates[index] === "incorrect") anyIncorrect = true;
-              if (characterStates[index] !== "correct") allCorrect = false;
-            }
-            if (allCorrect) wordState = "correct";
-            else if (anyIncorrect) wordState = "incorrect";
-          }
-
-          return (
-            <span
-              key={`${word}-${wordIndex}`}
-              ref={(node) => {
-                wordRefs.current[wordIndex] = node;
-              }}
-              className={`inline-block align-top mr-3 mb-2 transition-all duration-150 ${
-                currentWordIndex === wordIndex ? "scale-[1.01]" : "scale-100"
-              } ${
-                wordState === "correct"
-                  ? isDark
-                    ? "text-emerald-200"
-                    : "text-emerald-900"
-                  : wordState === "incorrect"
-                  ? isDark
-                    ? "text-rose-300"
-                    : "text-rose-900"
-                  : isDark
-                  ? "text-slate-200"
-                  : "text-slate-800"
-              }`}
-            >
-              {word.split("").map((character, characterIndex) => {
-                const index = start + characterIndex;
-                return (
-                  <span
-                    key={`${character}-${index}`}
-                    ref={(node) => {
-                      characterRefs.current[index] = node;
-                    }}
-                    className={`${stateClasses[characterStates[index]] || stateClasses.default} transition-colors duration-150`}
-                  >
-                    {character}
-                  </span>
-                );
-              })}
-
-              {wordIndex < words.length - 1 ? (
-                <span
-                  ref={(node) => {
-                    characterRefs.current[end + 1] = node;
-                  }}
-                  className={`${stateClasses[characterStates[end + 1]] || stateClasses.default} inline-block w-[0.6ch]`}
-                >
-                  {" "}
-                </span>
-              ) : null}
-
-              {null}
-            </span>
-          );
-        })}
+        {segments.map((token) => (
+          <TypingToken
+            key={token.id}
+            token={token}
+            characterStates={characterStates}
+            currentWordIndex={currentWordIndex}
+            isDark={isDark}
+            registerWordRef={registerWordRef}
+            registerCharacterRef={registerCharacterRef}
+            registerCharacterRangeRef={registerCharacterRangeRef}
+          />
+        ))}
       </div>
     </div>
   );
