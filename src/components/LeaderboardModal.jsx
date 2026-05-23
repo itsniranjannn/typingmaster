@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { X } from "lucide-react";
-import { loadLeaderboard, resetLeaderboard } from "../utils/storage";
+import { loadResults, loadLeaderboard, resetLeaderboard } from "../utils/storage";
 import { TYPING_MODES } from "../constants/typingModes";
 
 const MODE_FILTERS = [
@@ -24,13 +24,30 @@ function LeaderboardModal({ isOpen, onClose, isDark = true }) {
 
   useEffect(() => {
     if (isOpen) {
-      setResults(loadLeaderboard());
+      // Load both the cached leaderboard and all recent results so we can compute
+      // a mode-aware top list (ensures each mode can surface its own top scores).
+      const recent = Array.isArray(loadResults()) ? loadResults() : [];
+      // Merge recent and stored leaderboard entries, then dedupe by id.
+      const stored = Array.isArray(loadLeaderboard()) ? loadLeaderboard() : [];
+      const combined = [...recent, ...stored];
+      const deduped = [];
+      const seen = new Set();
+      for (const r of combined) {
+        if (r && r.id && !seen.has(r.id)) {
+          deduped.push(r);
+          seen.add(r.id);
+        }
+      }
+      setResults(deduped);
     }
   }, [isOpen]);
 
   const filteredResults = useMemo(() => {
-    if (!selectedMode) return results;
-    return results.filter((r) => r.mode === selectedMode).slice(0, 10);
+    // compute top results (accuracy >= 90) for the selected mode (or all modes)
+    const candidates = (results || []).filter((r) => r && typeof r.accuracy === "number" && r.accuracy >= 90);
+    const modeFiltered = selectedMode ? candidates.filter((r) => r.mode === selectedMode) : candidates;
+    const sorted = modeFiltered.sort((a, b) => (b.wpm || 0) - (a.wpm || 0) || (b.accuracy || 0) - (a.accuracy || 0));
+    return sorted.slice(0, 10);
   }, [selectedMode, results]);
 
   const handleResetLeaderboard = () => {

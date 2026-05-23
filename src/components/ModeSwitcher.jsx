@@ -15,11 +15,7 @@ function ModeSwitcher({ mode, wordCount, customText, targetWpm, goalAchievedSeco
             key={value}
             type="button"
             onClick={() => onModeChange(value)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium tracking-[0.08em] uppercase transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 ${
-              mode === value
-                ? `${isDark ? "border-slate-500 text-slate-50" : "border-slate-400 text-slate-900"} bg-transparent shadow-none`
-                : `${isDark ? "border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700" : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-200"}`
-            }`}
+            className={`px-3 py-1.5 rounded-full text-sm font-semibold transition ${mode === value ? (isDark ? 'bg-sky-500 text-white' : 'bg-sky-500 text-white') : (isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-700')}`}
             aria-label={`Switch to ${label} mode`}
           >
             {label}
@@ -34,11 +30,7 @@ function ModeSwitcher({ mode, wordCount, customText, targetWpm, goalAchievedSeco
               key={option}
               type="button"
               onClick={() => onWordCountChange(option)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium tracking-[0.08em] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 ${
-                wordCount === option
-                  ? `${isDark ? "border-slate-500 text-slate-50" : "border-slate-400 text-slate-900"} bg-transparent`
-                  : `${isDark ? "border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-700" : "border-transparent text-slate-500 hover:text-slate-900 hover:border-slate-200"}`
-              }`}
+              className={`px-2 py-1 rounded-md text-sm ${wordCount === option ? 'bg-emerald-500 text-white' : (isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-700')}`}
               aria-label={`Set word count to ${option}`}
             >
               {option}

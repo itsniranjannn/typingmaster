@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 
 function TypingText({
   paragraph = "",
@@ -16,6 +16,8 @@ function TypingText({
 }) {
   const containerRef = useRef(null);
   const characterRefs = useRef([]);
+  const wordRefs = useRef([]);
+
   const words = useMemo(() => paragraph.split(" "), [paragraph]);
 
   const stateClasses = isDark
@@ -33,14 +35,12 @@ function TypingText({
   const wordRanges = useMemo(() => {
     const ranges = [];
     let index = 0;
-
     words.forEach((word) => {
       const start = index;
       const end = index + word.length - 1;
       ranges.push([start, end]);
-      index = end + 2;
+      index = end + 2; // account for space
     });
-
     return ranges;
   }, [words]);
 
@@ -60,17 +60,68 @@ function TypingText({
 
   useEffect(() => {
     if (activeIndex < 0) return;
-
-    const currentWordNode = characterRefs.current[wordRanges[currentWordIndex]?.[0] ?? activeIndex] ||
-      characterRefs.current[activeIndex];
+    const firstIndex = wordRanges[currentWordIndex]?.[0] ?? activeIndex;
+    const currentWordNode = characterRefs.current[firstIndex] || characterRefs.current[activeIndex];
     currentWordNode?.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
   }, [activeIndex, currentWordIndex, wordRanges]);
+
+  const [caret, setCaret] = useState({ left: 0, top: 0, height: 18, visible: false });
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Hide caret when unfocused
+    if (!focused) {
+      setCaret((c) => (c.visible ? { ...c, visible: false } : c));
+      return;
+    }
+
+    // Show caret only before typing (activeIndex <= 0)
+    if (activeIndex > 0) {
+      setCaret((c) => (c.visible ? { ...c, visible: false } : c));
+      return;
+    }
+
+    // Anchor caret to the start of the current word
+    const currentRange = wordRanges[currentWordIndex] || null;
+    let wnode = wordRefs.current[currentWordIndex] || null;
+    if (!wnode && currentRange) {
+      const [wStart] = currentRange;
+      wnode = characterRefs.current[wStart] || null;
+    }
+
+    if (wnode) {
+      try {
+        const left = wnode.offsetLeft + 2;
+        const top = wnode.offsetTop;
+        const height = wnode.offsetHeight || parseFloat(getComputedStyle(container).fontSize) * 1.1;
+        setCaret({ left, top, height, visible: true });
+      } catch (e) {
+        const wRect = wnode.getBoundingClientRect();
+        const cRect = container.getBoundingClientRect();
+        const left = wRect.left - cRect.left + container.scrollLeft + 2;
+        const top = wRect.top - cRect.top + container.scrollTop;
+        const height = wRect.height || parseFloat(getComputedStyle(container).fontSize) * 1.1;
+        setCaret({ left, top, height, visible: true });
+      }
+    } else {
+      const fallbackHeight = parseFloat(getComputedStyle(container).fontSize) * 1.1;
+      setCaret({ left: 6, top: 6, height: fallbackHeight, visible: true });
+    }
+  }, [activeIndex, focused, paragraph, fontScale, currentWordIndex, wordRanges]);
 
   return (
     <div
       ref={containerRef}
-      style={{ "--typing-scale": fontScale, lineHeight: 1.6 }}
-      className={`typing-area relative mx-auto min-h-[180px] w-full max-w-[76rem] rounded-2xl p-6 sm:p-8 font-mono text-[calc(1.6rem*var(--typing-scale))] sm:text-[calc(2.1rem*var(--typing-scale))] md:text-[calc(2.35rem*var(--typing-scale))] leading-[1.72] tracking-[0.01em] cursor-text outline-none overflow-x-auto whitespace-pre-wrap ${focused ? (isDark ? "ring-1 ring-cyan-300/40 shadow-[0_0_0_1px_rgba(103,232,249,0.12),inset_0_0_55px_rgba(34,211,238,0.08)]" : "ring-1 ring-cyan-500/35 shadow-[0_0_0_1px_rgba(14,165,233,0.08),inset_0_0_55px_rgba(14,165,233,0.06)]") : ""} ${className}`}
+      style={{
+        "--typing-scale": fontScale,
+        lineHeight: 1.4,
+        fontFamily: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace"
+      }}
+      className={`typing-area relative mx-auto min-h-[140px] w-full max-w-[76rem] rounded-2xl p-4 sm:p-6 font-mono text-[calc(1.2rem*var(--typing-scale))] sm:text-[calc(1.6rem*var(--typing-scale))] md:text-[calc(1.8rem*var(--typing-scale))] leading-[1.5] tracking-[0.01em] cursor-text outline-none overflow-x-auto whitespace-pre-wrap ${
+        focused ? (isDark ? "ring-1 ring-cyan-300/40 shadow-[0_0_0_1px_rgba(103,232,249,0.12),inset_0_0_55px_rgba(34,211,238,0.08)]" : "ring-1 ring-cyan-500/35 shadow-[0_0_0_1px_rgba(14,165,233,0.08),inset_0_0_55px_rgba(14,165,233,0.06)]") : ""
+      } ${className}`}
       tabIndex={0}
       role="textbox"
       aria-label="Typing area"
@@ -80,7 +131,15 @@ function TypingText({
       onFocus={onFocus}
       onBlur={onBlur}
     >
-      <div className="flex flex-wrap justify-center gap-x-4 gap-y-2 items-center text-center">
+      <div className="w-full text-left leading-relaxed relative">
+        {caret.visible ? (
+          <span
+            aria-hidden="true"
+            className={`caret-blink absolute z-20 border-l-2 ${isDark ? "border-cyan-300" : "border-cyan-600"}`}
+            style={{ left: caret.left, top: caret.top, height: caret.height, pointerEvents: "none" }}
+          />
+        ) : null}
+
         {words.map((word, wordIndex) => {
           const [start, end] = wordRanges[wordIndex] || [0, -1];
           let wordState = "default";
@@ -98,7 +157,10 @@ function TypingText({
           return (
             <span
               key={`${word}-${wordIndex}`}
-              className={`inline-flex items-center px-0.5 py-0 transition-all duration-150 ${
+              ref={(node) => {
+                wordRefs.current[wordIndex] = node;
+              }}
+              className={`inline-block align-top mr-3 mb-2 transition-all duration-150 ${
                 currentWordIndex === wordIndex ? "scale-[1.01]" : "scale-100"
               } ${
                 wordState === "correct"
@@ -106,12 +168,12 @@ function TypingText({
                     ? "text-emerald-200"
                     : "text-emerald-900"
                   : wordState === "incorrect"
-                    ? isDark
-                      ? "text-rose-300"
-                      : "text-rose-900"
-                    : isDark
-                      ? "text-slate-200"
-                      : "text-slate-800"
+                  ? isDark
+                    ? "text-rose-300"
+                    : "text-rose-900"
+                  : isDark
+                  ? "text-slate-200"
+                  : "text-slate-800"
               }`}
             >
               {word.split("").map((character, characterIndex) => {
@@ -124,12 +186,6 @@ function TypingText({
                     }}
                     className={`${stateClasses[characterStates[index]] || stateClasses.default} transition-colors duration-150`}
                   >
-                    {focused && activeIndex === index ? (
-                      <span
-                        className={`caret-blink mr-[1px] inline-block h-[1.1em] align-[-0.12em] border-l-2 ${isDark ? "border-cyan-300" : "border-cyan-600"}`}
-                        aria-hidden="true"
-                      />
-                    ) : null}
                     {character}
                   </span>
                 );
@@ -142,22 +198,11 @@ function TypingText({
                   }}
                   className={`${stateClasses[characterStates[end + 1]] || stateClasses.default} inline-block w-[0.6ch]`}
                 >
-                  {focused && activeIndex === end + 1 ? (
-                    <span
-                      className={`caret-blink mr-[1px] inline-block h-[1.1em] align-[-0.12em] border-l-2 ${isDark ? "border-cyan-300" : "border-cyan-600"}`}
-                      aria-hidden="true"
-                    />
-                  ) : null}
                   {" "}
                 </span>
               ) : null}
 
-              {focused && wordIndex === words.length - 1 && activeIndex === paragraph.length ? (
-                <span
-                  className={`caret-blink ml-[1px] inline-block h-[1.1em] align-[-0.12em] border-l-2 ${isDark ? "border-cyan-300" : "border-cyan-600"}`}
-                  aria-hidden="true"
-                />
-              ) : null}
+              {null}
             </span>
           );
         })}

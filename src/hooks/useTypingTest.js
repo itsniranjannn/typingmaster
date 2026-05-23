@@ -541,24 +541,14 @@ export const useTypingTest = () => {
       }
 
       if (isBackspace) {
-        if (nextValue.length < lastWordBoundaryRef.current) {
-          const removedIndex = typedText.length - 1;
-          const removedChar = typedText[removedIndex];
-          const canDeleteTrailingSpace =
-            canDeleteTrailingSpaceRef.current &&
-            removedChar === " " &&
-            typedText.length === lastWordBoundaryRef.current;
-
-          if (!canDeleteTrailingSpace) {
-            return;
-          }
-
-          lastWordBoundaryRef.current = nextValue.lastIndexOf(" ") + 1;
-          canDeleteTrailingSpaceRef.current = false;
-        }
-
         const removedIndex = typedText.length - 1;
         const removedChar = typedText[removedIndex];
+
+        // Disallow deleting the trailing space after a completed word.
+        if (removedChar === " ") {
+          return;
+        }
+
         const targetChar = paragraph[removedIndex];
 
         currentIndexRef.current = Math.max(currentIndexRef.current - 1, 0);
