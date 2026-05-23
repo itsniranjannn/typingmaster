@@ -15,7 +15,7 @@ import RightSidebar from "./RightSidebar";
 import SidebarModal from "./SidebarModal";
 import WelcomeTour from "./WelcomeTour";
 import { useTypingTest } from "../hooks/useTypingTest";
-import { TYPING_MODES, GOAL_VARIANTS, UNIVERSAL_MODES, CUSTOM_TIME_MIN_SECONDS, CUSTOM_TIME_MAX_SECONDS } from "../constants/typingModes";
+import { TYPING_MODES, GOAL_VARIANTS, CUSTOM_TIME_MIN_SECONDS, CUSTOM_TIME_MAX_SECONDS } from "../constants/typingModes";
 import { exportResultsToCSV, getHasSeenTour, setHasSeenTour } from "../utils/storage";
 
 function TypingTest({ theme, onToggleTheme }) {
@@ -85,10 +85,12 @@ function TypingTest({ theme, onToggleTheme }) {
   const [welcomeTourStep, setWelcomeTourStep] = useState(0);
   const [welcomeTourRect, setWelcomeTourRect] = useState(null);
   const [timeInput, setTimeInput] = useState(String(timeLimitSeconds));
+  const [wordCountInput, setWordCountInput] = useState(String(wordCount));
   const headerControlsRef = useRef(null);
   const modeBarRef = useRef(null);
   const typingPanelRef = useRef(null);
   const statsBarRef = useRef(null);
+  const isCoreMode = [TYPING_MODES.TIME, TYPING_MODES.WORDS, TYPING_MODES.GOAL].includes(mode);
 
   const syncTypingFocusState = useCallback(() => {
     const wrapper = typingSurfaceRef.current;
@@ -99,6 +101,10 @@ function TypingTest({ theme, onToggleTheme }) {
   useEffect(() => {
     setTimeInput(String(timeLimitSeconds));
   }, [timeLimitSeconds]);
+
+  useEffect(() => {
+    setWordCountInput(String(wordCount));
+  }, [wordCount]);
 
   const commitTimeInput = useCallback(
     (value) => {
@@ -113,13 +119,33 @@ function TypingTest({ theme, onToggleTheme }) {
     [handleTimeLimitChange]
   );
 
+  const commitWordCountInput = useCallback(
+    (value) => {
+      const trimmedValue = String(value).trim();
+      if (trimmedValue.length === 0) return;
+
+      const parsedValue = Number(trimmedValue);
+      if (!Number.isFinite(parsedValue)) return;
+
+      handleModeChange(TYPING_MODES.WORDS, { wordCount: Math.min(300, Math.max(10, Math.round(parsedValue))) });
+    },
+    [handleModeChange]
+  );
+
+  const activateCoreMode = useCallback(() => {
+    if (isCoreMode) {
+      return;
+    }
+    handleModeChange(TYPING_MODES.TIME, { timeLimitSeconds });
+  }, [handleModeChange, isCoreMode, timeLimitSeconds]);
+
   const welcomeTourSteps = useMemo(
     () => [
       {
         target: "modeBar",
         title: "Pick a test mode",
         description:
-          "Use this bar for the core tests: Time, Words, and Goal. The header mode picker also includes Quote, Custom text, and Numbers."
+          "This Core bar lets you switch Time, Words, and Goal settings, then restart the run. Use the top selector above to enter Classic Core, Quotes, Custom, or Numbers."
       },
       {
         target: "typingPanel",
@@ -417,13 +443,12 @@ function TypingTest({ theme, onToggleTheme }) {
             {/* simplified nav - removed Practice / Leaderboard / Pro Tip links per request */}
           </div>
 
-          <div className="hidden flex-1 sm:block">
+          <div className="w-full flex-1 sm:px-2">
             <TextSelector
               mode={mode}
-              goalVariant={goalVariant}
-              timeLimitSeconds={timeLimitSeconds}
               customText={customText}
               onModeChange={handleModeChange}
+              onCoreSelect={activateCoreMode}
               onCustomTextChange={handleCustomTextChange}
               isDark={isDark}
             />
@@ -478,120 +503,223 @@ function TypingTest({ theme, onToggleTheme }) {
         </div>
       </motion.header>
 
-      {/* Top mode bar (Monkeytype-style) */}
-      {UNIVERSAL_MODES.includes(mode) && (
-      <div ref={modeBarRef} className={`mx-auto w-full max-w-6xl px-4 sm:px-6`}>
-        <div className={`rounded-xl backdrop-blur-sm px-3 py-2 flex flex-wrap items-center gap-2 justify-between ${isDark ? 'bg-gray-900/60 border-gray-700' : 'bg-white/60 border-transparent'} border-b`}>
-          <div className="flex items-center gap-2 flex-wrap">
-            {/* Mode buttons */}
-            <div className="inline-flex items-center gap-2">
-              <button
-                onClick={() => { commitTimeInput(timeInput); handleModeChange(TYPING_MODES.TIME, { timeLimitSeconds: Number(timeInput) || timeLimitSeconds }); setTipSeed((v) => v + 1); setGoalReachedShown(false); if (goalReachedTimeoutRef.current) { window.clearTimeout(goalReachedTimeoutRef.current); goalReachedTimeoutRef.current = null; } }}
-                className={`px-3 py-1.5 rounded-full text-sm font-semibold transition ${mode === TYPING_MODES.TIME ? 'bg-sky-500 text-white' : isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-700'}`}
-                aria-pressed={mode === TYPING_MODES.TIME}
-              >
-                Time {timeLimitSeconds}s
-              </button>
-              <div className={`flex items-center gap-2 rounded-full border px-3 py-1.5 ${isDark ? 'border-slate-700 bg-slate-900/70' : 'border-slate-200 bg-white'}`}>
-                <input
-                  type="number"
-                  min={CUSTOM_TIME_MIN_SECONDS}
-                  max={CUSTOM_TIME_MAX_SECONDS}
-                  value={timeInput}
-                  onChange={(event) => {
-                    setTimeInput(event.target.value);
-                  }}
-                  onBlur={() => {
-                    if (String(timeInput).trim().length === 0) {
-                      setTimeInput(String(timeLimitSeconds));
-                      return;
-                    }
+      {/* Core settings bar */}
+      <motion.div
+        ref={modeBarRef}
+        initial={false}
+        animate={isCoreMode ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -12, scale: 0.99 }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
+        className={`w-full px-4 sm:px-6 overflow-hidden ${isCoreMode ? "pointer-events-auto max-h-[420px] pt-3" : "pointer-events-none max-h-0 pt-0"}`}
+      >
+        <motion.div
+          key="core-settings-bar"
+          initial={false}
+        >
+            <div className={`w-full rounded-2xl border px-4 py-4 backdrop-blur-xl shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_20px_40px_rgba(2,6,23,0.12)] ${isDark ? "border-slate-700/70 bg-slate-950/55" : "border-slate-200/80 bg-white/70"}`}>
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="inline-flex flex-wrap items-center gap-2">
+                  {[
+                    { value: TYPING_MODES.TIME, label: "Time", detail: "Time mode: choose a duration and type as fast as you can." },
+                    { value: TYPING_MODES.WORDS, label: "Words", detail: "Words mode: choose a target word count or type a custom count." },
+                    { value: TYPING_MODES.GOAL, label: "Goal", detail: "Goal mode: choose Sustain or Reach, then pick a target WPM." }
+                  ].map((section) => {
+                    const isActive = mode === section.value;
+                    return (
+                      <button
+                        key={section.value}
+                        onClick={() => {
+                          if (section.value === TYPING_MODES.TIME) {
+                            handleModeChange(TYPING_MODES.TIME, { timeLimitSeconds });
+                          } else if (section.value === TYPING_MODES.WORDS) {
+                            handleModeChange(TYPING_MODES.WORDS, { wordCount });
+                          } else {
+                            handleModeChange(TYPING_MODES.GOAL, { goalVariant });
+                          }
+                        }}
+                        className={`group inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold tracking-[0.01em] transition ${isActive ? "bg-gradient-to-r from-cyan-400 via-sky-500 to-indigo-500 text-white shadow-[0_0_0_1px_rgba(125,211,252,0.35),0_12px_30px_rgba(14,165,233,0.22)]" : isDark ? "bg-slate-900/80 text-slate-200 hover:bg-slate-800" : "bg-white/90 text-slate-700 hover:bg-slate-100"}`}
+                        aria-pressed={isActive}
+                        title={section.detail}
+                      >
+                        <span>{section.label}</span>
+                        <span className={`text-[10px] uppercase tracking-[0.22em] ${isActive ? "text-white/85" : secondaryText}`}>{isActive ? "selected" : "hover"}</span>
+                      </button>
+                    );
+                  })}
+                </div>
 
-                    commitTimeInput(timeInput);
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.currentTarget.blur();
-                    }
-                  }}
-                  className={`w-16 bg-transparent text-sm font-semibold outline-none ${isDark ? 'text-slate-100 placeholder:text-slate-500' : 'text-slate-800 placeholder:text-slate-400'}`}
-                  aria-label="Custom time limit in seconds"
-                />
-                <span className={`text-xs uppercase tracking-[0.18em] ${secondaryText}`}>sec</span>
+                <div className="ml-auto">
+                  <motion.button
+                    onClick={() => { handleRestart(); setTipSeed((v) => v + 1); setGoalReachedShown(false); if (goalReachedTimeoutRef.current) { window.clearTimeout(goalReachedTimeoutRef.current); goalReachedTimeoutRef.current = null; } }}
+                    whileHover={{ scale: 1.03 }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 ${isDark ? 'bg-slate-800 text-slate-100' : 'bg-slate-100 text-slate-700'}`}
+                    title="Restart the current Core test with the selected settings"
+                  >
+                    <RotateCcw size={14} /> Restart
+                  </motion.button>
+                </div>
+
+                <div className="w-full pt-3">
+                  <motion.div
+                    key={mode}
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.18 }}
+                    className="flex flex-wrap items-center gap-2"
+                  >
+                    {mode === TYPING_MODES.TIME && (
+                      <>
+                        <span className={`text-[10px] font-semibold uppercase tracking-[0.24em] ${secondaryText}`} title="Choose a time limit for Classic Core">Time</span>
+                        {[10, 30, 60].map((seconds) => (
+                          <button
+                            key={seconds}
+                            onClick={() => {
+                              setTimeInput(String(seconds));
+                              handleModeChange(TYPING_MODES.TIME, { timeLimitSeconds: seconds });
+                              setTipSeed((v) => v + 1);
+                              setGoalReachedShown(false);
+                              if (goalReachedTimeoutRef.current) {
+                                window.clearTimeout(goalReachedTimeoutRef.current);
+                                goalReachedTimeoutRef.current = null;
+                              }
+                            }}
+                            className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${mode === TYPING_MODES.TIME && timeLimitSeconds === seconds ? "bg-gradient-to-r from-cyan-400 to-sky-500 text-white shadow-[0_0_18px_rgba(56,189,248,0.28)]" : isDark ? "bg-slate-900/80 text-slate-200 hover:bg-slate-800" : "bg-white text-slate-700 hover:bg-slate-100"}`}
+                            title={`Set the test to ${seconds} seconds`}
+                          >
+                            {seconds}s
+                          </button>
+                        ))}
+                        <div className={`flex items-center gap-2 rounded-full border px-3 py-1.5 ${isDark ? "border-slate-700/70 bg-slate-900/70" : "border-slate-200 bg-white"}`} title="Type a custom time between 10 and 300 seconds">
+                          <input
+                            type="number"
+                            min={CUSTOM_TIME_MIN_SECONDS}
+                            max={CUSTOM_TIME_MAX_SECONDS}
+                            value={timeInput}
+                            onChange={(event) => setTimeInput(event.target.value)}
+                            onBlur={() => {
+                              if (String(timeInput).trim().length === 0) {
+                                setTimeInput(String(timeLimitSeconds));
+                                return;
+                              }
+
+                              commitTimeInput(timeInput);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.currentTarget.blur();
+                              }
+                            }}
+                            className={`w-16 bg-transparent text-sm font-semibold outline-none ${isDark ? "text-slate-100 placeholder:text-slate-500" : "text-slate-800 placeholder:text-slate-400"}`}
+                            aria-label="Custom time limit in seconds"
+                          />
+                          <span className={`text-[10px] uppercase tracking-[0.2em] ${secondaryText}`}>max 300s</span>
+                        </div>
+                      </>
+                    )}
+
+                    {mode === TYPING_MODES.WORDS && (
+                      <>
+                        <span className={`text-[10px] font-semibold uppercase tracking-[0.24em] ${secondaryText}`} title="Choose a word target for Classic Core">Words</span>
+                        {[25, 50, 100].map((count) => (
+                          <button
+                            key={count}
+                            onClick={() => {
+                              setWordCountInput(String(count));
+                              handleModeChange(TYPING_MODES.WORDS, { wordCount: count });
+                              setTipSeed((v) => v + 1);
+                              setGoalReachedShown(false);
+                              if (goalReachedTimeoutRef.current) {
+                                window.clearTimeout(goalReachedTimeoutRef.current);
+                                goalReachedTimeoutRef.current = null;
+                              }
+                            }}
+                            className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${mode === TYPING_MODES.WORDS && wordCount === count ? "bg-gradient-to-r from-emerald-400 to-teal-500 text-white shadow-[0_0_18px_rgba(16,185,129,0.24)]" : isDark ? "bg-slate-900/80 text-slate-200 hover:bg-slate-800" : "bg-white text-slate-700 hover:bg-slate-100"}`}
+                            title={`Set the test to ${count} words`}
+                          >
+                            {count}
+                          </button>
+                        ))}
+                        <div className={`flex items-center gap-2 rounded-full border px-3 py-1.5 ${isDark ? "border-slate-700/70 bg-slate-900/70" : "border-slate-200 bg-white"}`} title="Type a custom word count between 10 and 300">
+                          <input
+                            type="number"
+                            min={10}
+                            max={300}
+                            value={wordCountInput}
+                            onChange={(event) => setWordCountInput(event.target.value)}
+                            onBlur={() => {
+                              if (String(wordCountInput).trim().length === 0) {
+                                setWordCountInput(String(wordCount));
+                                return;
+                              }
+
+                              commitWordCountInput(wordCountInput);
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                event.currentTarget.blur();
+                              }
+                            }}
+                            className={`w-16 bg-transparent text-sm font-semibold outline-none ${isDark ? "text-slate-100 placeholder:text-slate-500" : "text-slate-800 placeholder:text-slate-400"}`}
+                            aria-label="Custom word count"
+                          />
+                          <span className={`text-[10px] uppercase tracking-[0.2em] ${secondaryText}`}>max 300</span>
+                        </div>
+                      </>
+                    )}
+
+                    {mode === TYPING_MODES.GOAL && (
+                      <>
+                        <span className={`text-[10px] font-semibold uppercase tracking-[0.24em] ${secondaryText}`} title="Pick the goal type and then the target WPM">Goal</span>
+                        {[
+                          { value: GOAL_VARIANTS.SUSTAIN, label: "Goal (Sustain)", detail: "Hold the target WPM for a short window to finish." },
+                          { value: GOAL_VARIANTS.REACH, label: "Goal (Reach)", detail: "Finish the full text and meet the target WPM to score." }
+                        ].map((goalItem) => (
+                          <button
+                            key={goalItem.value}
+                            onClick={() => {
+                              handleModeChange(TYPING_MODES.GOAL, { goalVariant: goalItem.value });
+                              setTipSeed((v) => v + 1);
+                              setGoalReachedShown(false);
+                              if (goalReachedTimeoutRef.current) {
+                                window.clearTimeout(goalReachedTimeoutRef.current);
+                                goalReachedTimeoutRef.current = null;
+                              }
+                            }}
+                            className={`group rounded-full px-3 py-1.5 text-sm font-semibold transition ${mode === TYPING_MODES.GOAL && goalVariant === goalItem.value ? "bg-gradient-to-r from-fuchsia-500 to-rose-500 text-white shadow-[0_0_18px_rgba(244,114,182,0.24)]" : isDark ? "bg-slate-900/80 text-slate-200 hover:bg-slate-800" : "bg-white text-slate-700 hover:bg-slate-100"}`}
+                            aria-pressed={mode === TYPING_MODES.GOAL && goalVariant === goalItem.value}
+                            title={goalItem.detail}
+                          >
+                            <span className="inline-flex items-center gap-1">
+                              <span>{goalItem.label}</span>
+                              <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100">?</span>
+                            </span>
+                          </button>
+                        ))}
+
+                        <div className="inline-flex flex-wrap items-center gap-2">
+                          <span className={`text-[10px] font-semibold uppercase tracking-[0.24em] ${secondaryText}`} title="Choose a target WPM for Goal mode">Target WPM</span>
+                          {[30, 40, 50, 60, 75, 100].map((wpm) => (
+                            <button
+                              key={wpm}
+                              onClick={() => {
+                                handleGoalWpmChange(wpm);
+                                setTipSeed((v) => v + 1);
+                              }}
+                              className={`rounded-full px-3 py-1.5 text-sm font-semibold transition ${targetWpm === wpm ? "bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow-[0_0_18px_rgba(251,146,60,0.22)]" : isDark ? "bg-slate-900/80 text-slate-200 hover:bg-slate-800" : "bg-white text-slate-700 hover:bg-slate-100"}`}
+                              title={`Set the Goal target to ${wpm} WPM`}
+                            >
+                              {wpm}
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </motion.div>
+                </div>
               </div>
-              <button
-                onClick={() => { handleModeChange(TYPING_MODES.WORDS); setTipSeed((v) => v + 1); setGoalReachedShown(false); if (goalReachedTimeoutRef.current) { window.clearTimeout(goalReachedTimeoutRef.current); goalReachedTimeoutRef.current = null; } }}
-                className={`px-3 py-1.5 rounded-full text-sm font-semibold transition ${mode === TYPING_MODES.WORDS ? 'bg-sky-500 text-white' : isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-700'}`}
-                aria-pressed={mode === TYPING_MODES.WORDS}
-              >
-                Words
-              </button>
-              <button
-                onClick={() => { handleModeChange(TYPING_MODES.GOAL, { goalVariant: GOAL_VARIANTS.SUSTAIN }); setTipSeed((v) => v + 1); setGoalReachedShown(false); if (goalReachedTimeoutRef.current) { window.clearTimeout(goalReachedTimeoutRef.current); goalReachedTimeoutRef.current = null; } }}
-                className={`group px-3 py-1.5 rounded-full text-sm font-semibold transition ${mode === TYPING_MODES.GOAL && goalVariant === GOAL_VARIANTS.SUSTAIN ? 'bg-sky-500 text-white' : isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-700'}`}
-                aria-pressed={mode === TYPING_MODES.GOAL && goalVariant === GOAL_VARIANTS.SUSTAIN}
-                aria-label="Goal (Sustain). Hold the target WPM for a short window to finish."
-                title="Goal (Sustain): hold the target WPM briefly to finish."
-              >
-                <span className="inline-flex items-center gap-1">
-                  <span>Goal (Sustain)</span>
-                  <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100">?</span>
-                </span>
-              </button>
-              <button
-                onClick={() => { handleModeChange(TYPING_MODES.GOAL, { goalVariant: GOAL_VARIANTS.REACH }); setTipSeed((v) => v + 1); setGoalReachedShown(false); if (goalReachedTimeoutRef.current) { window.clearTimeout(goalReachedTimeoutRef.current); goalReachedTimeoutRef.current = null; } }}
-                className={`group px-3 py-1.5 rounded-full text-sm font-semibold transition ${mode === TYPING_MODES.GOAL && goalVariant === GOAL_VARIANTS.REACH ? 'bg-sky-500 text-white' : isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-700'}`}
-                aria-pressed={mode === TYPING_MODES.GOAL && goalVariant === GOAL_VARIANTS.REACH}
-                aria-label="Goal (Reach). Finish the full text and meet the target WPM to score."
-                title="Goal (Reach): complete the full text and hit the target WPM to score."
-              >
-                <span className="inline-flex items-center gap-1">
-                  <span>Goal (Reach)</span>
-                  <span className="opacity-0 transition-opacity duration-150 group-hover:opacity-100">?</span>
-                </span>
-              </button>
             </div>
-
-            {/* WORDS mode: quick word-count chips */}
-            {mode === TYPING_MODES.WORDS && (
-              <div className="inline-flex items-center gap-2 ml-2">
-                {[25, 50, 100].map((count) => (
-                  <button
-                    key={count}
-                    onClick={() => { handleWordCountChange(count); setTipSeed((v) => v + 1); }}
-                    className={`px-2 py-1 rounded-md text-sm ${wordCount === count ? 'bg-emerald-500 text-white' : isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-700'}`}
-                  >{count}</button>
-                ))}
-              </div>
-            )}
-
-            {/* GOAL mode: target WPM chips */}
-            {mode === TYPING_MODES.GOAL && (
-              <div className="inline-flex items-center gap-2 ml-2">
-                {[30, 40, 50, 60, 75, 100].map((w) => (
-                  <button
-                    key={w}
-                    onClick={() => { handleGoalWpmChange(w); setTipSeed((v) => v + 1); }}
-                    className={`px-2 py-1 rounded-md text-sm ${targetWpm === w ? 'bg-emerald-500 text-white' : isDark ? 'bg-slate-800 text-slate-200' : 'bg-white text-slate-700'}`}
-                  >{w}</button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <motion.button
-              onClick={() => { handleRestart(); setTipSeed((v) => v + 1); setGoalReachedShown(false); if (goalReachedTimeoutRef.current) { window.clearTimeout(goalReachedTimeoutRef.current); goalReachedTimeoutRef.current = null; } }}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.98 }}
-              className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 ${isDark ? 'bg-slate-800 text-slate-100' : 'bg-slate-100 text-slate-700'}`}
-            >
-              <RotateCcw size={14} /> Restart
-            </motion.button>
-          </div>
-        </div>
-      </div>
-      )}
+          </motion.div>
+      </motion.div>
 
       {/* Main Content */}
       <motion.main

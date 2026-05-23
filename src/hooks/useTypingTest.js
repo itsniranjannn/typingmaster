@@ -721,6 +721,7 @@ export const useTypingTest = () => {
       const normalizedMode = normalizeMode(nextMode);
       const nextGoal = normalizeGoalVariant(options.goalVariant ?? goalVariant);
       const nextTimeLimit = normalizeTimeLimitSeconds(options.timeLimitSeconds ?? timeLimitSeconds);
+      const nextWordCount = Number.isFinite(Number(options.wordCount)) ? Number(options.wordCount) : wordCount;
       setPreferredMode(normalizedMode);
       setPreferredGoalVariant(nextGoal);
       setPreferredTimeLimitSeconds(nextTimeLimit);
@@ -729,7 +730,7 @@ export const useTypingTest = () => {
 
       resetTypingState({
         nextMode: normalizedMode,
-        nextWordCount: DEFAULT_WORD_COUNT,
+        nextWordCount,
         nextParagraph,
         nextGoalVariant: nextGoal,
         nextTimeLimitSeconds: nextTimeLimit

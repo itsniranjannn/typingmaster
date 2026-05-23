@@ -1,101 +1,98 @@
 import { memo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { BookOpen, Edit3, ChevronDown, Globe, Hash, TimerReset, Target, Target as TargetIcon } from "lucide-react";
-import { TYPING_MODES, GOAL_VARIANTS } from "../constants/typingModes";
+import { BookOpen, Crown, Edit3, Hash } from "lucide-react";
+import { TYPING_MODES } from "../constants/typingModes";
 
-function TextSelector({ mode, goalVariant = GOAL_VARIANTS.SUSTAIN, timeLimitSeconds = 25, onModeChange, customText, onCustomTextChange, isDark }) {
-  const [isOpen, setIsOpen] = useState(false);
+function TextSelector({
+  mode,
+  onModeChange,
+  onCoreSelect,
+  customText,
+  onCustomTextChange,
+  isDark
+}) {
   const [showCustomInput, setShowCustomInput] = useState(false);
 
-  const modes = [
-    { value: TYPING_MODES.TIME, label: `Time ${timeLimitSeconds}s`, icon: Globe },
-    { value: TYPING_MODES.WORDS, label: "Words", icon: TimerReset },
-    { value: `${TYPING_MODES.GOAL}:${GOAL_VARIANTS.SUSTAIN}`, label: "Goal (Sustain)", icon: Target },
-    { value: `${TYPING_MODES.GOAL}:${GOAL_VARIANTS.REACH}`, label: "Goal (Reach)", icon: TargetIcon },
-    { value: TYPING_MODES.QUOTE, label: "Quotes", icon: BookOpen },
-    { value: TYPING_MODES.CUSTOM, label: "Custom", icon: Edit3 },
-    { value: TYPING_MODES.NUMBERS, label: "Numbers", icon: Hash }
+  const isCoreActive = [TYPING_MODES.TIME, TYPING_MODES.WORDS, TYPING_MODES.GOAL].includes(mode);
+  const topModes = [
+    { value: "core", label: "Classic Core", icon: Crown, title: "Classic Core: Time, Words, and Goal modes with the secondary settings bar." },
+    { value: TYPING_MODES.QUOTE, label: "Quotes", icon: BookOpen, title: "Quotes mode: type a preset quote for punctuation and rhythm practice." },
+    { value: TYPING_MODES.CUSTOM, label: "Custom", icon: Edit3, title: "Custom mode: paste your own text and practice it." },
+    { value: TYPING_MODES.NUMBERS, label: "Numbers", icon: Hash, title: "Numbers mode: practice mixed numbers and words." }
   ];
 
-  const currentMode =
-    modes.find((m) => m.value === `${mode}:${goalVariant}`) ||
-    modes.find((m) => m.value === mode) ||
-    modes[0];
-  const CurrentIcon = currentMode.icon;
+  const activeTopMode = isCoreActive ? "core" : mode;
 
-  const bgClass = isDark ? "bg-slate-900/50 border-slate-700/50 text-slate-100" : "bg-slate-100 border-slate-300 text-slate-900";
-  const hoverBgClass = isDark ? "hover:bg-slate-800" : "hover:bg-slate-200";
-  const buttonClass = isDark ? "text-slate-400 hover:text-slate-200 hover:bg-slate-800" : "text-slate-600 hover:text-slate-900 hover:bg-slate-200";
+  const shellClass = isDark
+    ? "border-slate-700/60 bg-slate-950/55 text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_12px_24px_rgba(15,23,42,0.25)]"
+    : "border-slate-200/80 bg-white/70 text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_12px_24px_rgba(148,163,184,0.14)]";
+  const activeCoreClass = isDark
+    ? "bg-gradient-to-r from-cyan-400 via-sky-500 to-indigo-500 text-white shadow-[0_0_0_1px_rgba(125,211,252,0.35),0_12px_30px_rgba(14,165,233,0.24)]"
+    : "bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-500 text-white shadow-[0_0_0_1px_rgba(56,189,248,0.25),0_12px_30px_rgba(14,165,233,0.18)]";
+  const activeChipClass = isDark
+    ? "bg-slate-100 text-slate-950 shadow-[0_0_0_1px_rgba(255,255,255,0.2)]"
+    : "bg-slate-900 text-white shadow-[0_0_0_1px_rgba(15,23,42,0.18)]";
+  const inactiveChipClass = isDark
+    ? "bg-slate-900/70 text-slate-200 hover:bg-slate-800"
+    : "bg-white/90 text-slate-700 hover:bg-slate-100";
 
   return (
-    <div className="relative">
-      <motion.button
-        onClick={() => setIsOpen(!isOpen)}
-        className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${bgClass} ${hoverBgClass} transition-all`}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-      >
-        <CurrentIcon size={18} />
-        <span className="text-sm font-medium">{currentMode.label}</span>
-        <motion.div
-          animate={{ rotate: isOpen ? 180 : 0 }}
-          transition={{ duration: 0.2 }}
-        >
-          <ChevronDown size={16} />
-        </motion.div>
-      </motion.button>
+    <div className="w-full">
+      <div className={`inline-flex w-full flex-wrap items-center gap-2 rounded-full border px-2 py-2 ${shellClass}`}>
+        {topModes.map((modeItem) => {
+          const Icon = modeItem.icon;
+          const isActive = activeTopMode === modeItem.value;
+          const chipClass = modeItem.value === "core"
+            ? isActive
+              ? activeCoreClass
+              : isDark
+                ? "bg-slate-900/70 text-slate-200 ring-1 ring-cyan-300/20 hover:bg-slate-800"
+                : "bg-white/90 text-slate-700 ring-1 ring-cyan-500/20 hover:bg-slate-100"
+            : isActive
+              ? activeChipClass
+              : inactiveChipClass;
 
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className={`absolute top-full mt-2 left-0 z-50 rounded-lg border ${bgClass} shadow-lg`}
-          >
-            {modes.map((m) => {
-              const Icon = m.icon;
-              return (
-                <motion.button
-                  key={m.value}
-                  onClick={() => {
-                    if (String(m.value).startsWith(`${TYPING_MODES.GOAL}:`)) {
-                      const nextVariant = String(m.value).split(":")[1] || GOAL_VARIANTS.SUSTAIN;
-                      onModeChange(TYPING_MODES.GOAL, { goalVariant: nextVariant });
-                    } else if (m.value === TYPING_MODES.TIME) {
-                      onModeChange(TYPING_MODES.TIME, { timeLimitSeconds });
-                    } else {
-                      onModeChange(m.value);
-                    }
-                    setIsOpen(false);
-                    setShowCustomInput(m.value === TYPING_MODES.CUSTOM);
-                  }}
-                  className={`w-full flex items-center gap-2 px-4 py-2 text-sm ${buttonClass} text-left first:rounded-t-lg last:rounded-b-lg`}
-                  whileHover={{ x: 4 }}
-                >
-                  <Icon size={16} />
-                  {m.label}
-                </motion.button>
-              );
-            })}
-          </motion.div>
-        )}
-      </AnimatePresence>
+          return (
+            <motion.button
+              key={modeItem.value}
+              onClick={() => {
+                if (modeItem.value === "core") {
+                  onCoreSelect?.();
+                  setShowCustomInput(false);
+                  return;
+                }
+
+                onModeChange(modeItem.value);
+                setShowCustomInput(modeItem.value === TYPING_MODES.CUSTOM);
+              }}
+              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold tracking-[0.01em] transition ${chipClass}`}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              aria-pressed={isActive}
+              title={modeItem.title}
+            >
+              <Icon size={16} className={modeItem.value === "core" ? "drop-shadow-[0_0_12px_rgba(125,211,252,0.55)]" : ""} />
+              <span>{modeItem.label}</span>
+            </motion.button>
+          );
+        })}
+      </div>
 
       <AnimatePresence>
         {showCustomInput && mode === TYPING_MODES.CUSTOM && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="absolute top-full mt-2 left-0 right-0 z-40"
+            initial={{ opacity: 0, y: -8, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.98 }}
+            transition={{ duration: 0.18 }}
+            className="mt-2"
           >
             <textarea
               value={customText}
               onChange={(e) => onCustomTextChange(e.target.value)}
               onPaste={() => setShowCustomInput(true)}
               placeholder="Paste your custom text here..."
-              className={`w-full px-3 py-2 rounded-lg border ${bgClass} outline-none resize-none text-sm`}
+              className={`w-full rounded-2xl border px-4 py-3 outline-none resize-none text-sm ${isDark ? "border-slate-700/60 bg-slate-950/60 text-slate-100 placeholder:text-slate-500" : "border-slate-200/80 bg-white/80 text-slate-900 placeholder:text-slate-400"}`}
               rows={3}
               onBlur={() => setShowCustomInput(customText.length === 0)}
             />
