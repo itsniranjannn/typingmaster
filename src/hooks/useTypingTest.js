@@ -478,7 +478,7 @@ export const useTypingTest = () => {
           if (arenaRules.sustainSeconds) {
             const arenaTargetWpm = Number(arenaRules.targetWpm || arenaRules.minWpm || targetWpm || DEFAULT_GOAL_WPM);
             const currentWpm = latestRawWpmRef.current;
-            const currentAccuracy = Math.max(0, Math.min(100, Number(calculateAccuracy(engineSnapshot.correctCharacters, typedText.length)) || 0));
+            const currentAccuracy = Math.max(0, Math.min(100, Number(calculateAccuracy(correctCharsRef.current, currentIndexRef.current)) || 0));
             const meetsChallengeNow = getChallengeObjectiveStatus(dailyChallenge?.challenge, {
               wpm: currentWpm,
               accuracy: currentAccuracy,
@@ -548,7 +548,7 @@ export const useTypingTest = () => {
         timerRef.current = null;
       }
     };
-  }, [arenaRules.minAccuracy, arenaRules.sustainSeconds, arenaRules.targetWpm, arenaRules.timeLimitSeconds, challengePromptHidden, dailyChallenge, engineSnapshot.correctCharacters, engineSnapshot.incorrectCharacters, finishTest, goalVariant, hasStarted, isFinished, mode, targetWpm, typedText.length]);
+  }, [arenaRules.minAccuracy, arenaRules.sustainSeconds, arenaRules.targetWpm, arenaRules.timeLimitSeconds, challengePromptHidden, dailyChallenge, finishTest, goalVariant, hasStarted, isFinished, mode, targetWpm]);
 
   // Control helpers for keyboard shortcuts
   const startTest = useCallback(() => {
@@ -987,9 +987,29 @@ export const useTypingTest = () => {
     [isComposing, paragraph, typedText]
   );
   const totalWords = useMemo(() => targetWordsRef.current.length, [paragraph]);
+  const accuracy = useMemo(
+    () => calculateAccuracy(engineSnapshot.correctCharacters, typedText.length),
+    [engineSnapshot.correctCharacters, typedText.length]
+  );
+  const displayWpm = useMemo(() => {
+    if (!hasStarted) return 0;
 
-  const calculateArenaWpm = useCallback((correctCharacters, elapsedSeconds) => {
-    return Math.min(300, Math.max(0, calculateWpm(correctCharacters, Math.max(1, elapsedSeconds))));
+    const actualElapsed = mode === TYPING_MODES.TIME || mode === TYPING_MODES.GOAL
+      ? Math.max(timeLimitSeconds - timeLeft, 1)
+      : Math.max(elapsedSeconds, 1);
+
+    // Use a short warm-up window so the live display does not spike unrealistically
+    // in the first couple of seconds of a run.
+    const smoothedElapsed = Math.max(actualElapsed, 10);
+    const grossWpm = calculateWpm(engineSnapshot.correctCharacters, smoothedElapsed);
+    const accuracyFactor = Math.max(0, Math.min(1, Number(accuracy) / 100 || 0));
+    return Math.min(120, Math.max(0, grossWpm * accuracyFactor));
+  }, [accuracy, elapsedSeconds, engineSnapshot.correctCharacters, hasStarted, mode, timeLeft, timeLimitSeconds]);
+
+  const calculateArenaWpm = useCallback((correctCharacters, elapsedSeconds, currentAccuracy = 100) => {
+    const grossWpm = calculateWpm(correctCharacters, Math.max(1, elapsedSeconds));
+    const accuracyFactor = Math.max(0, Math.min(1, Number(currentAccuracy) / 100 || 0));
+    return Math.min(300, Math.max(0, grossWpm * accuracyFactor));
   }, []);
 
   const rawWpm = useMemo(
@@ -998,9 +1018,9 @@ export const useTypingTest = () => {
       const actualElapsed = mode === TYPING_MODES.TIME || mode === TYPING_MODES.GOAL
         ? Math.max(timeLimitSeconds - timeLeft, 1)
         : Math.max(elapsedSeconds, 1);
-      return calculateArenaWpm(engineSnapshot.correctCharacters, actualElapsed);
+      return calculateArenaWpm(engineSnapshot.correctCharacters, actualElapsed, accuracy);
     },
-    [calculateArenaWpm, engineSnapshot.correctCharacters, elapsedSeconds, hasStarted, mode, timeLeft, timeLimitSeconds]
+    [accuracy, calculateArenaWpm, engineSnapshot.correctCharacters, elapsedSeconds, hasStarted, mode, timeLeft, timeLimitSeconds]
   );
   useEffect(() => {
     latestRawWpmRef.current = rawWpm;
@@ -1023,7 +1043,7 @@ export const useTypingTest = () => {
     }
 
     liveWpmTimerRef.current = window.setTimeout(() => {
-      setLiveWpm(rawWpm);
+      setLiveWpm(Math.round(displayWpm));
       liveWpmTimerRef.current = null;
     }, 200);
 
@@ -1033,7 +1053,7 @@ export const useTypingTest = () => {
         liveWpmTimerRef.current = null;
       }
     };
-  }, [hasStarted, isFinished, rawWpm]);
+  }, [displayWpm, hasStarted, isFinished, rawWpm]);
 
   useEffect(() => {
     latestLiveWpmRef.current = liveWpm;
@@ -1134,10 +1154,6 @@ export const useTypingTest = () => {
 
     return () => window.clearInterval(timer);
   }, []);
-  const accuracy = useMemo(
-    () => calculateAccuracy(engineSnapshot.correctCharacters, typedText.length),
-    [engineSnapshot.correctCharacters, typedText.length]
-  );
   const wordProgress = useMemo(
     () => ({
       totalWords: engineSnapshot.totalWords || totalWords,
@@ -1201,7 +1217,7 @@ export const useTypingTest = () => {
     if (!isFinished || !hasStarted || hasSavedResultRef.current) return;
 
     const timeUsed = Math.max(mode === TYPING_MODES.TIME || mode === TYPING_MODES.GOAL ? timeLimitSeconds - timeLeft : elapsedSeconds, 1);
-    const finalWpm = calculateArenaWpm(engineSnapshot.correctCharacters, timeUsed);
+    const finalWpm = Math.round(calculateArenaWpm(engineSnapshot.correctCharacters, timeUsed, accuracy));
     const currentBestKey = getBestWpmModeKey({ mode, wordCount, goalVariant, timeLimitSeconds });
     const previousBest = bestWpmByMode[currentBestKey] || 0;
     const goalSuccess =
@@ -1237,10 +1253,12 @@ export const useTypingTest = () => {
       challengeId: dailyChallenge?.challenge?.id || null,
       challengeTitle: dailyChallenge?.challenge?.title || null,
       challengeReward: dailyChallenge?.challenge?.reward || null,
-      challengeBadgeId: dailyChallenge?.challenge?.badgeId || null,
-      challengeBadgeName: dailyChallenge?.challenge?.badgeName || null,
+      challengeBadgeId: dailyChallenge?.challenge?.badgeId || dailyChallenge?.challenge?.id || null,
+      challengeBadgeName: dailyChallenge?.challenge?.badgeName || dailyChallenge?.challenge?.reward || dailyChallenge?.challenge?.title || null,
+      challengeBadgeIconName: dailyChallenge?.challenge?.badgeIconName || "Trophy",
       challengeEarnedCount: 0,
       challengeCompleted: false,
+      challengeCompletedToday: false,
       challengeFailed: false,
       challengeStreak: dailyChallenge?.challengeStreak || 0,
       backspaceUsed: mode === TYPING_MODES.CHALLENGE_ARENA ? arenaBackspaceUsedRef.current : false,
@@ -1263,7 +1281,17 @@ export const useTypingTest = () => {
 
     let challengeOutcome = null;
     try {
-      challengeOutcome = completeChallenge(result, Date.now());
+      const arenaObjectivesMet =
+        mode === TYPING_MODES.CHALLENGE_ARENA
+          ? getChallengeObjectiveStatus(dailyChallenge?.challenge, result)
+          : true;
+
+      if (mode === TYPING_MODES.CHALLENGE_ARENA && !arenaObjectivesMet) {
+        challengeOutcome = { state: dailyChallenge, history: getDailyChallengeRecentHistory(), completed: false, badgeAwarded: null };
+      } else {
+        challengeOutcome = completeChallenge(result, Date.now());
+      }
+
       if (challengeOutcome.state) {
         setDailyChallenge(challengeOutcome.state);
       }
@@ -1271,10 +1299,12 @@ export const useTypingTest = () => {
       if (challengeOutcome.completed && !challengeOutcome.alreadyCompleted && isSoundEnabled) {
         playMilestoneSound();
       }
-      if (challengeOutcome.completed) {
+      if (challengeOutcome.completed && challengeOutcome.badgeAwarded) {
         result.challengeCompleted = true;
         result.challengeEarnedCount = challengeOutcome.badgeAwarded?.earnedCount || result.challengeEarnedCount || 1;
         result.challengeStreak = challengeOutcome.state?.challengeStreak || result.challengeStreak;
+        result.challengeBadgeIconName = challengeOutcome.badgeAwarded?.iconName || result.challengeBadgeIconName;
+        result.challengeCompletedToday = Boolean(challengeOutcome.alreadyCompleted);
         setChallengeFailed(false);
       } else if (mode === TYPING_MODES.CHALLENGE_ARENA) {
         result.challengeFailed = true;

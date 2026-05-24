@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { completeChallenge, getChallengeTemplates, getDailyChallenge, getDailyChallengeHistoryEntries } from "../dailyChallenge";
+import { loadBadges } from "../storage";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -87,5 +88,43 @@ describe("daily challenge helpers", () => {
 
     expect(nextDay?.date).toBe("2026-05-25");
     expect(nextDay?.challenge.id).not.toBe(todayId);
+  });
+
+  it("avoids repeats across five simulated UTC days", () => {
+    const seen = new Set();
+
+    for (let dayIndex = 0; dayIndex < 5; dayIndex += 1) {
+      vi.setSystemTime(new Date(Date.parse("2026-05-24T12:00:00.000Z") + dayIndex * DAY_MS));
+      const state = getDailyChallenge();
+      expect(seen.has(state?.challenge.id)).toBe(false);
+      seen.add(state?.challenge.id);
+    }
+
+    expect(seen.size).toBe(5);
+  });
+
+  it("awards the challenge badge only once per day", () => {
+    const state = getDailyChallenge();
+    const rules = state.challenge.rules || {};
+    const result = {
+      mode: state.challenge.mode,
+      wpm: Number(rules.minWpm || rules.targetWpm || 35) + 20,
+      accuracy: Number(rules.minAccuracy || 90),
+      timeUsed: Math.max(1, Number(rules.timeLimitSeconds || 60) - 1),
+      correctCharacters: 500,
+      incorrectCharacters: 0,
+      backspaceUsed: false,
+      holdSeconds: Number(rules.sustainSeconds || 0),
+      maxHoldWpm: Number(rules.minWpm || rules.targetWpm || 35) + 20,
+      promptHiddenUsed: rules.hideAfterSeconds ? true : false
+    };
+
+    const firstOutcome = completeChallenge(result, Date.now());
+    const secondOutcome = completeChallenge(result, Date.now());
+
+    expect(firstOutcome.completed).toBe(true);
+    expect(firstOutcome.state?.challengeCompletedToday).toBe(true);
+    expect(secondOutcome.alreadyCompleted).toBe(true);
+    expect(loadBadges()).toHaveLength(1);
   });
 });

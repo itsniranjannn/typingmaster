@@ -330,26 +330,25 @@ const buildChallengeInstance = (template, dateKey, timestampMs) => {
 
 const getRecentChallengeIds = (history, timestampMs) => {
   const lowerBound = timestampMs - REUSE_WINDOW_MS;
-  return new Set(
-    history
-      .filter((entry) => {
-        if (typeof entry.createdAt === "number") return entry.createdAt >= lowerBound;
-        if (typeof entry.date === "string") {
-          const parsed = Date.parse(`${entry.date}T00:00:00.000Z`);
-          return Number.isFinite(parsed) && parsed >= lowerBound;
-        }
-        return false;
-      })
-      .map((entry) => entry.challengeId || entry.templateId)
-      .filter(Boolean)
-  );
+  const recentEntries = history
+    .filter((entry) => {
+      if (typeof entry.createdAt === "number") return entry.createdAt >= lowerBound;
+      if (typeof entry.date === "string") {
+        const parsed = Date.parse(`${entry.date}T00:00:00.000Z`);
+        return Number.isFinite(parsed) && parsed >= lowerBound;
+      }
+      return false;
+    })
+    .slice(0, 30);
+
+  return new Set(recentEntries.map((entry) => entry.challengeId || entry.templateId).filter(Boolean));
 };
 
 const selectTemplateForDate = (dateKey, history, timestampMs = Date.now()) => {
   const recentIds = getRecentChallengeIds(history, timestampMs);
   const safeFallback = CHALLENGE_TEMPLATES.find((template) => template.templateId === "endurance-bronze") || CHALLENGE_TEMPLATES[0];
 
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < 5; attempt += 1) {
     const random = createRandom(`${dateKey}:${attempt}`);
     const pool = CHALLENGE_TEMPLATES.filter((template) => !recentIds.has(template.templateId));
     if (pool.length > 0) {
@@ -402,6 +401,7 @@ const buildInitialState = (template, dateKey, timestampMs) => {
     date: dateKey,
     lastChallengeDate: dateKey,
     challengeCompleted: false,
+    challengeCompletedToday: false,
     challengeFailed: false,
     completedAt: null,
     challengeStreak: 0,
@@ -520,9 +520,15 @@ const awardMilestoneBadges = () => {
 
 export const completeChallenge = (result, timestampMs = Date.now()) => {
   const state = ensureDailyChallenge(timestampMs);
-  if (!state || state.challengeCompleted) {
-    const existingBadge = state?.challenge?.badgeId ? loadBadges().find((badge) => badge.badgeId === state.challenge.badgeId) || null : null;
-    return { state, history: getDailyChallengeHistory(), completed: Boolean(state?.challengeCompleted), alreadyCompleted: Boolean(state?.challengeCompleted), badgeAwarded: existingBadge };
+  if (!state || state.challengeCompletedToday || state.challengeCompleted) {
+    const existingBadge = state?.challenge?.badgeId
+      ? loadBadges().find((badge) => badge.badgeId === state.challenge.badgeId) || getBadgeById(state.challenge.badgeId) || {
+          badgeId: state.challenge.badgeId,
+          name: state.challenge.badgeName || state.challenge.reward || state.challenge.title || state.challenge.badgeId,
+          iconName: state.challenge.badgeIconName || "Trophy"
+        }
+      : null;
+    return { state, history: getDailyChallengeHistory(), completed: Boolean(state?.challengeCompleted || state?.challengeCompletedToday), alreadyCompleted: Boolean(state?.challengeCompletedToday || state?.challengeCompleted), badgeAwarded: existingBadge };
   }
 
   const challenge = state.challenge;
@@ -545,6 +551,7 @@ export const completeChallenge = (result, timestampMs = Date.now()) => {
   const completedState = {
     ...state,
     challengeCompleted: true,
+    challengeCompletedToday: true,
     challengeFailed: false,
     completedAt: timestampMs,
     challengeStreak: nextChallengeStreak,
@@ -571,7 +578,8 @@ export const failDailyChallenge = (timestampMs = Date.now()) => {
   const failedState = {
     ...state,
     challengeFailed: true,
-    challengeCompleted: false
+    challengeCompleted: false,
+    challengeCompletedToday: false
   };
 
   setDailyChallengeState(failedState);

@@ -744,6 +744,7 @@ function TypingTest({ theme, onToggleTheme }) {
                   progress={challengeProgress}
                   challengeFailed={challengeFailed}
                   challengeCompleted={challengeCompleted}
+                  isDark={isDark}
                   collapsed={isArenaBannerCollapsed}
                   onToggleCollapsed={toggleArenaBanner}
                   onCancel={cancelDailyChallenge}

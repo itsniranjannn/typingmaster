@@ -6,9 +6,10 @@ export const calculateWpm = (correctCharacters, elapsedSeconds) => {
   const elapsedMinutes = elapsedSeconds / 60;
   const words = correctCharacters / 5;
   const rawWpm = words / elapsedMinutes;
-  
+
   if (!Number.isFinite(rawWpm) || rawWpm < 0) return 0;
-  return Math.round(rawWpm);
+  // Return a floating value for smoother live WPM. Round only when displaying final results.
+  return Number(rawWpm.toFixed(2));
 };
 
 export const calculateAccuracy = (correctCharacters, totalTypedCharacters) => {

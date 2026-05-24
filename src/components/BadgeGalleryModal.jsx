@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Award,
@@ -17,6 +17,7 @@ import {
   Target,
   Timer,
   Trophy,
+  Lock,
   Zap
 } from "lucide-react";
 import { getBadgeCatalog } from "../utils/dailyChallenge";
@@ -50,7 +51,7 @@ function BadgeTile({ badge, earned }) {
         <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${earned ? "bg-emerald-500/10 text-emerald-300" : "bg-slate-800 text-slate-500"}`}>
           <Icon size={18} />
         </div>
-        {earned ? <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-300">x{earned.earnedCount}</span> : <span className="rounded-full bg-slate-800 px-2 py-1 text-[10px] font-semibold text-slate-400">Locked</span>}
+        {earned ? <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-[10px] font-semibold text-emerald-300">x{earned.earnedCount}</span> : <span className="inline-flex items-center gap-1 rounded-full bg-slate-800 px-2 py-1 text-[10px] font-semibold text-slate-400"><Lock size={10} /> Locked</span>}
       </div>
       <div className="mt-3">
         <p className="text-sm font-semibold text-white">{earned ? `${badge.name} x${earned.earnedCount}` : "???"}</p>
@@ -62,8 +63,31 @@ function BadgeTile({ badge, earned }) {
 
 function BadgeGalleryModal({ isOpen, onClose, isDark = true, refreshToken = 0 }) {
   const badges = useMemo(() => getBadgeCatalog(), []);
-  const earnedBadges = useMemo(() => loadBadges(), [isOpen, refreshToken]);
+  const [earnedBadges, setEarnedBadges] = useState(() => loadBadges());
   const earnedLookup = useMemo(() => new Map(earnedBadges.map((badge) => [badge.badgeId, badge])), [earnedBadges]);
+  const visibleBadges = useMemo(() => {
+    const badgeMap = new Map(badges.map((badge) => [badge.badgeId, badge]));
+    earnedBadges.forEach((badge) => {
+      if (!badgeMap.has(badge.badgeId)) {
+        badgeMap.set(badge.badgeId, {
+          badgeId: badge.badgeId,
+          name: badge.name || badge.badgeId,
+          iconName: badge.iconName || "Trophy"
+        });
+      }
+    });
+    return [...badgeMap.values()];
+  }, [badges, earnedBadges]);
+
+  useEffect(() => {
+    // Reload earned badges whenever the modal opens or a refresh token changes.
+    if (!isOpen) return;
+    try {
+      setEarnedBadges(loadBadges());
+    } catch {
+      setEarnedBadges([]);
+    }
+  }, [isOpen, refreshToken]);
 
   if (!isOpen) return null;
 
@@ -80,7 +104,7 @@ function BadgeGalleryModal({ isOpen, onClose, isDark = true, refreshToken = 0 })
         </div>
         <div className="max-h-[75vh] overflow-y-auto p-5">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {badges.map((badge) => (
+            {visibleBadges.map((badge) => (
               <BadgeTile key={badge.badgeId} badge={badge} earned={earnedLookup.get(badge.badgeId)} />
             ))}
           </div>

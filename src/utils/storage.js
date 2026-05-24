@@ -160,6 +160,9 @@ const sanitizeDailyChallenge = (value) => {
     target,
     reward,
     prompt,
+    badgeId: typeof value.badgeId === "string" ? value.badgeId.trim() : id,
+    badgeName: typeof value.badgeName === "string" ? value.badgeName.trim() : reward || title,
+    badgeIconName: typeof value.badgeIconName === "string" ? value.badgeIconName.trim() : "Trophy",
     config: sanitizeDailyChallengeConfig(value.config),
     rules: sanitizeDailyChallengeCriteria(value.rules || value.criteria),
     criteria: sanitizeDailyChallengeCriteria(value.criteria || value.rules)
@@ -198,6 +201,7 @@ const sanitizeDailyChallengeState = (value) => {
     date,
     lastChallengeDate,
     challengeCompleted: typeof value.challengeCompleted === "boolean" ? value.challengeCompleted : false,
+    challengeCompletedToday: typeof value.challengeCompletedToday === "boolean" ? value.challengeCompletedToday : false,
     completedAt: typeof value.completedAt === "number" && Number.isFinite(value.completedAt) ? value.completedAt : null,
     challengeStreak: sanitizeNumber(value.challengeStreak, 0),
     challenge
@@ -251,8 +255,10 @@ const sanitizeResult = (result) => {
     challengeTitle: typeof result.challengeTitle === "string" ? result.challengeTitle : null,
     challengeBadgeId: typeof result.challengeBadgeId === "string" ? result.challengeBadgeId : null,
     challengeBadgeName: typeof result.challengeBadgeName === "string" ? result.challengeBadgeName : null,
+    challengeBadgeIconName: typeof result.challengeBadgeIconName === "string" ? result.challengeBadgeIconName : null,
     challengeEarnedCount: sanitizeNumber(result.challengeEarnedCount, 0),
     challengeCompleted: typeof result.challengeCompleted === "boolean" ? result.challengeCompleted : false,
+    challengeCompletedToday: typeof result.challengeCompletedToday === "boolean" ? result.challengeCompletedToday : false,
     challengeFailed: typeof result.challengeFailed === "boolean" ? result.challengeFailed : false,
     challengeStreak: sanitizeNumber(result.challengeStreak, 0)
   };

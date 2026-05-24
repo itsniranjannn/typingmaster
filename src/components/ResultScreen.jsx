@@ -1,5 +1,31 @@
 import { memo } from "react";
 import { motion } from "framer-motion";
+import {
+  Award,
+  Brain,
+  Calculator,
+  Crown,
+  Flame,
+  Shield,
+  Sparkles,
+  Target,
+  Trophy,
+  Zap,
+  Lock
+} from "lucide-react";
+
+const ICONS = {
+  Award,
+  Brain,
+  Calculator,
+  Crown,
+  Flame,
+  Shield,
+  Sparkles,
+  Target,
+  Trophy,
+  Zap
+};
 
 function ResultScreen({
   result,
@@ -19,6 +45,7 @@ function ResultScreen({
   const goalFailure = result.goalVariant === "reach" && result.goalSuccess === false;
   const challengeFailure = result.challengeFailed && !result.challengeCompleted;
   const badgeMultiplier = Math.max(1, Number(result.challengeEarnedCount) || 1);
+  const BadgeIcon = result.challengeCompleted ? (ICONS[result.challengeBadgeIconName] || Trophy) : Lock;
   const showArenaResult = arenaMode || result.challengeCompleted || challengeFailure;
 
   if (showArenaResult) {
@@ -50,10 +77,15 @@ function ResultScreen({
               transition={{ duration: 0.25 }}
               className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${isDark ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}
             >
-              <span aria-hidden="true">🏆</span>
+              <BadgeIcon size={14} aria-hidden="true" />
               <span>{result.challengeBadgeName || "Arena Badge"}</span>
               <span>{`x${badgeMultiplier}`}</span>
             </motion.div>
+          ) : null}
+          {result.challengeCompletedToday ? (
+            <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${isDark ? "border-amber-400/30 bg-amber-500/10 text-amber-200" : "border-amber-200 bg-amber-50 text-amber-700"}`}>
+              <span>Badge already earned today.</span>
+            </div>
           ) : null}
           {challengeFailure ? (
             <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${isDark ? "border-rose-400/30 bg-rose-500/10 text-rose-200" : "border-rose-200 bg-rose-50 text-rose-700"}`}>
