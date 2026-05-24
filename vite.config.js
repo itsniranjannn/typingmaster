@@ -6,7 +6,7 @@ export default defineConfig({
   plugins: [
     react(),
     sitemapPlugin({
-      hostname: "https://typingmaster-eight.vercel.app",
+      hostname: "https://gotype-alpha.vercel.app",
       dynamicRoutes: [],
       outDir: "dist"
     })

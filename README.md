@@ -26,4 +26,4 @@ npm run build
 ## Project Links
 
 - GitHub: https://github.com/itsniranjannn/typingmaster
-- Live app: https://typingmaster-eight.vercel.app/
+- Live app: https://gotype-alpha.vercel.app/

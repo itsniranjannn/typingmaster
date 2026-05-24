@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://typingmaster-eight.vercel.app/sitemap.xml
+Sitemap: https://gotype-alpha.vercel.app/sitemap.xml

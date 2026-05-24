@@ -95,13 +95,10 @@ function Footer({ isDark = true }) {
           </div>
 
           <div className={`mt-6 flex flex-col gap-3 border-t pt-4 text-sm sm:flex-row sm:items-center sm:justify-between ${isDark ? "border-slate-800/80 text-slate-500" : "border-slate-200 text-slate-600"}`}>
-            <div>© {currentYear} GoType</div>
+            <div>All rights are reserved © {currentYear} GoType</div>
             <div className="flex flex-wrap items-center gap-3">
               <span className="hidden sm:inline">Focused typing. Minimal friction.</span>
-              <span className="hidden sm:inline">•</span>
-              <a href="/legal.html" className={`transition ${isDark ? "hover:text-slate-200" : "hover:text-slate-900"}`}>
-                Policy Center
-              </a>
+             
             </div>
           </div>
         </div>
