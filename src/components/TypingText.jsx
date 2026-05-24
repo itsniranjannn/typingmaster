@@ -323,7 +323,11 @@ function TypingText({
       style={{
         "--typing-scale": fontScale,
         lineHeight: 1.4,
-        fontFamily: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace"
+        fontFamily: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace",
+        textAlignLast: 'justify',
+        WebkitTextAlignLast: 'justify',
+        textJustify: 'inter-word',
+        WebkitTextJustify: 'inter-word'
       }}
       className={`typing-area relative mx-auto min-h-[140px] max-h-[55vh] w-full max-w-[76rem] rounded-2xl p-4 sm:p-6 font-mono text-[calc(1.2rem*var(--typing-scale))] sm:text-[calc(1.6rem*var(--typing-scale))] md:text-[calc(1.8rem*var(--typing-scale))] leading-[1.5] tracking-[0.01em] cursor-text outline-none overflow-x-hidden overflow-y-auto overscroll-contain whitespace-pre-wrap ${
         focused ? (isDark ? "ring-1 ring-cyan-300/40 shadow-[0_0_0_1px_rgba(103,232,249,0.12),inset_0_0_55px_rgba(34,211,238,0.08)]" : "ring-1 ring-cyan-500/35 shadow-[0_0_0_1px_rgba(14,165,233,0.08),inset_0_0_55px_rgba(14,165,233,0.06)]") : ""
@@ -337,7 +341,7 @@ function TypingText({
       onFocus={onFocus}
       onBlur={onBlur}
     >
-      <div className="w-full text-left leading-relaxed relative">
+      <div className="w-full text-justify leading-relaxed relative">
         {caret.visible ? (
           <span
             aria-hidden="true"
