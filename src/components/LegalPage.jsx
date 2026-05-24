@@ -1,5 +1,6 @@
+// src/legal.jsx or src/components/LegalPage.jsx
 import { motion } from "framer-motion";
-import { ArrowLeft, ExternalLink, Mail, ShieldCheck, FileText, ContactRound } from "lucide-react";
+import { ArrowLeft, ExternalLink, Mail, ShieldCheck, FileText, ContactRound, User, Database, Clock } from "lucide-react";
 import AppLogo from "./AppLogo";
 import Footer from "./Footer";
 import { getPreferredTheme } from "../utils/storage";
@@ -9,33 +10,45 @@ const sections = [
     id: "privacy",
     icon: ShieldCheck,
     title: "Privacy Policy",
-    summary: "How GoType handles usage data, storage, and analytics.",
+    summary: "What data GoType stores and why.",
     points: [
-      "GoType stores typing results locally so your progress can be tracked across sessions.",
-      "No sensitive personal information is required to use the app.",
-      "If analytics or telemetry are added later, they should be disclosed clearly and kept minimal."
+      "GoType stores all typing results, settings, and leaderboard data locally in your browser (localStorage). No data is sent to any server unless you manually export it.",
+      "We do not use cookies, trackers, or analytics scripts. Your typing practice stays private to your device.",
+      "If you reset the app via Settings, all stored data is permanently deleted from your browser."
     ]
   },
   {
     id: "terms",
     icon: FileText,
     title: "Terms of Use",
-    summary: "The rules and expectations for using GoType responsibly.",
+    summary: "Simple rules for using GoType.",
     points: [
-      "Use GoType for lawful, personal, or educational typing practice.",
-      "Do not attempt to disrupt, overload, or reverse engineer the service.",
-      "Any placeholder policy language here should be replaced with your final legal text before launch."
+      "GoType is provided for personal, educational, and non‑commercial typing practice.",
+      "You may not reverse engineer, scrape, or attempt to overload the service.",
+      "We reserve the right to update these terms – continued use means acceptance.",
+      "The app is provided 'as is' without warranties; use at your own risk."
+    ]
+  },
+  {
+    id: "developer",
+    icon: User,
+    title: "Developer",
+    summary: "Created by Niranjan Katwal.",
+    points: [
+      "Designed and built by Niranjan Katwal as a passion project to help people type faster and more accurately.",
+      "Background in software development and a love for typing and productivity tools.",
+      "Open to feedback, contributions, and collaborations to make GoType even better."
     ]
   },
   {
     id: "contact",
     icon: ContactRound,
     title: "Contact",
-    summary: "Reach out for support, policy questions, or product feedback.",
+    summary: "Reach out for support or feedback.",
     points: [
-      "Email: hello@gotype.app",
-      "GitHub: github.com/itsniranjannn",
-      "For legal or privacy questions, update this section with your preferred contact details."
+      "Email: katwalniranjan40@gmail.com (preferred)",
+      "GitHub: https://github.com/itsniranjannn/typingmaster",
+      "For business inquiries, use the same email."
     ]
   }
 ];
@@ -139,9 +152,9 @@ function LegalPage() {
                 <ShieldCheck size={14} />
                 Policy Center
               </span>
-              <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">Privacy, terms, and contact in one polished place.</h1>
+              <h1 className="mt-5 text-4xl font-semibold tracking-tight sm:text-5xl">Privacy, terms, and developer info</h1>
               <p className={`mt-4 max-w-3xl text-base leading-7 sm:text-lg ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                This page groups the policy information for GoType into a single professional layout so the header and footer stay connected and easy to use.
+                GoType respects your privacy. All data stays on your device. Below you'll find clear information about how the app works, who built it, and how to get in touch.
               </p>
 
               <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -191,7 +204,7 @@ function LegalPage() {
                 Need help?
               </div>
               <p className={`mt-3 text-sm leading-6 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                For product support or policy questions, use the contact section below or return to the main typing app.
+                For support, feature requests, or policy questions, use the contact section above or email me directly.
               </p>
               <a
                 href="#contact"

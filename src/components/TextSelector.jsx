@@ -38,7 +38,7 @@ function TextSelector({
 
   return (
     <div className="w-full">
-      <div className={`inline-flex w-full flex-wrap items-center gap-2 rounded-full border px-2 py-2 ${shellClass}`}>
+      <div className={`flex w-full overflow-x-auto flex-nowrap items-center gap-2 rounded-full border px-2 py-2 scrollbar-none ${shellClass}`}>
         {topModes.map((modeItem) => {
           const Icon = modeItem.icon;
           const isActive = activeTopMode === modeItem.value;
@@ -52,7 +52,7 @@ function TextSelector({
               ? activeChipClass
               : inactiveChipClass;
 
-          return (
+            return (
             <motion.button
               key={modeItem.value}
               onClick={() => {
@@ -65,7 +65,7 @@ function TextSelector({
                 onModeChange(modeItem.value);
                 setShowCustomInput(modeItem.value === TYPING_MODES.CUSTOM);
               }}
-              className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold tracking-[0.01em] transition ${chipClass}`}
+              className={`inline-flex flex-shrink-0 whitespace-nowrap items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold tracking-[0.01em] transition ${chipClass}`}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               aria-pressed={isActive}
