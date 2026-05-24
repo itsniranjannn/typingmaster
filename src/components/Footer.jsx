@@ -82,7 +82,7 @@ function Footer({ isDark = true }) {
                   className={`flex items-center gap-3 rounded-2xl px-4 py-3 transition ${isDark ? "bg-slate-900/70 text-slate-200 hover:bg-slate-900" : "bg-white text-slate-700 hover:bg-slate-100"}`}
                 >
                   <Mail size={15} className="shrink-0 text-cyan-300" />
-                  <span className="truncate">hello@gotype.app</span>
+                  <span className="truncate">katwalniranjan40@gmail.com</span>
                 </a>
 
                 <div className={`rounded-2xl border px-4 py-3 ${isDark ? "border-slate-700/70 bg-slate-900/50 text-slate-300" : "border-slate-200 bg-white text-slate-600"}`}>
