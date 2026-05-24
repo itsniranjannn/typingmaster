@@ -32,6 +32,14 @@ import {
   setPreferredTimeLimitSeconds,
   setSoundEnabled
 } from "../utils/storage";
+import {
+  completeChallenge,
+  failDailyChallenge,
+  getArenaChallengeProgress,
+  getDailyChallenge,
+  getDailyChallengeRecentHistory,
+  getChallengeObjectiveStatus
+} from "../utils/dailyChallenge";
 
 const DEFAULT_WORD_COUNT = 25;
 const QUOTE_LOADING_PLACEHOLDER = "Loading quote...";
@@ -53,7 +61,7 @@ const getGeneratedTextForMode = (mode, wordCount) => {
 };
 
 const normalizeMode = (value) => {
-  const validModes = [TYPING_MODES.TIME, TYPING_MODES.WORDS, TYPING_MODES.QUOTE, TYPING_MODES.CUSTOM, TYPING_MODES.GOAL, TYPING_MODES.NUMBERS];
+  const validModes = [TYPING_MODES.TIME, TYPING_MODES.WORDS, TYPING_MODES.QUOTE, TYPING_MODES.CUSTOM, TYPING_MODES.GOAL, TYPING_MODES.NUMBERS, TYPING_MODES.CHALLENGE_ARENA];
   return validModes.includes(value) ? value : TYPING_MODES.TIME;
 };
 
@@ -78,6 +86,7 @@ const getBestWpmModeKey = ({ mode, wordCount, goalVariant, timeLimitSeconds }) =
   if (mode === TYPING_MODES.QUOTE) return "quote";
   if (mode === TYPING_MODES.CUSTOM) return "custom";
   if (mode === TYPING_MODES.NUMBERS) return "numbers";
+  if (mode === TYPING_MODES.CHALLENGE_ARENA) return "challengeArena";
   if (mode === TYPING_MODES.TIME) return timeLimitSeconds > TEST_DURATION_SECONDS ? "time" : "time";
 
   return "time";
@@ -108,6 +117,10 @@ export const useTypingTest = () => {
   const [bestWpmByMode, setBestWpmByModeState] = useState(() => getBestWpmByMode());
   const [streakInfo, setStreakInfo] = useState(() => getStreak());
   const [dailyGoalProgress, setDailyGoalProgress] = useState(() => getDailyGoalProgress());
+  const [dailyChallenge, setDailyChallenge] = useState(() => getDailyChallenge());
+  const [dailyChallengeHistory, setDailyChallengeHistory] = useState(() => getDailyChallengeRecentHistory());
+  const [challengePromptHidden, setChallengePromptHidden] = useState(false);
+  const [challengeFailed, setChallengeFailed] = useState(false);
   const [liveWpm, setLiveWpm] = useState(0);
   const [finalResult, setFinalResult] = useState(null);
   const [engineSnapshot, setEngineSnapshot] = useState({
@@ -144,15 +157,23 @@ export const useTypingTest = () => {
   const lastWordBoundaryRef = useRef(0);
   const canDeleteTrailingSpaceRef = useRef(false);
   const loadingDelayTimerRef = useRef(null);
+  const challengeHideTimerRef = useRef(null);
   const quoteRequestIdRef = useRef(0);
   const lastAppendedElapsedRef = useRef(0);
   const lastAppendedCorrectCharsRef = useRef(0);
   const lastAppendTriggerRef = useRef("");
+  const arenaPreviousModeRef = useRef(null);
+  const arenaBackspaceUsedRef = useRef(false);
+  const arenaHoldSecondsRef = useRef(0);
+  const arenaMaxHoldWpmRef = useRef(0);
   const currentBestKey = useMemo(
     () => getBestWpmModeKey({ mode, wordCount, goalVariant, timeLimitSeconds }),
     [goalVariant, mode, timeLimitSeconds, wordCount]
   );
   const bestWpm = useMemo(() => bestWpmByMode[currentBestKey] || 0, [bestWpmByMode, currentBestKey]);
+  const activeArenaChallenge = dailyChallenge?.challenge || null;
+  const arenaRules = activeArenaChallenge?.rules || {};
+  const isArenaMode = mode === TYPING_MODES.CHALLENGE_ARENA;
   const {
     playCorrectKey,
     playMilestoneSound,
@@ -163,6 +184,13 @@ export const useTypingTest = () => {
   } = useTypingSounds(isSoundEnabled);
 
   const isFinished = useMemo(() => {
+    if (isArenaMode) {
+      if (challengeFailed) return true;
+      if (arenaRules.sustainSeconds && arenaHoldSecondsRef.current >= arenaRules.sustainSeconds) return true;
+      if (arenaRules.timeLimitSeconds && timeLeft === 0) return true;
+      return paragraph.length > 0 && typedText.length >= paragraph.length;
+    }
+
     if (mode === TYPING_MODES.TIME) return timeLeft === 0;
     if (mode === TYPING_MODES.WORDS) return engineSnapshot.isWordLimitReached;
     if (mode === TYPING_MODES.GOAL) {
@@ -172,7 +200,7 @@ export const useTypingTest = () => {
       return goalAchievedSecondsRef.current >= 5 || timeLeft === 0;
     }
     return paragraph.length > 0 && typedText.length >= paragraph.length;
-  }, [engineSnapshot.isWordLimitReached, goalVariant, mode, paragraph.length, timeLeft, typedText.length]);
+  }, [arenaRules.sustainSeconds, arenaRules.timeLimitSeconds, challengeFailed, engineSnapshot.isWordLimitReached, goalVariant, isArenaMode, mode, paragraph.length, timeLeft, typedText.length]);
 
   const commitSnapshot = useCallback(() => {
     const totalWords = targetWordsRef.current.length;
@@ -232,10 +260,14 @@ export const useTypingTest = () => {
       nextParagraph = null,
       nextCustomText = "",
       nextGoalVariant = goalVariant,
-      nextTimeLimitSeconds = timeLimitSeconds
+      nextTimeLimitSeconds = timeLimitSeconds,
+      nextTargetWpm = targetWpm,
+      nextChallenge = null
     } = {}) => {
       const shouldGenerateText = !nextParagraph && !nextCustomText;
       const isQuoteMode = nextMode === TYPING_MODES.QUOTE && shouldGenerateText;
+      const isArenaMode = nextMode === TYPING_MODES.CHALLENGE_ARENA;
+      const arenaChallenge = nextChallenge || dailyChallenge?.challenge || null;
 
       if (shouldGenerateText && !isQuoteMode) {
         showDelayedGenerationMessage();
@@ -244,6 +276,8 @@ export const useTypingTest = () => {
       const updatedParagraph = nextParagraph ?? (
         nextCustomText || (isQuoteMode
           ? QUOTE_LOADING_PLACEHOLDER
+          : isArenaMode && arenaChallenge
+            ? arenaChallenge.prompt
           : getGeneratedTextForMode(nextMode, nextWordCount))
       );
 
@@ -259,8 +293,24 @@ export const useTypingTest = () => {
       if (nextTimeLimitSeconds !== timeLimitSeconds) {
         setTimeLimitSeconds(nextTimeLimitSeconds);
       }
+      if (nextTargetWpm !== targetWpm) {
+        setTargetWpm(nextTargetWpm);
+      }
       if (nextCustomText) {
         setCustomText(nextCustomText);
+      }
+      if (isArenaMode) {
+        arenaBackspaceUsedRef.current = false;
+        arenaHoldSecondsRef.current = 0;
+        arenaMaxHoldWpmRef.current = 0;
+        setChallengePromptHidden(Boolean(arenaChallenge?.rules?.hideAfterSeconds));
+        setChallengeFailed(false);
+      } else {
+        arenaBackspaceUsedRef.current = false;
+        arenaHoldSecondsRef.current = 0;
+        arenaMaxHoldWpmRef.current = 0;
+        setChallengePromptHidden(false);
+        setChallengeFailed(false);
       }
 
       if (nextMode !== TYPING_MODES.QUOTE) {
@@ -323,7 +373,18 @@ export const useTypingTest = () => {
         window.clearTimeout(liveWpmTimerRef.current);
         liveWpmTimerRef.current = null;
       }
+      if (challengeHideTimerRef.current) {
+        window.clearTimeout(challengeHideTimerRef.current);
+        challengeHideTimerRef.current = null;
+      }
       setFocusTrigger((previous) => previous + 1);
+
+      if (isArenaMode && arenaChallenge?.rules?.hideAfterSeconds) {
+        challengeHideTimerRef.current = window.setTimeout(() => {
+          setChallengePromptHidden(true);
+          challengeHideTimerRef.current = null;
+        }, arenaChallenge.rules.hideAfterSeconds * 1000);
+      }
 
       if (isQuoteMode) {
         setIsTextLoading(true);
@@ -365,7 +426,7 @@ export const useTypingTest = () => {
         hideLoadingMessage();
       }
     },
-    [goalVariant, hideLoadingMessage, mode, resetWordsWithError, showDelayedGenerationMessage, timeLimitSeconds, wordCount]
+    [dailyChallenge, goalVariant, hideLoadingMessage, mode, resetWordsWithError, showDelayedGenerationMessage, targetWpm, timeLimitSeconds, wordCount]
   );
 
   const finishTest = useCallback(() => {
@@ -402,6 +463,44 @@ export const useTypingTest = () => {
     timerRef.current = window.setInterval(() => {
       setElapsedSeconds((previousElapsed) => {
         const nextElapsed = previousElapsed + 1;
+
+        if (mode === TYPING_MODES.CHALLENGE_ARENA) {
+          if (arenaRules.timeLimitSeconds) {
+            setTimeLeft((previousTime) => {
+              const nextTime = previousTime <= 1 ? 0 : previousTime - 1;
+              if (nextTime === 0 && !isTestFinishedRef.current) {
+                finishTest();
+              }
+              return nextTime;
+            });
+          }
+
+          if (arenaRules.sustainSeconds) {
+            const arenaTargetWpm = Number(arenaRules.targetWpm || arenaRules.minWpm || targetWpm || DEFAULT_GOAL_WPM);
+            const currentWpm = latestRawWpmRef.current;
+            const currentAccuracy = Math.max(0, Math.min(100, Number(calculateAccuracy(engineSnapshot.correctCharacters, typedText.length)) || 0));
+            const meetsChallengeNow = getChallengeObjectiveStatus(dailyChallenge?.challenge, {
+              wpm: currentWpm,
+              accuracy: currentAccuracy,
+              timeUsed: nextElapsed,
+              incorrectCharacters: engineSnapshot.incorrectCharacters,
+              backspaceUsed: arenaBackspaceUsedRef.current,
+              promptHiddenUsed: challengePromptHidden,
+              maxHoldWpm: Math.max(arenaMaxHoldWpmRef.current, currentWpm),
+              holdSeconds: arenaHoldSecondsRef.current
+            });
+
+            if (meetsChallengeNow && currentWpm >= arenaTargetWpm) {
+              arenaHoldSecondsRef.current += 1;
+              arenaMaxHoldWpmRef.current = Math.max(arenaMaxHoldWpmRef.current, currentWpm);
+              if (arenaHoldSecondsRef.current >= arenaRules.sustainSeconds && !isTestFinishedRef.current) {
+                finishTest();
+              }
+            } else {
+              arenaHoldSecondsRef.current = 0;
+            }
+          }
+        }
 
         if (mode === TYPING_MODES.GOAL) {
           setTimeLeft((previousTime) => {
@@ -449,7 +548,7 @@ export const useTypingTest = () => {
         timerRef.current = null;
       }
     };
-  }, [goalVariant, hasStarted, isFinished, mode, targetWpm, finishTest]);
+  }, [arenaRules.minAccuracy, arenaRules.sustainSeconds, arenaRules.targetWpm, arenaRules.timeLimitSeconds, challengePromptHidden, dailyChallenge, engineSnapshot.correctCharacters, engineSnapshot.incorrectCharacters, finishTest, goalVariant, hasStarted, isFinished, mode, targetWpm, typedText.length]);
 
   // Control helpers for keyboard shortcuts
   const startTest = useCallback(() => {
@@ -618,6 +717,10 @@ export const useTypingTest = () => {
       }
 
       if (isBackspace) {
+        if (mode === TYPING_MODES.CHALLENGE_ARENA) {
+          arenaBackspaceUsedRef.current = true;
+        }
+
         const removedIndex = typedText.length - 1;
         const removedChar = typedText[removedIndex];
 
@@ -703,6 +806,20 @@ export const useTypingTest = () => {
   );
 
   const handleRestart = useCallback(() => {
+    const currentChallenge = dailyChallenge?.challenge;
+    if (mode === TYPING_MODES.CHALLENGE_ARENA && currentChallenge) {
+      resetTypingState({
+        nextMode: TYPING_MODES.CHALLENGE_ARENA,
+        nextWordCount: currentChallenge.config?.wordCount ?? wordCount,
+        nextParagraph: currentChallenge.prompt,
+        nextGoalVariant: currentChallenge.config?.goalVariant ?? goalVariant,
+        nextTimeLimitSeconds: currentChallenge.config?.timeLimitSeconds ?? timeLimitSeconds,
+        nextTargetWpm: currentChallenge.config?.targetWpm ?? targetWpm,
+        nextChallenge: currentChallenge
+      });
+      return;
+    }
+
     if (mode === TYPING_MODES.CUSTOM && customText.trim().length > 0) {
       resetTypingState({
         nextMode: TYPING_MODES.CUSTOM,
@@ -714,7 +831,53 @@ export const useTypingTest = () => {
 
     // If restarting into quote mode, try to prepare remote quote
     resetTypingState();
-  }, [customText, mode, resetTypingState]);
+  }, [customText, dailyChallenge, goalVariant, mode, resetTypingState, targetWpm, timeLimitSeconds, wordCount]);
+
+  const startDailyChallenge = useCallback(
+    (challenge = dailyChallenge?.challenge) => {
+      if (!challenge) return;
+
+      arenaPreviousModeRef.current = {
+        mode,
+        wordCount,
+        goalVariant,
+        timeLimitSeconds,
+        targetWpm,
+        customText
+      };
+
+      resetTypingState({
+        nextMode: TYPING_MODES.CHALLENGE_ARENA,
+        nextWordCount: challenge.config?.wordCount ?? wordCount,
+        nextParagraph: challenge.prompt,
+        nextGoalVariant: challenge.config?.goalVariant ?? goalVariant,
+        nextTimeLimitSeconds: challenge.config?.timeLimitSeconds ?? timeLimitSeconds,
+        nextTargetWpm: challenge.config?.targetWpm ?? targetWpm,
+        nextChallenge: challenge
+      });
+    },
+    [customText, dailyChallenge, goalVariant, mode, resetTypingState, targetWpm, timeLimitSeconds, wordCount]
+  );
+
+  const cancelDailyChallenge = useCallback(() => {
+    const previous = arenaPreviousModeRef.current;
+    arenaPreviousModeRef.current = null;
+
+    if (!previous) {
+      handleRestart();
+      return;
+    }
+
+    resetTypingState({
+      nextMode: previous.mode,
+      nextWordCount: previous.wordCount,
+      nextParagraph: previous.mode === TYPING_MODES.CUSTOM ? (previous.customText || "") : null,
+      nextCustomText: previous.mode === TYPING_MODES.CUSTOM ? (previous.customText || "") : "",
+      nextGoalVariant: previous.goalVariant,
+      nextTimeLimitSeconds: previous.timeLimitSeconds,
+      nextTargetWpm: previous.targetWpm
+    });
+  }, [handleRestart, resetTypingState]);
 
   const handleModeChange = useCallback(
     (nextMode, options = {}) => {
@@ -722,7 +885,9 @@ export const useTypingTest = () => {
       const nextGoal = normalizeGoalVariant(options.goalVariant ?? goalVariant);
       const nextTimeLimit = normalizeTimeLimitSeconds(options.timeLimitSeconds ?? timeLimitSeconds);
       const nextWordCount = Number.isFinite(Number(options.wordCount)) ? Number(options.wordCount) : wordCount;
-      setPreferredMode(normalizedMode);
+      if (normalizedMode !== TYPING_MODES.CHALLENGE_ARENA) {
+        setPreferredMode(normalizedMode);
+      }
       setPreferredGoalVariant(nextGoal);
       setPreferredTimeLimitSeconds(nextTimeLimit);
       const nextParagraph =
@@ -823,16 +988,19 @@ export const useTypingTest = () => {
   );
   const totalWords = useMemo(() => targetWordsRef.current.length, [paragraph]);
 
+  const calculateArenaWpm = useCallback((correctCharacters, elapsedSeconds) => {
+    return Math.min(300, Math.max(0, calculateWpm(correctCharacters, Math.max(1, elapsedSeconds))));
+  }, []);
+
   const rawWpm = useMemo(
     () => {
       if (!hasStarted) return 0;
-      // Use actual elapsed time based on mode
       const actualElapsed = mode === TYPING_MODES.TIME || mode === TYPING_MODES.GOAL
         ? Math.max(timeLimitSeconds - timeLeft, 1)
         : Math.max(elapsedSeconds, 1);
-      return calculateWpm(engineSnapshot.correctCharacters, actualElapsed);
+      return calculateArenaWpm(engineSnapshot.correctCharacters, actualElapsed);
     },
-    [engineSnapshot.correctCharacters, elapsedSeconds, hasStarted, mode, timeLeft, timeLimitSeconds]
+    [calculateArenaWpm, engineSnapshot.correctCharacters, elapsedSeconds, hasStarted, mode, timeLeft, timeLimitSeconds]
   );
   useEffect(() => {
     latestRawWpmRef.current = rawWpm;
@@ -956,6 +1124,16 @@ export const useTypingTest = () => {
 
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const nextChallenge = getDailyChallenge();
+      setDailyChallenge(nextChallenge);
+      setDailyChallengeHistory(getDailyChallengeRecentHistory());
+    }, 60000);
+
+    return () => window.clearInterval(timer);
+  }, []);
   const accuracy = useMemo(
     () => calculateAccuracy(engineSnapshot.correctCharacters, typedText.length),
     [engineSnapshot.correctCharacters, typedText.length]
@@ -968,6 +1146,21 @@ export const useTypingTest = () => {
       isCurrentWordCorrect: engineSnapshot.isCurrentWordCorrect
     }),
     [engineSnapshot, totalWords]
+  );
+
+  const challengeProgress = useMemo(
+    () => (isArenaMode
+      ? getArenaChallengeProgress(dailyChallenge, {
+          wpm: rawWpm,
+          accuracy,
+          elapsedSeconds,
+          holdSeconds: arenaHoldSecondsRef.current,
+          backspaceUsed: arenaBackspaceUsedRef.current,
+          promptHidden: challengePromptHidden,
+          incorrectCharacters: engineSnapshot.incorrectCharacters
+        })
+      : null),
+    [accuracy, challengePromptHidden, dailyChallenge, elapsedSeconds, engineSnapshot.incorrectCharacters, isArenaMode, rawWpm]
   );
 
   const activeIndex = useMemo(() => {
@@ -1008,8 +1201,7 @@ export const useTypingTest = () => {
     if (!isFinished || !hasStarted || hasSavedResultRef.current) return;
 
     const timeUsed = Math.max(mode === TYPING_MODES.TIME || mode === TYPING_MODES.GOAL ? timeLimitSeconds - timeLeft : elapsedSeconds, 1);
-    // Recalculate WPM using the actual time used so final WPM matches the live pace the user saw.
-    const finalWpm = calculateWpm(engineSnapshot.correctCharacters, timeUsed);
+    const finalWpm = calculateArenaWpm(engineSnapshot.correctCharacters, timeUsed);
     const currentBestKey = getBestWpmModeKey({ mode, wordCount, goalVariant, timeLimitSeconds });
     const previousBest = bestWpmByMode[currentBestKey] || 0;
     const goalSuccess =
@@ -1041,33 +1233,70 @@ export const useTypingTest = () => {
       timeUsed,
       previousBest,
       improvedBest: finalWpm > previousBest,
-      goalSuccess
+      goalSuccess,
+      challengeId: dailyChallenge?.challenge?.id || null,
+      challengeTitle: dailyChallenge?.challenge?.title || null,
+      challengeReward: dailyChallenge?.challenge?.reward || null,
+      challengeBadgeId: dailyChallenge?.challenge?.badgeId || null,
+      challengeBadgeName: dailyChallenge?.challenge?.badgeName || null,
+      challengeEarnedCount: 0,
+      challengeCompleted: false,
+      challengeFailed: false,
+      challengeStreak: dailyChallenge?.challengeStreak || 0,
+      backspaceUsed: mode === TYPING_MODES.CHALLENGE_ARENA ? arenaBackspaceUsedRef.current : false,
+      holdSeconds: mode === TYPING_MODES.CHALLENGE_ARENA ? arenaHoldSecondsRef.current : 0,
+      maxHoldWpm: mode === TYPING_MODES.CHALLENGE_ARENA ? arenaMaxHoldWpmRef.current : 0,
+      promptHiddenUsed: mode === TYPING_MODES.CHALLENGE_ARENA ? challengePromptHidden : false
     };
 
-    const storedResults = addResult(result);
-    if (goalSuccess || mode !== TYPING_MODES.GOAL) {
-      syncLeaderboard(storedResults);
-    }
-    try {
-      // attempt to add to explicit leaderboard store if it qualifies
-      if (typeof updateLeaderboard === "function") updateLeaderboard(result);
-    } catch {}
     try {
       const progress = incrementDailyGoalProgress(Date.now());
       setDailyGoalProgress(progress);
     } catch {}
-    setFinalResult(result);
     hasSavedResultRef.current = true;
     // update streak info based on now
     try {
       const s = updateStreakWithTimestamp(Date.now());
       setStreakInfo(s);
-      // attach streak to final result for UI
-      setFinalResult((prev) => (prev ? { ...prev, streak: s.count } : prev));
+      result.streak = s.count;
     } catch {}
+
+    let challengeOutcome = null;
+    try {
+      challengeOutcome = completeChallenge(result, Date.now());
+      if (challengeOutcome.state) {
+        setDailyChallenge(challengeOutcome.state);
+      }
+      setDailyChallengeHistory(getDailyChallengeRecentHistory());
+      if (challengeOutcome.completed && !challengeOutcome.alreadyCompleted && isSoundEnabled) {
+        playMilestoneSound();
+      }
+      if (challengeOutcome.completed) {
+        result.challengeCompleted = true;
+        result.challengeEarnedCount = challengeOutcome.badgeAwarded?.earnedCount || result.challengeEarnedCount || 1;
+        result.challengeStreak = challengeOutcome.state?.challengeStreak || result.challengeStreak;
+        setChallengeFailed(false);
+      } else if (mode === TYPING_MODES.CHALLENGE_ARENA) {
+        result.challengeFailed = true;
+        setChallengeFailed(true);
+        failDailyChallenge(Date.now());
+      }
+    } catch {}
+
+    const storedResults = addResult(result);
+
+    if ((goalSuccess || mode !== TYPING_MODES.GOAL) && (mode !== TYPING_MODES.CHALLENGE_ARENA || (result.challengeCompleted && !challengeOutcome?.alreadyCompleted))) {
+      syncLeaderboard(storedResults);
+      try {
+        if (typeof updateLeaderboard === "function") updateLeaderboard(result);
+      } catch {}
+    }
+
+    setFinalResult(result);
   }, [
     accuracy,
     bestWpmByMode,
+    dailyChallenge,
     goalVariant,
     elapsedSeconds,
     engineSnapshot.correctCharacters,
@@ -1076,11 +1305,14 @@ export const useTypingTest = () => {
     isFinished,
     mode,
     paragraph,
+    playMilestoneSound,
+    isSoundEnabled,
     targetWpm,
     timeLeft,
     timeLimitSeconds,
     wordCount,
-    rawWpm
+    rawWpm,
+    calculateArenaWpm
   ]);
 
   return {
@@ -1130,9 +1362,18 @@ export const useTypingTest = () => {
     bestWpm,
     bestWpmByMode,
     dailyGoalProgress,
+    dailyChallenge,
+    dailyChallengeHistory,
+    challengeConfig: dailyChallenge?.challenge || null,
+    challengeProgress,
+    challengeCompleted: Boolean(dailyChallenge?.challengeCompleted),
+    challengeFailed,
+    challengePromptHidden,
     startTest,
     pauseTest,
     toggleActive,
-    streakInfo
+    streakInfo,
+    startDailyChallenge,
+    cancelDailyChallenge
   };
 };

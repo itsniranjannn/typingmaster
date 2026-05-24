@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import RightSidebar from "./RightSidebar";
 
-export default function SidebarModal({ isOpen, onClose, isDark, bestWpm, bestWpmLabel, liveWpm, resetKey, streakInfo, dailyGoalProgress }) {
+export default function SidebarModal({ isOpen, onClose, isDark, bestWpm, bestWpmLabel, liveWpm, resetKey, streakInfo, dailyGoalProgress, dailyChallenge, dailyChallengeHistory, onStartChallenge }) {
   if (!isOpen) return null;
 
   return (
@@ -32,6 +32,9 @@ export default function SidebarModal({ isOpen, onClose, isDark, bestWpm, bestWpm
             isDark={isDark}
             streakInfo={streakInfo}
             dailyGoalProgress={dailyGoalProgress}
+            dailyChallenge={dailyChallenge}
+            dailyChallengeHistory={dailyChallengeHistory}
+            onStartChallenge={onStartChallenge}
           />
         </div>
       </motion.div>

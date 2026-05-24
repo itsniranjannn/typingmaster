@@ -4,7 +4,8 @@ export const TYPING_MODES = {
   QUOTE: "quote",
   CUSTOM: "custom",
   GOAL: "goal",
-  NUMBERS: "numbers"
+  NUMBERS: "numbers",
+  CHALLENGE_ARENA: "challenge_arena"
 };
 
 export const WORD_MODE_OPTIONS = [25, 50, 100];

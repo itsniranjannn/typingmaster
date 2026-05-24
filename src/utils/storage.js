@@ -5,6 +5,7 @@ const STORAGE_KEYS = {
   RESULTS_LEGACY: "typingMaster.results",
   LEADERBOARD: "typing_leaderboard",
   LEADERBOARD_LEGACY: "typingMaster.leaderboard",
+  BADGES: "typingMaster.badges",
   THEME: "typingMaster.theme",
   MODE: "typingMaster.mode",
   GOAL_VARIANT: "typingMaster.goalVariant",
@@ -20,6 +21,15 @@ const STREAK_KEYS = {
 
 const DAILY_GOAL_KEYS = {
   PROGRESS: "typingMaster.dailyGoalProgress"
+};
+
+const DAILY_CHALLENGE_KEYS = {
+  STATE: "typingMaster.dailyChallenge",
+  HISTORY: "typingMaster.dailyChallengeHistory"
+};
+
+const ARENA_KEYS = {
+  BANNER_COLLAPSED: "typingMaster.challengeArena.bannerCollapsed"
 };
 
 const DEFAULT_TIME_LIMIT_SECONDS = 25;
@@ -57,7 +67,7 @@ const sanitizeAccuracy = (value) => {
 };
 
 const sanitizeMode = (value) => {
-  const validModes = new Set(["time", "words", "quote", "custom", "goal", "numbers"]);
+  const validModes = new Set(["time", "words", "quote", "custom", "goal", "numbers", "challenge_arena"]);
   if (value === "goal_sustain" || value === "goal_reach") return "goal";
   return validModes.has(value) ? value : "time";
 };
@@ -77,6 +87,138 @@ const sanitizeBoolean = (value, fallbackValue = true) =>
 const sanitizeVolume = (value) => {
   if (!isFiniteNumber(value)) return 0.5;
   return Math.min(Math.max(value, 0), 1);
+};
+
+const sanitizeDateKey = (value) => (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null);
+
+const sanitizeDailyChallengeConfig = (value) => {
+  if (!value || typeof value !== "object") return null;
+
+  const config = {};
+  if (Object.prototype.hasOwnProperty.call(value, "timeLimitSeconds") && isFiniteNumber(value.timeLimitSeconds)) {
+    config.timeLimitSeconds = sanitizeTimeLimitSeconds(value.timeLimitSeconds);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "wordCount") && isFiniteNumber(value.wordCount)) {
+    config.wordCount = Math.min(Math.max(Math.round(value.wordCount), 1), 300);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "targetWpm") && isFiniteNumber(value.targetWpm)) {
+    config.targetWpm = sanitizeNumber(value.targetWpm, 0);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "goalVariant") && typeof value.goalVariant === "string") {
+    config.goalVariant = sanitizeGoalVariant(value.goalVariant);
+  }
+  return config;
+};
+
+const sanitizeDailyChallengeCriteria = (value) => {
+  if (!value || typeof value !== "object") return null;
+
+  const criteria = {};
+  if (Object.prototype.hasOwnProperty.call(value, "mode") && typeof value.mode === "string") {
+    criteria.mode = sanitizeMode(value.mode);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "minWpm") && isFiniteNumber(value.minWpm)) {
+    criteria.minWpm = sanitizeNumber(value.minWpm, 0);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "minAccuracy") && isFiniteNumber(value.minAccuracy)) {
+    criteria.minAccuracy = sanitizeAccuracy(value.minAccuracy);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "timeLimitSeconds") && isFiniteNumber(value.timeLimitSeconds)) {
+    criteria.timeLimitSeconds = sanitizeTimeLimitSeconds(value.timeLimitSeconds);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "wordCount") && isFiniteNumber(value.wordCount)) {
+    criteria.wordCount = Math.min(Math.max(Math.round(value.wordCount), 1), 300);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "goalVariant") && typeof value.goalVariant === "string") {
+    criteria.goalVariant = sanitizeGoalVariant(value.goalVariant);
+  }
+  return criteria;
+};
+
+const sanitizeDailyChallenge = (value) => {
+  if (!value || typeof value !== "object") return null;
+
+  const id = typeof value.id === "string" ? value.id.trim() : "";
+  const title = typeof value.title === "string" ? value.title.trim() : "";
+  const description = typeof value.description === "string" ? value.description.trim() : "";
+  const target = typeof value.target === "string"
+    ? value.target.trim()
+    : typeof value.objective === "string"
+      ? value.objective.trim()
+      : "";
+  const reward = typeof value.reward === "string" ? value.reward.trim() : "";
+  const prompt = typeof value.prompt === "string" ? value.prompt.trim() : "";
+  const mode = sanitizeMode(value.mode);
+
+  if (!id || !title || !description || !target || !reward || !prompt) return null;
+
+  return {
+    id,
+    title,
+    description,
+    mode,
+    target,
+    reward,
+    prompt,
+    config: sanitizeDailyChallengeConfig(value.config),
+    rules: sanitizeDailyChallengeCriteria(value.rules || value.criteria),
+    criteria: sanitizeDailyChallengeCriteria(value.criteria || value.rules)
+  };
+};
+
+const sanitizeDailyChallengeHistoryEntry = (value) => {
+  if (!value || typeof value !== "object") return null;
+
+  const date = sanitizeDateKey(value.date);
+  const challengeId = typeof value.challengeId === "string" ? value.challengeId.trim() : "";
+  const title = typeof value.title === "string" ? value.title.trim() : "";
+  if (!date || !challengeId || !title) return null;
+
+  return {
+    date,
+    challengeId,
+    title,
+    reward: typeof value.reward === "string" ? value.reward.trim() : "",
+    completed: typeof value.completed === "boolean" ? value.completed : false,
+    createdAt: sanitizeNumber(value.createdAt, 0),
+    completedAt: typeof value.completedAt === "number" && Number.isFinite(value.completedAt) ? value.completedAt : null,
+    challengeStreak: sanitizeNumber(value.challengeStreak, 0)
+  };
+};
+
+const sanitizeDailyChallengeState = (value) => {
+  if (!value || typeof value !== "object") return null;
+
+  const date = sanitizeDateKey(value.date);
+  const lastChallengeDate = sanitizeDateKey(value.lastChallengeDate || value.date);
+  const challenge = sanitizeDailyChallenge(value.challenge);
+  if (!date || !lastChallengeDate || !challenge) return null;
+
+  return {
+    date,
+    lastChallengeDate,
+    challengeCompleted: typeof value.challengeCompleted === "boolean" ? value.challengeCompleted : false,
+    completedAt: typeof value.completedAt === "number" && Number.isFinite(value.completedAt) ? value.completedAt : null,
+    challengeStreak: sanitizeNumber(value.challengeStreak, 0),
+    challenge
+  };
+};
+
+const sanitizeBadge = (value) => {
+  if (!value || typeof value !== "object") return null;
+
+  const badgeId = typeof value.badgeId === "string" ? value.badgeId.trim() : "";
+  const name = typeof value.name === "string" ? value.name.trim() : "";
+  const iconName = typeof value.iconName === "string" ? value.iconName.trim() : "Trophy";
+  if (!badgeId || !name) return null;
+
+  return {
+    badgeId,
+    name,
+    earnedCount: Math.max(0, Math.round(sanitizeNumber(value.earnedCount, 0))),
+    lastEarnedDate: sanitizeDateKey(value.lastEarnedDate) || null,
+    iconName
+  };
 };
 
 const sanitizeResult = (result) => {
@@ -104,7 +246,15 @@ const sanitizeResult = (result) => {
     goalSuccess: typeof result.goalSuccess === "boolean" ? result.goalSuccess : null,
     modeKey: typeof result.modeKey === "string" ? result.modeKey : null,
     previousBest: sanitizeNumber(result.previousBest, 0),
-    improvedBest: typeof result.improvedBest === "boolean" ? result.improvedBest : false
+    improvedBest: typeof result.improvedBest === "boolean" ? result.improvedBest : false,
+    challengeId: typeof result.challengeId === "string" ? result.challengeId : null,
+    challengeTitle: typeof result.challengeTitle === "string" ? result.challengeTitle : null,
+    challengeBadgeId: typeof result.challengeBadgeId === "string" ? result.challengeBadgeId : null,
+    challengeBadgeName: typeof result.challengeBadgeName === "string" ? result.challengeBadgeName : null,
+    challengeEarnedCount: sanitizeNumber(result.challengeEarnedCount, 0),
+    challengeCompleted: typeof result.challengeCompleted === "boolean" ? result.challengeCompleted : false,
+    challengeFailed: typeof result.challengeFailed === "boolean" ? result.challengeFailed : false,
+    challengeStreak: sanitizeNumber(result.challengeStreak, 0)
   };
 };
 
@@ -124,7 +274,8 @@ const createDefaultBestWpmByMode = () => ({
   goalReach: 0,
   quote: 0,
   custom: 0,
-  numbers: 0
+  numbers: 0,
+  challengeArena: 0
 });
 
 const sanitizeBestWpmByMode = (value) => {
@@ -219,6 +370,66 @@ export const updateLeaderboard = (result) => {
     return getLeaderboard();
   }
 };
+
+export const loadBadges = () => {
+  const stored = safeRead(STORAGE_KEYS.BADGES, []);
+  if (!Array.isArray(stored)) return [];
+  return stored.map(sanitizeBadge).filter(Boolean);
+};
+
+export const saveBadges = (badges) => {
+  const sanitizedBadges = Array.isArray(badges) ? badges.map(sanitizeBadge).filter(Boolean) : [];
+  safeWrite(STORAGE_KEYS.BADGES, sanitizedBadges);
+  return sanitizedBadges;
+};
+
+export const saveBadge = (badge) => {
+  const sanitizedBadge = sanitizeBadge(badge);
+  if (!sanitizedBadge) return null;
+
+  const currentBadges = loadBadges();
+  const existingIndex = currentBadges.findIndex((item) => item.badgeId === sanitizedBadge.badgeId);
+  if (existingIndex >= 0) {
+    currentBadges[existingIndex] = {
+      ...currentBadges[existingIndex],
+      ...sanitizedBadge,
+      earnedCount: Math.max(currentBadges[existingIndex].earnedCount, sanitizedBadge.earnedCount)
+    };
+    saveBadges(currentBadges);
+    return currentBadges[existingIndex];
+  }
+
+  const nextBadges = [...currentBadges, sanitizedBadge];
+  saveBadges(nextBadges);
+  return sanitizedBadge;
+};
+
+export const updateBadgeCount = (badgeId, badgeDefinition = {}, earnedAt = Date.now()) => {
+  if (typeof badgeId !== "string" || !badgeId.trim()) return null;
+
+  const currentBadges = loadBadges();
+  const badgeKey = badgeId.trim();
+  const existing = currentBadges.find((item) => item.badgeId === badgeKey);
+  const nextBadge = {
+    badgeId: badgeKey,
+    name: typeof badgeDefinition.name === "string" ? badgeDefinition.name.trim() : existing?.name || badgeKey,
+    iconName: typeof badgeDefinition.iconName === "string" ? badgeDefinition.iconName.trim() : existing?.iconName || "Trophy",
+    earnedCount: (existing?.earnedCount || 0) + 1,
+    lastEarnedDate: typeof earnedAt === "number" && Number.isFinite(earnedAt) ? new Date(earnedAt).toISOString().slice(0, 10) : existing?.lastEarnedDate || null
+  };
+
+  const nextBadges = existing
+    ? currentBadges.map((item) => (item.badgeId === badgeKey ? nextBadge : item))
+    : [...currentBadges, nextBadge];
+
+  saveBadges(nextBadges);
+  return nextBadge;
+};
+
+export const resetBadges = () => saveBadges([]);
+
+export const getArenaBannerCollapsed = () => sanitizeBoolean(safeRead(ARENA_KEYS.BANNER_COLLAPSED, false), false);
+export const setArenaBannerCollapsed = (collapsed) => safeWrite(ARENA_KEYS.BANNER_COLLAPSED, sanitizeBoolean(collapsed, false));
 
 export const getPreferredTheme = () => sanitizeTheme(safeRead(STORAGE_KEYS.THEME, "dark"));
 export const setPreferredTheme = (theme) => safeWrite(STORAGE_KEYS.THEME, sanitizeTheme(theme));
@@ -385,4 +596,55 @@ export const updateStreakWithTimestamp = (timestampMs = Date.now()) => {
   const payload = { count: nextCount, lastTestDate: key };
   safeWrite(STREAK_KEYS.STREAK, payload);
   return payload;
+};
+
+export const getDailyChallengeHistory = () => {
+  const stored = safeRead(DAILY_CHALLENGE_KEYS.HISTORY, []);
+  if (!Array.isArray(stored)) return [];
+  return stored.map(sanitizeDailyChallengeHistoryEntry).filter(Boolean).sort((left, right) => right.createdAt - left.createdAt);
+};
+
+export const setDailyChallengeHistory = (history) => {
+  const sanitizedHistory = Array.isArray(history)
+    ? history.map(sanitizeDailyChallengeHistoryEntry).filter(Boolean).sort((left, right) => right.createdAt - left.createdAt)
+    : [];
+  safeWrite(DAILY_CHALLENGE_KEYS.HISTORY, sanitizedHistory);
+  return sanitizedHistory;
+};
+
+export const getDailyChallengeState = () => sanitizeDailyChallengeState(safeRead(DAILY_CHALLENGE_KEYS.STATE, null));
+
+export const setDailyChallengeState = (state) => {
+  const sanitizedState = sanitizeDailyChallengeState(state);
+  if (!sanitizedState) return null;
+  safeWrite(DAILY_CHALLENGE_KEYS.STATE, sanitizedState);
+  return sanitizedState;
+};
+
+export const appendDailyChallengeHistoryEntry = (entry) => {
+  const sanitizedEntry = sanitizeDailyChallengeHistoryEntry(entry);
+  if (!sanitizedEntry) return getDailyChallengeHistory();
+
+  const currentHistory = getDailyChallengeHistory();
+  const nextHistory = [sanitizedEntry, ...currentHistory.filter((item) => !(item.challengeId === sanitizedEntry.challengeId && item.date === sanitizedEntry.date))].slice(0, 60);
+  return setDailyChallengeHistory(nextHistory);
+};
+
+export const updateDailyChallengeHistoryEntry = (date, updater) => {
+  const dateKey = sanitizeDateKey(date);
+  if (!dateKey || typeof updater !== "function") return getDailyChallengeHistory();
+
+  const currentHistory = getDailyChallengeHistory();
+  const nextHistory = currentHistory.map((entry) => {
+    if (entry.date !== dateKey) return entry;
+    return sanitizeDailyChallengeHistoryEntry(updater(entry)) || entry;
+  });
+
+  return setDailyChallengeHistory(nextHistory);
+};
+
+export const resetDailyChallengeState = () => {
+  safeWrite(DAILY_CHALLENGE_KEYS.STATE, null);
+  safeWrite(DAILY_CHALLENGE_KEYS.HISTORY, []);
+  return { state: null, history: [] };
 };

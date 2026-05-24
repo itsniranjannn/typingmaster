@@ -148,6 +148,7 @@ function TypingText({
   isDark = true,
   fontScale = 1,
   focused = false,
+  hideContent = false,
   onPointerDown,
   onKeyDown,
   onFocus,
@@ -350,18 +351,20 @@ function TypingText({
           />
         ) : null}
 
-        {segments.map((token) => (
-          <TypingToken
-            key={token.id}
-            token={token}
-            characterStates={characterStates}
-            currentWordIndex={currentWordIndex}
-            isDark={isDark}
-            registerWordRef={registerWordRef}
-            registerCharacterRef={registerCharacterRef}
-            registerCharacterRangeRef={registerCharacterRangeRef}
-          />
-        ))}
+        <div className={hideContent ? "opacity-0 select-none" : ""}>
+          {segments.map((token) => (
+            <TypingToken
+              key={token.id}
+              token={token}
+              characterStates={characterStates}
+              currentWordIndex={currentWordIndex}
+              isDark={isDark}
+              registerWordRef={registerWordRef}
+              registerCharacterRef={registerCharacterRef}
+              registerCharacterRangeRef={registerCharacterRangeRef}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );

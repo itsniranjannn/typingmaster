@@ -8,15 +8,17 @@ import TypingText from "./TypingText";
 import ResultScreen from "./ResultScreen";
 import SettingsModal from "./SettingsModal";
 import LeaderboardModal from "./LeaderboardModal";
+import BadgeGalleryModal from "./BadgeGalleryModal";
 // ModeSwitcher removed; controls moved to top bar for Monkeytype-like layout
 import SoundControls from "./SoundControls";
 import HistoryInsights from "./HistoryInsights";
 import RightSidebar from "./RightSidebar";
 import SidebarModal from "./SidebarModal";
+import ChallengeArenaBanner from "./ChallengeArenaBanner";
 import WelcomeTour from "./WelcomeTour";
 import { useTypingTest } from "../hooks/useTypingTest";
 import { TYPING_MODES, GOAL_VARIANTS, CUSTOM_TIME_MIN_SECONDS, CUSTOM_TIME_MAX_SECONDS } from "../constants/typingModes";
-import { exportResultsToCSV, getHasSeenTour, setHasSeenTour } from "../utils/storage";
+import { exportResultsToCSV, getArenaBannerCollapsed, getHasSeenTour, setArenaBannerCollapsed, setHasSeenTour } from "../utils/storage";
 
 function TypingTest({ theme, onToggleTheme }) {
   const {
@@ -61,10 +63,19 @@ function TypingTest({ theme, onToggleTheme }) {
     goalVariant,
     timeLimitSeconds,
     dailyGoalProgress,
+    dailyChallenge,
+    dailyChallengeHistory,
+    challengeConfig,
+    challengeProgress,
+    challengeCompleted,
+    challengeFailed,
+    challengePromptHidden,
     startTest,
     pauseTest,
     toggleActive,
-    streakInfo
+    streakInfo,
+    startDailyChallenge,
+    cancelDailyChallenge
   } = useTypingTest();
 
   const [fontScale, setFontScale] = useState(1);
@@ -72,6 +83,8 @@ function TypingTest({ theme, onToggleTheme }) {
   const goalReachedTimeoutRef = useRef(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isLeaderboardOpen, setIsLeaderboardOpen] = useState(false);
+  const [isBadgeGalleryOpen, setIsBadgeGalleryOpen] = useState(false);
+  const [badgeGalleryRefreshKey, setBadgeGalleryRefreshKey] = useState(0);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [tipSeed, setTipSeed] = useState(0);
   const [historyCloseSignal, setHistoryCloseSignal] = useState(0);
@@ -82,6 +95,7 @@ function TypingTest({ theme, onToggleTheme }) {
   const hiddenInputRef = useRef(null);
   const [isTypingAreaFocused, setIsTypingAreaFocused] = useState(false);
   const [isWelcomeTourOpen, setIsWelcomeTourOpen] = useState(() => !getHasSeenTour());
+  const [isArenaBannerCollapsed, setIsArenaBannerCollapsed] = useState(() => getArenaBannerCollapsed());
   const [welcomeTourStep, setWelcomeTourStep] = useState(0);
   const [welcomeTourRect, setWelcomeTourRect] = useState(null);
   const [timeInput, setTimeInput] = useState(String(timeLimitSeconds));
@@ -91,7 +105,18 @@ function TypingTest({ theme, onToggleTheme }) {
   const modeBarRef = useRef(null);
   const typingPanelRef = useRef(null);
   const statsBarRef = useRef(null);
+  const isArenaMode = mode === TYPING_MODES.CHALLENGE_ARENA;
   const isCoreMode = [TYPING_MODES.TIME, TYPING_MODES.WORDS, TYPING_MODES.GOAL].includes(mode);
+
+  useEffect(() => {
+    setArenaBannerCollapsed(isArenaBannerCollapsed);
+  }, [isArenaBannerCollapsed]);
+
+  useEffect(() => {
+    if (finalResult?.challengeCompleted) {
+      setBadgeGalleryRefreshKey((current) => current + 1);
+    }
+  }, [finalResult?.challengeCompleted, finalResult?.challengeEarnedCount]);
 
   const syncTypingFocusState = useCallback(() => {
     const wrapper = typingSurfaceRef.current;
@@ -257,9 +282,30 @@ function TypingTest({ theme, onToggleTheme }) {
     }
   }, [finalResult]);
 
+  useEffect(() => {
+    if (!finalResult?.challengeCompleted) return;
+
+    confetti({
+      particleCount: 140,
+      spread: 78,
+      startVelocity: 38,
+      origin: { x: 0.5, y: 0.55 }
+    });
+
+    window.setTimeout(() => {
+      confetti({
+        particleCount: 55,
+        spread: 96,
+        startVelocity: 24,
+        origin: { x: 0.5, y: 0.45 }
+      });
+    }, 220);
+  }, [finalResult]);
+
   const closeOverlays = useCallback(() => {
     setIsSettingsOpen(false);
     setIsLeaderboardOpen(false);
+    setIsBadgeGalleryOpen(false);
     setHistoryCloseSignal((value) => value + 1);
   }, []);
 
@@ -317,6 +363,14 @@ function TypingTest({ theme, onToggleTheme }) {
   }, [focusTrigger, focusTypingArea]);
 
   const toggleSidebar = useCallback(() => setIsSidebarOpen((v) => !v), []);
+
+  const toggleArenaBanner = useCallback(() => {
+    setIsArenaBannerCollapsed((value) => !value);
+  }, []);
+
+  const exitToClassicCore = useCallback(() => {
+    handleModeChange(TYPING_MODES.TIME, { timeLimitSeconds });
+  }, [handleModeChange, timeLimitSeconds]);
 
   const closeWelcomeTour = useCallback(() => {
     setIsWelcomeTourOpen(false);
@@ -444,14 +498,28 @@ function TypingTest({ theme, onToggleTheme }) {
             {/* simplified nav - removed Practice / Leaderboard / Pro Tip links per request */}
           </div>
           <div className="w-full flex-1 sm:px-2 mt-3 sm:mt-0">
-            <TextSelector
-              mode={mode}
-              customText={customText}
-              onModeChange={handleModeChange}
-              onCoreSelect={activateCoreMode}
-              onCustomTextChange={handleCustomTextChange}
-              isDark={isDark}
-            />
+            {isArenaMode ? (
+              <div className={`rounded-2xl border px-4 py-3 ${isDark ? "border-amber-400/20 bg-gradient-to-r from-slate-950/80 to-amber-950/20" : "border-amber-200 bg-gradient-to-r from-white to-amber-50"}`}>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className={`text-[10px] font-semibold uppercase tracking-[0.22em] ${isDark ? "text-amber-300" : "text-amber-700"}`}>Arena Header</p>
+                    <p className={`text-sm font-semibold ${isDark ? "text-white" : "text-slate-900"}`}>{challengeConfig?.title || dailyChallenge?.challenge?.title || "Challenge Arena"}</p>
+                  </div>
+                  <div className={`rounded-full border px-3 py-1 text-xs font-semibold ${isDark ? "border-white/10 bg-white/5 text-slate-200" : "border-slate-200 bg-white text-slate-700"}`}>
+                    {challengeConfig?.badgeName || dailyChallenge?.challenge?.badgeName || "Badge"}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <TextSelector
+                mode={mode}
+                customText={customText}
+                onModeChange={handleModeChange}
+                onCoreSelect={activateCoreMode}
+                onCustomTextChange={handleCustomTextChange}
+                isDark={isDark}
+              />
+            )}
           </div>
 
           <div ref={headerControlsRef} className="flex items-center gap-2 w-full sm:w-auto mt-3 sm:mt-0">
@@ -489,6 +557,17 @@ function TypingTest({ theme, onToggleTheme }) {
             </motion.button>
 
             <motion.button
+              onClick={() => setIsBadgeGalleryOpen(true)}
+              className={`p-2 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 ${isDark ? "bg-slate-900 hover:bg-slate-800" : "bg-slate-200 hover:bg-slate-300"}`}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.96 }}
+              transition={{ duration: 0.18 }}
+              aria-label="Open badge gallery"
+            >
+              <span className="text-sm leading-none">🏅</span>
+            </motion.button>
+
+            <motion.button
               onClick={() => setIsSettingsOpen(true)}
               className={`p-2 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 ${isDark ? "bg-slate-900 hover:bg-slate-800" : "bg-slate-200 hover:bg-slate-300"}`}
               whileHover={{ scale: 1.1, rotate: 90 }}
@@ -507,9 +586,9 @@ function TypingTest({ theme, onToggleTheme }) {
       <motion.div
         ref={modeBarRef}
         initial={false}
-        animate={isCoreMode ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -8, scale: 0.995 }}
+        animate={isCoreMode && !isArenaMode ? { opacity: 1, y: 0, scale: 1 } : { opacity: 0, y: -8, scale: 0.995 }}
         transition={{ duration: 0.18, ease: "easeOut" }}
-        className={`w-full px-2 sm:px-4 overflow-visible ${isCoreMode ? "pointer-events-auto max-h-[160px]" : "pointer-events-none max-h-0"} relative`}
+        className={`w-full px-2 sm:px-4 overflow-visible ${isCoreMode && !isArenaMode ? "pointer-events-auto max-h-[160px]" : "pointer-events-none max-h-0"} relative`}
       >
         <motion.div key="core-settings-bar" initial={false}>
           <div className="hidden sm:block">
@@ -595,6 +674,7 @@ function TypingTest({ theme, onToggleTheme }) {
           </div>
 
           {/* Mobile compact control */}
+          {!isArenaMode ? (
           <div className="sm:hidden">
             <div className="flex items-center justify-between">
               <button onClick={() => setMobileCoreOpen((v) => !v)} className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold ${isDark ? 'bg-slate-800 text-slate-100' : 'bg-white text-slate-900'} shadow-sm`}>{mobileCoreOpen ? 'Close' : 'Core'}</button>
@@ -644,6 +724,7 @@ function TypingTest({ theme, onToggleTheme }) {
               </div>
             )}
           </div>
+          ) : null}
         </motion.div>
       </motion.div>
 
@@ -657,6 +738,19 @@ function TypingTest({ theme, onToggleTheme }) {
         <div className="mx-auto grid w-full max-w-6xl gap-4 lg:grid-cols-[minmax(0,1fr)_220px] xl:grid-cols-[minmax(0,1fr)_240px]">
           {!isFinished ? (
             <div className="mx-auto w-full max-w-5xl space-y-5 lg:mx-auto xl:max-w-[58rem]">
+              {isArenaMode ? (
+                <ChallengeArenaBanner
+                  challenge={challengeConfig || dailyChallenge?.challenge}
+                  progress={challengeProgress}
+                  challengeFailed={challengeFailed}
+                  challengeCompleted={challengeCompleted}
+                  collapsed={isArenaBannerCollapsed}
+                  onToggleCollapsed={toggleArenaBanner}
+                  onCancel={cancelDailyChallenge}
+                  onRetry={handleRestart}
+                />
+              ) : null}
+
               {/* Stats Bar */}
               <motion.div
                 initial={{ opacity: 0, y: -10 }}
@@ -760,6 +854,7 @@ function TypingTest({ theme, onToggleTheme }) {
                     isDark={isDark}
                     fontScale={fontScale}
                     focused={isTypingAreaFocused}
+                    hideContent={isArenaMode && challengePromptHidden}
                     onPointerDown={focusTypingArea}
                     onKeyDown={handleInlineKeyDown}
                     onFocus={syncTypingFocusState}
@@ -810,7 +905,15 @@ function TypingTest({ theme, onToggleTheme }) {
               transition={{ type: "spring", stiffness: 100 }}
               className="lg:col-span-1"
             >
-              <ResultScreen result={finalResult} bestWpm={bestWpm} onRestart={handleRestart} isDark={isDark} />
+              <ResultScreen
+                result={finalResult}
+                bestWpm={bestWpm}
+                onRestart={handleRestart}
+                onViewBadgeGallery={() => setIsBadgeGalleryOpen(true)}
+                onExitToClassicCore={exitToClassicCore}
+                arenaMode={isArenaMode}
+                isDark={isDark}
+              />
             </motion.div>
           )}
 
@@ -818,7 +921,18 @@ function TypingTest({ theme, onToggleTheme }) {
           {!isFinished ? (
             <aside className="hidden lg:block w-full max-w-[260px]">
               <div className="sticky top-24">
-                <RightSidebar bestWpm={bestWpm} bestWpmLabel={bestWpmLabel} liveWpm={liveWpm} resetKey={tipSeed} isDark={isDark} streakInfo={streakInfo} dailyGoalProgress={dailyGoalProgress} />
+                <RightSidebar
+                  bestWpm={bestWpm}
+                  bestWpmLabel={bestWpmLabel}
+                  liveWpm={liveWpm}
+                  resetKey={tipSeed}
+                  isDark={isDark}
+                  streakInfo={streakInfo}
+                  dailyGoalProgress={dailyGoalProgress}
+                  dailyChallenge={dailyChallenge}
+                  dailyChallengeHistory={dailyChallengeHistory}
+                  onStartChallenge={startDailyChallenge}
+                />
               </div>
             </aside>
           ) : null}
@@ -849,6 +963,9 @@ function TypingTest({ theme, onToggleTheme }) {
             resetKey={tipSeed}
             streakInfo={streakInfo}
             dailyGoalProgress={dailyGoalProgress}
+            dailyChallenge={dailyChallenge}
+            dailyChallengeHistory={dailyChallengeHistory}
+            onStartChallenge={startDailyChallenge}
           />
         </div>
       </motion.main>
@@ -861,6 +978,7 @@ function TypingTest({ theme, onToggleTheme }) {
         onThemeChange={onToggleTheme}
       />
       <LeaderboardModal isOpen={isLeaderboardOpen} onClose={() => setIsLeaderboardOpen(false)} isDark={isDark} />
+      <BadgeGalleryModal isOpen={isBadgeGalleryOpen} onClose={() => setIsBadgeGalleryOpen(false)} isDark={isDark} refreshToken={badgeGalleryRefreshKey} />
       <WelcomeTour
         isOpen={isWelcomeTourOpen}
         stepIndex={welcomeTourStep}

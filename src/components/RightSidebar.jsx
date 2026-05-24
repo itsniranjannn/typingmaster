@@ -2,6 +2,7 @@ import { memo, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { PRO_TIPS } from "../constants/typingModes";
 import { getStreak } from "../utils/storage";
+import ChallengeCard from "./ChallengeCard";
 
 function SidebarCard({ title, children, isDark = true }) {
   return (
@@ -18,7 +19,7 @@ function SidebarCard({ title, children, isDark = true }) {
   );
 }
 
-function RightSidebar({ bestWpm, bestWpmLabel = "Current mode", liveWpm, resetKey = 0, isDark = true, streakInfo: streakInfoProp = null, dailyGoalProgress = { count: 0, date: null } }) {
+function RightSidebar({ bestWpm, bestWpmLabel = "Current mode", liveWpm, resetKey = 0, isDark = true, streakInfo: streakInfoProp = null, dailyGoalProgress = { count: 0, date: null }, dailyChallenge = null, dailyChallengeHistory = [], onStartChallenge = null }) {
   const [tipIndex, setTipIndex] = useState(0);
   const [streakInfo, setStreakInfo] = useState(() => streakInfoProp || getStreak());
 
@@ -56,6 +57,14 @@ function RightSidebar({ bestWpm, bestWpmLabel = "Current mode", liveWpm, resetKe
       <SidebarCard title="Pro Tip" isDark={isDark}>
         <p className={`text-[11px] leading-4 ${isDark ? "text-slate-300" : "text-slate-700"}`}>{currentTip}</p>
       </SidebarCard>
+
+      <ChallengeCard
+        challengeState={dailyChallenge}
+        history={dailyChallengeHistory}
+        isDark={isDark}
+        onEnterArena={onStartChallenge}
+        onRetryArena={onStartChallenge}
+      />
 
       <SidebarCard title="Live WPM" isDark={isDark}>
         <div className="flex items-end justify-between gap-2">
