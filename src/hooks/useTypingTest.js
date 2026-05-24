@@ -9,7 +9,7 @@ import {
   UNIVERSAL_MODES
 } from "../constants/typingModes";
 import { getRandomQuote, fetchRandomQuote } from "../data/quotes";
-import { generateRandomParagraph, getFirstNWords, generateMixedNumbersParagraph, generateEndlessChunk } from "../utils/paragraphGenerator";
+import { generateRandomParagraph, getFirstNWords, generateNumbersParagraph, generateEndlessChunk } from "../utils/paragraphGenerator";
 import { useTypingSounds } from "./useTypingSounds";
 import { calculateAccuracy, calculateWpm } from "../utils/typingStats";
 import confetti from "canvas-confetti";
@@ -43,7 +43,7 @@ const getGeneratedTextForMode = (mode, wordCount) => {
     return getFirstNWords(generateRandomParagraph(sourceMin, sourceMax), wordCount);
   }
 
-  if (mode === TYPING_MODES.NUMBERS) return generateMixedNumbersParagraph();
+  if (mode === TYPING_MODES.NUMBERS) return generateNumbersParagraph();
 
   if (mode === TYPING_MODES.TIME) return generateRandomParagraph(30, 30);
 

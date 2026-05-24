@@ -84,13 +84,13 @@ const TypingToken = memo(function TypingToken({
   const tokenClass = isDark
     ? {
         default: "text-slate-200",
-        correct: "text-emerald-200",
-        incorrect: "text-rose-300"
+        correct: "text-emerald-400",
+        incorrect: "text-rose-400"
       }
     : {
         default: "text-slate-800",
-        correct: "text-emerald-900",
-        incorrect: "text-rose-900"
+        correct: "text-emerald-700",
+        incorrect: "text-rose-700"
       };
 
   if (token.isSpace) {
@@ -112,12 +112,12 @@ const TypingToken = memo(function TypingToken({
       } ${
         tokenState === "correct"
           ? isDark
-            ? "text-emerald-200"
-            : "text-emerald-900"
+            ? "text-emerald-400"
+            : "text-emerald-700"
           : tokenState === "incorrect"
           ? isDark
-            ? "text-rose-300"
-            : "text-rose-900"
+            ? "text-rose-400"
+            : "text-rose-700"
           : isDark
           ? "text-slate-200"
           : "text-slate-800"
@@ -167,8 +167,8 @@ function TypingText({
       isDark
         ? {
             default: "text-slate-200",
-            correct: "text-emerald-300",
-            incorrect: "text-rose-300"
+            correct: "text-emerald-400",
+            incorrect: "text-rose-400"
           }
         : {
             default: "text-slate-800",
@@ -345,8 +345,8 @@ function TypingText({
         {caret.visible ? (
           <span
             aria-hidden="true"
-            className={`caret-blink absolute z-20 border-l-2 ${isDark ? "border-cyan-300" : "border-cyan-600"}`}
-            style={{ left: caret.left, top: caret.top, height: caret.height, pointerEvents: "none" }}
+            className={`caret-blink absolute z-20 border-l-[3px] ${isDark ? "border-cyan-300" : "border-cyan-700"}`}
+            style={{ left: caret.left, top: caret.top, height: caret.height, pointerEvents: "none", boxShadow: isDark ? "0 0 0 1px rgba(103,232,249,0.25)" : "0 0 0 1px rgba(3,105,161,0.28)" }}
           />
         ) : null}
 
