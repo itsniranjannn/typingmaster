@@ -585,6 +585,8 @@ export const getChallengeHistoryForGallery = () => getDailyChallengeHistoryEntri
 export const getArenaChallengeProgress = (state, stats = {}) => {
   if (!state?.challenge) return null;
   const rules = state.challenge.rules || {};
+  const wordTarget = Number(rules.wordCount || rules.minTypedWords || 0) || 0;
+  const charTarget = Number(rules.charTarget || 0) || 0;
   const progress = {
     wpm: Math.max(0, Number(stats.wpm) || 0),
     accuracy: Math.max(0, Number(stats.accuracy) || 0),
@@ -592,6 +594,10 @@ export const getArenaChallengeProgress = (state, stats = {}) => {
     timeLimitSeconds: rules.timeLimitSeconds || null,
     holdSeconds: Math.max(0, Number(stats.holdSeconds) || 0),
     requiredHoldSeconds: rules.sustainSeconds || null,
+    completedWords: Math.max(0, Number(stats.completedWords) || 0),
+    typedCharacterCount: Math.max(0, Number(stats.typedCharacterCount) || 0),
+    requiredWordCount: wordTarget || null,
+    requiredCharTarget: charTarget || null,
     mistakes: Math.max(0, Number(stats.incorrectCharacters) || 0),
     allowedMistakes: rules.allowedMistakes || 0,
     backspaceUsed: Boolean(stats.backspaceUsed),
@@ -602,6 +608,8 @@ export const getArenaChallengeProgress = (state, stats = {}) => {
   if (rules.targetWpm || rules.minWpm) progress.wpmProgress = Math.min(1, progress.wpm / (rules.targetWpm || rules.minWpm));
   if (rules.minAccuracy) progress.accuracyProgress = Math.min(1, progress.accuracy / rules.minAccuracy);
   if (rules.sustainSeconds) progress.holdProgress = Math.min(1, progress.holdSeconds / rules.sustainSeconds);
+  if (wordTarget) progress.wordProgress = Math.min(1, progress.completedWords / wordTarget);
+  if (charTarget) progress.charProgress = Math.min(1, progress.typedCharacterCount / charTarget);
 
   return progress;
 };

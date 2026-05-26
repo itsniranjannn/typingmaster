@@ -470,6 +470,21 @@ function TypingTest({ theme, onToggleTheme }) {
     [dailyChallenge?.challenge, startDailyChallenge]
   );
 
+  const handleRetryChallenge = useCallback(() => {
+    setArenaOverlayOpen(false);
+    setShowLockOverlay(false);
+    setArenaOverlayType(null);
+    setArenaOverlayBadgeName(null);
+
+    const challenge = challengeConfig || dailyChallenge?.challenge;
+    if (challenge) {
+      startDailyChallenge(challenge);
+      return;
+    }
+
+    handleRestart();
+  }, [challengeConfig, dailyChallenge?.challenge, handleRestart, startDailyChallenge]);
+
   const closeWelcomeTour = useCallback(() => {
     setIsWelcomeTourOpen(false);
     setHasSeenTour(true);
@@ -1014,7 +1029,7 @@ function TypingTest({ theme, onToggleTheme }) {
               <ResultScreen
                 result={finalResult}
                 bestWpm={bestWpm}
-                onRestart={handleRestart}
+                onRestart={finalResult?.challengeFailed || finalResult?.challengeCompleted ? handleRetryChallenge : handleRestart}
                 onViewBadgeGallery={() => setIsBadgeGalleryOpen(true)}
                 onExitToClassicCore={exitToClassicCore}
                 arenaMode={isArenaMode}
@@ -1039,6 +1054,7 @@ function TypingTest({ theme, onToggleTheme }) {
                   dailyChallengeHistory={dailyChallengeHistory}
                   challengeAttemptsToday={challengeAttemptsToday}
                   onStartChallenge={handleStartDailyChallenge}
+                  arenaActive={isArenaMode}
                 />
               </div>
             </aside>
@@ -1074,6 +1090,7 @@ function TypingTest({ theme, onToggleTheme }) {
             dailyChallengeHistory={dailyChallengeHistory}
             challengeAttemptsToday={challengeAttemptsToday}
             onStartChallenge={handleStartDailyChallenge}
+            arenaActive={isArenaMode}
           />
         </div>
       </motion.main>

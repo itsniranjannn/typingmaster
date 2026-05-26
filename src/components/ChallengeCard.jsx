@@ -7,7 +7,7 @@ function starsToText(level = 1) {
   return "⭐".repeat(Math.max(1, Math.min(3, level)));
 }
 
-function ChallengeCard({ challengeState = null, history = [], challengeAttemptsToday = null, isDark = true, onEnterArena, onRetryArena }) {
+function ChallengeCard({ challengeState = null, history = [], challengeAttemptsToday = null, isDark = true, onEnterArena, onRetryArena, arenaActive = false }) {
   const challenge = challengeState?.challenge || null;
   const badge = challenge ? loadBadges().find((entry) => entry.badgeId === challenge.badgeId) : null;
   const badgeMultiplier = Math.max(1, badge?.earnedCount || 1);
@@ -64,7 +64,7 @@ function ChallengeCard({ challengeState = null, history = [], challengeAttemptsT
           </p>
         </div>
 
-        {!challengeState?.challengeCompleted ? (
+        {!challengeState?.challengeCompleted && !arenaActive ? (
           <button
             type="button"
             onClick={() => onEnterArena?.(challenge)}
@@ -77,6 +77,12 @@ function ChallengeCard({ challengeState = null, history = [], challengeAttemptsT
             <ArrowRight size={14} />
             Enter Arena
           </button>
+        ) : null}
+
+        {arenaActive && !challengeState?.challengeCompleted ? (
+          <div className={`inline-flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-2 text-sm font-semibold ${isDark ? "border-slate-700 bg-slate-900/60 text-slate-300" : "border-slate-200 bg-slate-100 text-slate-700"}`}>
+            Arena Active
+          </div>
         ) : null}
 
         {challengeState?.challengeCompleted ? (

@@ -501,6 +501,7 @@ export const useTypingTest = () => {
         arenaMaxHoldWpmRef.current = 0;
         setChallengePromptHidden(false);
         setChallengeHasTextFaded(false);
+        setFadedWords([]);
         setMissedWords([]);
         wordTypedOnceRef.current = new Set();
         setChallengeFailed(false);
@@ -1446,12 +1447,14 @@ export const useTypingTest = () => {
           accuracy,
           elapsedSeconds,
           holdSeconds: arenaHoldSecondsRef.current,
+          completedWords: engineSnapshot.completedWords,
+          typedCharacterCount: typedText.length,
           backspaceUsed: arenaBackspaceUsedRef.current,
           promptHidden: challengePromptHidden || challengeHasTextFaded,
           incorrectCharacters: engineSnapshot.incorrectCharacters
         })
       : null),
-    [accuracy, challengeHasTextFaded, challengePromptHidden, dailyChallenge, elapsedSeconds, engineSnapshot.incorrectCharacters, isArenaMode, rawWpm]
+    [accuracy, challengeHasTextFaded, challengePromptHidden, dailyChallenge, elapsedSeconds, engineSnapshot.completedWords, engineSnapshot.incorrectCharacters, isArenaMode, rawWpm, typedText.length]
   );
 
   const activeIndex = useMemo(() => {
@@ -1561,6 +1564,7 @@ export const useTypingTest = () => {
     } catch {}
 
     let challengeOutcome = null;
+    let usedDirectFailurePath = false;
     try {
       const arenaObjectivesMet =
         mode === TYPING_MODES.CHALLENGE_ARENA
@@ -1568,6 +1572,7 @@ export const useTypingTest = () => {
           : true;
 
       if (mode === TYPING_MODES.CHALLENGE_ARENA && !arenaObjectivesMet) {
+        usedDirectFailurePath = true;
         challengeOutcome = { state: dailyChallenge, history: getDailyChallengeRecentHistory(), completed: false, badgeAwarded: null };
       } else {
         challengeOutcome = completeChallenge(result, Date.now());
@@ -1590,7 +1595,12 @@ export const useTypingTest = () => {
       } else if (mode === TYPING_MODES.CHALLENGE_ARENA) {
         result.challengeFailed = true;
         setChallengeFailed(true);
-        failDailyChallenge(Date.now());
+        if (usedDirectFailurePath) {
+          const failedState = failDailyChallenge(Date.now());
+          if (failedState) {
+            setDailyChallenge(failedState);
+          }
+        }
         setChallengeAttemptsToday(getChallengeAttemptsToday(Date.now()));
       }
     } catch {}

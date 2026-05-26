@@ -4,6 +4,8 @@ import { Flag, XCircle, RotateCcw, Timer, Target, Keyboard, ChevronDown, Chevron
 
 function ChallengeArenaBanner({ challenge = null, progress = null, challengeFailed = false, challengeCompleted = false, collapsed = false, isDark = true, onToggleCollapsed, onCancel, onRetry, attemptsLeft = 3 }) {
   if (!challenge) return null;
+  const rules = challenge.rules || {};
+  const objectiveText = `${challenge.objective || ""} ${challenge.description || ""}`.toLowerCase();
 
   const surfaceClass = isDark
     ? "border-amber-400/25 bg-gradient-to-br from-slate-950 via-slate-900 to-amber-950/20"
@@ -25,8 +27,72 @@ function ChallengeArenaBanner({ challenge = null, progress = null, challengeFail
   const wpmValue = progress?.wpm ?? 0;
   const accuracyValue = progress?.accuracy ?? 0;
   const holdValue = progress?.holdSeconds ?? 0;
-  const targetWpm = challenge.rules?.targetWpm || challenge.rules?.minWpm || "--";
-  const progressValue = Math.min(100, Math.max(0, Math.round((progress?.wpmProgress || progress?.timeProgress || progress?.holdProgress || progress?.accuracyProgress || 0) * 100)));
+  const targetWpm = rules.targetWpm || rules.minWpm || "--";
+  const accuracyTarget = rules.targetAccuracy || (rules.minAccuracy ?? 100);
+  const wordTarget = Number(rules.wordCount || rules.minTypedWords || 0) || null;
+  const charTarget = Number(rules.charTarget || 0) || null;
+  const timeTarget = Number(rules.timeLimitSeconds || 0) || null;
+  const holdTarget = Number(rules.sustainSeconds || 0) || null;
+  const hideAfter = Number(rules.hideAfterSeconds || 0) || null;
+  const showsAccuracy = Boolean(rules.targetAccuracy) || /\baccuracy\b|%/.test(objectiveText);
+
+  const liveItems = [];
+  const progressParts = [];
+
+  if (rules.targetWpm || rules.minWpm || /\bwpm\b/.test(objectiveText)) {
+    liveItems.push({ label: "WPM", value: `${wpmValue}/${targetWpm}` });
+    if (typeof progress?.wpmProgress === "number") progressParts.push(progress.wpmProgress);
+  }
+
+  if (showsAccuracy) {
+    liveItems.push({ label: "Accuracy", value: `${accuracyValue}%/${accuracyTarget}%` });
+    if (typeof progress?.accuracyProgress === "number") progressParts.push(progress.accuracyProgress);
+  }
+
+  if (wordTarget) {
+    liveItems.push({ label: "Words", value: `${progress?.completedWords ?? 0}/${wordTarget}` });
+    if (typeof progress?.wordProgress === "number") progressParts.push(progress.wordProgress);
+  }
+
+  if (charTarget) {
+    liveItems.push({ label: "Chars", value: `${progress?.typedCharacterCount ?? 0}/${charTarget}` });
+    if (typeof progress?.charProgress === "number") progressParts.push(progress.charProgress);
+  }
+
+  if (holdTarget) {
+    liveItems.push({ label: "Hold", value: `${holdValue}/${holdTarget}s` });
+    if (typeof progress?.holdProgress === "number") progressParts.push(progress.holdProgress);
+  }
+
+  if (hideAfter) {
+    liveItems.push({ label: "Text", value: progress?.promptHidden ? "Hidden" : "Visible" });
+    if (typeof progress?.elapsedSeconds === "number") {
+      progressParts.push(progress?.promptHidden ? 1 : Math.min(1, progress.elapsedSeconds / hideAfter));
+    }
+  }
+
+  if (rules.noBackspace) {
+    liveItems.push({ label: "Backspace", value: progress?.backspaceUsed ? "Used" : "Clean" });
+    progressParts.push(progress?.backspaceUsed ? 0 : 1);
+  }
+
+  if (rules.allowedMistakes != null) {
+    const mistakeLimit = Number(rules.allowedMistakes) || 0;
+    const mistakes = progress?.mistakes ?? 0;
+    liveItems.push({ label: "Mistakes", value: `${mistakes}/${mistakeLimit}` });
+    progressParts.push(Math.max(0, Math.min(1, 1 - mistakes / (mistakeLimit + 1))));
+  }
+
+  if (timeTarget) {
+    liveItems.push({ label: "Time", value: `${progress?.elapsedSeconds ?? 0}/${timeTarget}s` });
+    if (typeof progress?.timeProgress === "number") progressParts.push(progress.timeProgress);
+  }
+
+  const progressRatio = progressParts.length > 0
+    ? progressParts.reduce((sum, value) => sum + value, 0) / progressParts.length
+    : 0;
+  const progressValue = Math.min(100, Math.max(0, Math.round(progressRatio * 100)));
+  const collapsedItems = liveItems.slice(0, 3);
 
   if (collapsed) {
     return (
@@ -48,13 +114,11 @@ function ChallengeArenaBanner({ challenge = null, progress = null, challengeFail
           </div>
           <div className={`flex min-w-0 flex-wrap items-center gap-3 text-[11px] ${mutedText}`}>
             <span className="truncate max-w-[18rem]">Objective: {challenge.objective || challenge.description}</span>
-            <span className="inline-flex items-center gap-1 whitespace-nowrap">
-              WPM {wpmValue}/{targetWpm}
-            </span>
-            <span className="inline-flex items-center gap-1 whitespace-nowrap">
-              ACC {accuracyValue}%/{challenge.rules?.minAccuracy || 100}%
-            </span>
-            {challenge.rules?.sustainSeconds ? <span className="whitespace-nowrap">Hold {holdValue}/{challenge.rules.sustainSeconds}s</span> : null}
+            {collapsedItems.map((item) => (
+              <span key={item.label} className="inline-flex items-center gap-1 whitespace-nowrap">
+                {item.label} {item.value}
+              </span>
+            ))}
           </div>
           <button
             type="button"
@@ -113,11 +177,9 @@ function ChallengeArenaBanner({ challenge = null, progress = null, challengeFail
             Live Progress
           </div>
           <div className={`mt-2 space-y-2 text-xs ${isDark ? "text-slate-200" : "text-slate-700"}`}>
-            <div className="flex items-center justify-between"><span>WPM</span><span>{wpmValue}/{challenge.rules?.targetWpm || challenge.rules?.minWpm || "--"}</span></div>
-            <div className="flex items-center justify-between"><span>Accuracy</span><span>{accuracyValue}%/{challenge.rules?.minAccuracy || 100}%</span></div>
-            {challenge.rules?.sustainSeconds ? (
-              <div className="flex items-center justify-between"><span>Hold</span><span>{holdValue}/{challenge.rules.sustainSeconds}s</span></div>
-            ) : null}
+            {liveItems.length > 0 ? liveItems.map((item) => (
+              <div key={item.label} className="flex items-center justify-between"><span>{item.label}</span><span>{item.value}</span></div>
+            )) : <div className="flex items-center justify-between"><span>Status</span><span>In progress</span></div>}
           </div>
         </div>
 
@@ -127,10 +189,10 @@ function ChallengeArenaBanner({ challenge = null, progress = null, challengeFail
             Arena Rules
           </div>
           <div className={`mt-2 space-y-1 text-xs ${isDark ? "text-slate-200" : "text-slate-700"}`}>
-            {challenge.rules?.timeLimitSeconds ? <p>Time limit: {challenge.rules.timeLimitSeconds}s</p> : null}
-            {challenge.rules?.noBackspace ? <p>No backspace allowed</p> : null}
-            {challenge.rules?.hideAfterSeconds ? <p>Text hides after {challenge.rules.hideAfterSeconds}s</p> : null}
-            {challenge.rules?.allowedMistakes != null ? <p>Allowed mistakes: {challenge.rules.allowedMistakes}</p> : null}
+            {rules.timeLimitSeconds ? <p>Time limit: {rules.timeLimitSeconds}s</p> : null}
+            {rules.noBackspace ? <p>No backspace allowed</p> : null}
+            {rules.hideAfterSeconds ? <p>Text hides after {rules.hideAfterSeconds}s</p> : null}
+            {rules.allowedMistakes != null ? <p>Allowed mistakes: {rules.allowedMistakes}</p> : null}
           </div>
         </div>
       </div>
