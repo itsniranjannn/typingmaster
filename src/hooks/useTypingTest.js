@@ -1576,7 +1576,6 @@ export const useTypingTest = () => {
       if (challengeOutcome.state) {
         setDailyChallenge(challengeOutcome.state);
       }
-      setChallengeAttemptsToday(getChallengeAttemptsToday(Date.now()));
       setDailyChallengeHistory(getDailyChallengeRecentHistory());
       if (challengeOutcome.completed && !challengeOutcome.alreadyCompleted && isSoundEnabled) {
         playMilestoneSound();
@@ -1592,6 +1591,7 @@ export const useTypingTest = () => {
         result.challengeFailed = true;
         setChallengeFailed(true);
         failDailyChallenge(Date.now());
+        setChallengeAttemptsToday(getChallengeAttemptsToday(Date.now()));
       }
     } catch {}
 

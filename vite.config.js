@@ -11,6 +11,9 @@ export default defineConfig({
       outDir: "dist"
     })
   ],
+  optimizeDeps: {
+    exclude: ["lucide-react", "canvas-confetti", "framer-motion"]
+  },
   test: {
     globals: true,
     environment: "jsdom"

@@ -18,7 +18,7 @@ import ChallengeArenaBanner from "./ChallengeArenaBanner";
 import WelcomeTour from "./WelcomeTour";
 import { useTypingTest } from "../hooks/useTypingTest";
 import { TYPING_MODES, GOAL_VARIANTS, CUSTOM_TIME_MIN_SECONDS, CUSTOM_TIME_MAX_SECONDS } from "../constants/typingModes";
-import { exportResultsToCSV, getArenaBannerCollapsed, getHasSeenTour, setArenaBannerCollapsed, setHasSeenTour } from "../utils/storage";
+import { exportResultsToCSV, getArenaBannerCollapsed, getChallengeAttemptsToday, getHasSeenTour, setArenaBannerCollapsed, setHasSeenTour } from "../utils/storage";
 
 function TypingTest({ theme, onToggleTheme }) {
   const {
@@ -105,6 +105,7 @@ function TypingTest({ theme, onToggleTheme }) {
   const [isWelcomeTourOpen, setIsWelcomeTourOpen] = useState(() => !getHasSeenTour());
   const [isArenaBannerCollapsed, setIsArenaBannerCollapsed] = useState(() => getArenaBannerCollapsed());
   const [arenaOverlayOpen, setArenaOverlayOpen] = useState(false);
+    const [showLockOverlay, setShowLockOverlay] = useState(false);
   const [arenaOverlayType, setArenaOverlayType] = useState(null); // 'success' | 'locked'
   const [arenaOverlayBadgeName, setArenaOverlayBadgeName] = useState(null);
   const [welcomeTourStep, setWelcomeTourStep] = useState(0);
@@ -117,6 +118,7 @@ function TypingTest({ theme, onToggleTheme }) {
   const typingPanelRef = useRef(null);
   const statsBarRef = useRef(null);
   const isArenaMode = mode === TYPING_MODES.CHALLENGE_ARENA;
+    const isArenaOverlayVisible = arenaOverlayOpen || showLockOverlay;
   const isCoreMode = [TYPING_MODES.TIME, TYPING_MODES.WORDS, TYPING_MODES.GOAL].includes(mode);
 
   useEffect(() => {
@@ -217,7 +219,7 @@ function TypingTest({ theme, onToggleTheme }) {
   );
 
   const focusTypingArea = useCallback(() => {
-    if (isFinished) return;
+    if (isFinished || isArenaOverlayVisible) return;
     if (typingSurfaceRef.current) {
       typingSurfaceRef.current.focus();
     }
@@ -225,11 +227,14 @@ function TypingTest({ theme, onToggleTheme }) {
       hiddenInputRef.current.focus({ preventScroll: true });
     }
     setIsTypingAreaFocused(true);
-  }, [isFinished]);
+  }, [isArenaOverlayVisible, isFinished]);
 
   const handleInlineKeyDown = useCallback(
     (event) => {
-      if (isFinished || arenaOverlayOpen) return;
+      if (isFinished || isArenaOverlayVisible) {
+        event.preventDefault();
+        return;
+      }
 
       const { key } = event;
       if (event.ctrlKey || event.metaKey || event.altKey) {
@@ -257,7 +262,7 @@ function TypingTest({ theme, onToggleTheme }) {
         handleTyping(`${typedText}${key}`);
       }
     },
-    [handleTyping, isFinished, typedText, arenaOverlayOpen]
+    [handleTyping, isFinished, typedText, isArenaOverlayVisible]
   );
 
   useEffect(() => {
@@ -314,29 +319,66 @@ function TypingTest({ theme, onToggleTheme }) {
   }, [finalResult]);
 
   useEffect(() => {
-    if (!finalResult || !isArenaMode) return;
-    // Determine remaining attempts
-    const attemptsUsed = challengeAttemptsToday?.attempts || 0;
-    const remaining = Math.max(0, 3 - attemptsUsed);
+    if (!isArenaMode) {
+      setShowLockOverlay(false);
+      setArenaOverlayOpen(false);
+      setArenaOverlayType(null);
+      setArenaOverlayBadgeName(null);
+      return;
+    }
 
-    if (finalResult.challengeCompleted) {
-      const badgeName = finalResult.challengeBadgeName || (dailyChallenge?.challenge?.badgeName) || (challengeConfig?.badgeName) || "Badge";
+    const attempts = Number(challengeAttemptsToday?.attempts) || 0;
+    const attemptsLeft = Math.max(0, 3 - attempts);
+
+    if (finalResult?.challengeCompleted) {
+      setShowLockOverlay(false);
+      const badgeName = finalResult.challengeBadgeName || dailyChallenge?.challenge?.badgeName || challengeConfig?.badgeName || "Badge";
       setArenaOverlayBadgeName(badgeName);
       setArenaOverlayType("success");
       setArenaOverlayOpen(true);
-      // blur/defocus typing
-      try { hiddenInputRef.current?.blur(); } catch {}
+      try {
+        hiddenInputRef.current?.blur();
+      } catch {}
       return;
     }
 
-    if (finalResult.challengeFailed && remaining === 0) {
-      setArenaOverlayType("locked");
+    if (finalResult?.challengeFailed && attemptsLeft === 0) {
+      setShowLockOverlay(true);
       setArenaOverlayBadgeName(null);
+      setArenaOverlayType("locked");
       setArenaOverlayOpen(true);
-      try { hiddenInputRef.current?.blur(); } catch {}
+      try {
+        hiddenInputRef.current?.blur();
+      } catch {}
       return;
     }
-  }, [finalResult, isArenaMode, challengeAttemptsToday, dailyChallenge, challengeConfig]);
+
+    if (finalResult?.challengeFailed) {
+      setShowLockOverlay(false);
+      setArenaOverlayOpen(false);
+      setArenaOverlayType(null);
+      setArenaOverlayBadgeName(null);
+    }
+  }, [finalResult, challengeAttemptsToday?.attempts, isArenaMode, dailyChallenge, challengeConfig]);
+
+  // Lock page scroll when arena overlay is visible so the modal feels modal
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    if (isArenaOverlayVisible) {
+      try {
+        document.body.style.overflow = "hidden";
+      } catch {}
+    } else {
+      try {
+        document.body.style.overflow = prev || "";
+      } catch {}
+    }
+    return () => {
+      try {
+        document.body.style.overflow = prev || "";
+      } catch {}
+    };
+  }, [isArenaOverlayVisible]);
 
   const closeOverlays = useCallback(() => {
     setIsSettingsOpen(false);
@@ -356,13 +398,11 @@ function TypingTest({ theme, onToggleTheme }) {
 
   useEffect(() => {
     const handleKeyDown = (event) => {
-      const isShortcut = event.ctrlKey || event.metaKey;
-
-      if (event.key === "Escape") {
-        event.preventDefault();
-        closeOverlays();
+      if (isArenaOverlayVisible) {
         return;
       }
+
+      const isShortcut = event.ctrlKey || event.metaKey;
 
       if (isShortcut && event.shiftKey && event.code === "KeyR") {
         event.preventDefault();
@@ -377,7 +417,7 @@ function TypingTest({ theme, onToggleTheme }) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [closeOverlays, handleRestart, toggleSound]);
+  }, [closeOverlays, handleRestart, isArenaOverlayVisible, toggleSound]);
 
   useEffect(() => {
     const handlePaste = (event) => {
@@ -407,6 +447,28 @@ function TypingTest({ theme, onToggleTheme }) {
   const exitToClassicCore = useCallback(() => {
     handleModeChange(TYPING_MODES.TIME, { timeLimitSeconds });
   }, [handleModeChange, timeLimitSeconds]);
+
+  const handleStartDailyChallenge = useCallback(
+    (challenge = dailyChallenge?.challenge) => {
+      if (!challenge) return;
+
+      const latestAttempts = getChallengeAttemptsToday(Date.now());
+      if (latestAttempts.locked) {
+        console.log("[TypingTest] arena start blocked by locked attempts", {
+          attemptsUsed: latestAttempts.attempts || 0,
+          attemptsLeft: Math.max(0, 3 - (latestAttempts.attempts || 0))
+        });
+        setArenaOverlayBadgeName(null);
+        setArenaOverlayType("locked");
+        setShowLockOverlay(true);
+        setArenaOverlayOpen(true);
+        return;
+      }
+
+      startDailyChallenge(challenge);
+    },
+    [dailyChallenge?.challenge, startDailyChallenge]
+  );
 
   const closeWelcomeTour = useCallback(() => {
     setIsWelcomeTourOpen(false);
@@ -769,7 +831,7 @@ function TypingTest({ theme, onToggleTheme }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className={`flex-1 overflow-y-auto scrollbar-none px-4 py-6 sm:px-6 sm:py-8 ${isDark ? "bg-gray-900" : "bg-white"}`}
+        className={`flex-1 overflow-y-auto scrollbar-none px-4 py-6 sm:px-6 sm:py-8 ${isDark ? "bg-gray-900" : "bg-white"} ${isArenaOverlayVisible ? "pointer-events-none select-none blur-sm brightness-75" : ""}`}
       >
         <div className="mx-auto grid w-full max-w-6xl gap-4 lg:grid-cols-[minmax(0,1fr)_220px] xl:grid-cols-[minmax(0,1fr)_240px]">
           {!isFinished ? (
@@ -976,7 +1038,7 @@ function TypingTest({ theme, onToggleTheme }) {
                   dailyChallenge={dailyChallenge}
                   dailyChallengeHistory={dailyChallengeHistory}
                   challengeAttemptsToday={challengeAttemptsToday}
-                  onStartChallenge={startDailyChallenge}
+                  onStartChallenge={handleStartDailyChallenge}
                 />
               </div>
             </aside>
@@ -1011,38 +1073,54 @@ function TypingTest({ theme, onToggleTheme }) {
             dailyChallenge={dailyChallenge}
             dailyChallengeHistory={dailyChallengeHistory}
             challengeAttemptsToday={challengeAttemptsToday}
-            onStartChallenge={startDailyChallenge}
+            onStartChallenge={handleStartDailyChallenge}
           />
         </div>
       </motion.main>
 
       {/* Arena completion / locked overlay */}
-      {arenaOverlayOpen ? (
-        <div className="fixed inset-0 z-60 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <div className="relative z-70 max-w-xl w-full px-6">
-            <div className={`rounded-2xl p-6 text-center ${isDark ? 'bg-slate-900/90 border border-white/10' : 'bg-white border-slate-200'}`}>
-              {arenaOverlayType === 'success' ? (
-                <div className="space-y-3">
-                  <CheckCircle size={48} className="mx-auto text-emerald-400" />
-                  <h3 className={`text-xl font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>Challenge Completed!</h3>
-                  <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Check your badge: <strong>{arenaOverlayBadgeName}</strong></p>
-                  <div className="mt-4 flex items-center justify-center gap-3">
-                    <button onClick={() => { setIsBadgeGalleryOpen(true); setBadgeGalleryRefreshKey((v)=>v+1); }} className="rounded-md px-4 py-2 bg-amber-400 text-slate-900 font-semibold">View Badge Gallery</button>
-                    <button onClick={() => { exitToClassicCore(); setArenaOverlayOpen(false);} } className="rounded-md px-4 py-2 border bg-transparent text-slate-200">Exit to Classic Core</button>
-                  </div>
+      {isArenaOverlayVisible ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-6 pointer-events-auto">
+          <div className={`w-full max-w-xl rounded-3xl border p-6 text-center shadow-2xl ${isDark ? 'border-white/10 bg-slate-950/95' : 'border-slate-200 bg-white/95'}`}>
+            {arenaOverlayType === 'success' ? (
+              <div className="space-y-3">
+                <CheckCircle size={52} className="mx-auto text-emerald-400" />
+                <h3 className={`text-2xl font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>Challenge Completed!</h3>
+                <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  Badge earned: <strong>{arenaOverlayBadgeName}</strong>
+                </p>
+                <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                  <button
+                    onClick={() => { setIsBadgeGalleryOpen(true); setBadgeGalleryRefreshKey((v) => v + 1); }}
+                    className="rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-900"
+                  >
+                    View Badge Gallery
+                  </button>
+                  <button
+                    onClick={() => { setArenaOverlayOpen(false); setShowLockOverlay(false); setArenaOverlayType(null); setArenaOverlayBadgeName(null); exitToClassicCore(); }}
+                    className={`rounded-full px-4 py-2 text-sm font-semibold ${isDark ? 'border border-white/15 bg-transparent text-white' : 'border border-slate-200 bg-white text-slate-800'}`}
+                  >
+                    Exit to Classic Core
+                  </button>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  <XCircle size={48} className="mx-auto text-rose-400" />
-                  <h3 className={`text-xl font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>No attempts left</h3>
-                  <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Try again tomorrow.</p>
-                  <div className="mt-4 flex items-center justify-center">
-                    <button onClick={() => { exitToClassicCore(); setArenaOverlayOpen(false);} } className="rounded-md px-4 py-2 bg-amber-400 text-slate-900 font-semibold">Exit to Classic Core</button>
-                  </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <XCircle size={52} className="mx-auto text-rose-400" />
+                <h3 className={`text-2xl font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>No attempts left</h3>
+                <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+                  You have used all 3 attempts for today. Come back tomorrow for a new challenge.
+                </p>
+                <div className="mt-5 flex items-center justify-center">
+                  <button
+                    onClick={() => { setArenaOverlayOpen(false); setShowLockOverlay(false); setArenaOverlayType(null); setArenaOverlayBadgeName(null); exitToClassicCore(); }}
+                    className="rounded-full bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-900"
+                  >
+                    Exit to Classic Core
+                  </button>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       ) : null}

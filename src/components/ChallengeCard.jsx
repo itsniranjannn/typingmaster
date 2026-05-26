@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import { motion } from "framer-motion";
-import { BadgeCheck, Trophy, ArrowRight, RotateCcw, CalendarDays } from "lucide-react";
+import { BadgeCheck, Trophy, ArrowRight, CalendarDays } from "lucide-react";
 import { loadBadges } from "../utils/storage";
 
 function starsToText(level = 1) {
@@ -14,8 +14,6 @@ function ChallengeCard({ challengeState = null, history = [], challengeAttemptsT
   const recentHistory = Array.isArray(history) ? history.slice(0, 3) : [];
   const attemptsLeft = Math.max(0, 3 - (challengeAttemptsToday?.attempts || 0));
   const attemptsLocked = Boolean(challengeAttemptsToday?.locked || challengeState?.challengeCompletedToday || challengeState?.challengeCompleted);
-
-  const buttonLabel = challengeState?.challengeCompleted ? "Retry Arena" : "Enter Arena";
 
   const tone = isDark
     ? "border-amber-500/25 bg-gradient-to-br from-slate-950/80 via-slate-900/80 to-amber-950/20"
@@ -66,19 +64,20 @@ function ChallengeCard({ challengeState = null, history = [], challengeAttemptsT
           </p>
         </div>
 
-        <button
-          type="button"
-          onClick={() => (challengeState?.challengeCompleted ? onRetryArena?.(challenge) : onEnterArena?.(challenge))}
-          disabled={attemptsLocked && !challengeState?.challengeCompleted}
-          className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 ${
-            isDark
-              ? "bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 shadow-[0_10px_24px_rgba(245,158,11,0.18)] hover:from-amber-300 hover:to-orange-400"
-              : "bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow-[0_10px_24px_rgba(245,158,11,0.16)] hover:from-amber-300 hover:to-orange-400"
-          }`}
-        >
-          {challengeState?.challengeCompleted ? <RotateCcw size={14} /> : <ArrowRight size={14} />}
-          {buttonLabel}
-        </button>
+        {!challengeState?.challengeCompleted ? (
+          <button
+            type="button"
+            onClick={() => onEnterArena?.(challenge)}
+            className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 ${
+              isDark
+                ? "bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 shadow-[0_10px_24px_rgba(245,158,11,0.18)] hover:from-amber-300 hover:to-orange-400"
+                : "bg-gradient-to-r from-amber-400 to-orange-500 text-white shadow-[0_10px_24px_rgba(245,158,11,0.16)] hover:from-amber-300 hover:to-orange-400"
+            }`}
+          >
+            <ArrowRight size={14} />
+            Enter Arena
+          </button>
+        ) : null}
 
         {challengeState?.challengeCompleted ? (
           <div className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px] font-semibold ${isDark ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
@@ -87,15 +86,17 @@ function ChallengeCard({ challengeState = null, history = [], challengeAttemptsT
           </div>
         ) : null}
 
-        <div className={`rounded-xl border px-3 py-2 text-[11px] ${isDark ? "border-slate-700/70 bg-slate-950/55 text-slate-300" : "border-slate-200 bg-white/90 text-slate-700"}`}>
-          <div className="flex items-center justify-between gap-2">
-            <span>Attempts left</span>
-            <span className="font-semibold">{attemptsLocked ? "0/3" : `${attemptsLeft}/3`}</span>
+        {!challengeState?.challengeCompleted ? (
+          <div className={`rounded-xl border px-3 py-2 text-[11px] ${isDark ? "border-slate-700/70 bg-slate-950/55 text-slate-300" : "border-slate-200 bg-white/90 text-slate-700"}`}>
+            <div className="flex items-center justify-between gap-2">
+              <span>Attempts left</span>
+              <span className="font-semibold">{attemptsLocked ? "0/3" : `${attemptsLeft}/3`}</span>
+            </div>
+            <p className={`mt-1 ${attemptsLocked ? (isDark ? "text-amber-300" : "text-amber-700") : (isDark ? "text-slate-400" : "text-slate-500")}`}>
+              {attemptsLocked ? "Try again tomorrow" : "Up to 3 attempts today"}
+            </p>
           </div>
-          <p className={`mt-1 ${attemptsLocked ? (isDark ? "text-amber-300" : "text-amber-700") : (isDark ? "text-slate-400" : "text-slate-500")}`}>
-            {attemptsLocked ? "Try again tomorrow" : "Up to 3 attempts today"}
-          </p>
-        </div>
+        ) : null}
       </div>
 
       {recentHistory.length > 0 ? (
