@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   Award,
@@ -13,7 +13,7 @@ import {
   Zap,
   Lock
 } from "lucide-react";
-import { loadResults } from "../utils/storage";
+import { getLastResults } from "../utils/storage";
 
 const ICONS = {
   Award,
@@ -28,38 +28,7 @@ const ICONS = {
   Zap
 };
 
-const MODE_FILTERS = [
-  { value: "all", label: "All Modes" },
-  { value: "time", label: "Time" },
-  { value: "words", label: "Words" },
-  { value: "goal", label: "Goal" },
-  { value: "quote", label: "Quote" },
-  { value: "custom", label: "Custom" },
-  { value: "numbers", label: "Numbers" },
-  { value: "challenge_arena", label: "Challenge Arena" }
-];
-
-const MODE_COLORS = {
-  time: "#3b82f6",
-  words: "#2563eb",
-  goal: "#8b5cf6",
-  quote: "#14b8a6",
-  custom: "#f97316",
-  numbers: "#ec4899",
-  challenge_arena: "#f59e0b"
-};
-
-const getModeLabel = (mode) => MODE_FILTERS.find((entry) => entry.value === mode)?.label || mode;
-
-const formatShortDate = (value) => {
-  try {
-    return new Date(value).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  } catch {
-    return "";
-  }
-};
-
-const buildSmoothPath = (points, valueKey, tension = 0.18) => {
+const buildSmoothPath = (points, valueKey) => {
   if (!Array.isArray(points) || points.length === 0) return "";
   if (points.length === 1) {
     const point = points[0];
@@ -74,10 +43,10 @@ const buildSmoothPath = (points, valueKey, tension = 0.18) => {
     const previous = points[index - 1] || current;
     const following = points[index + 2] || next;
 
-    const controlPoint1X = current.x + (next.x - previous.x) * tension;
-    const controlPoint1Y = current[valueKey] + (next[valueKey] - previous[valueKey]) * tension;
-    const controlPoint2X = next.x - (following.x - current.x) * tension;
-    const controlPoint2Y = next[valueKey] - (following[valueKey] - current[valueKey]) * tension;
+    const controlPoint1X = current.x + (next.x - previous.x) / 6;
+    const controlPoint1Y = current[valueKey] + (next[valueKey] - previous[valueKey]) / 6;
+    const controlPoint2X = next.x - (following.x - current.x) / 6;
+    const controlPoint2Y = next[valueKey] - (following[valueKey] - current[valueKey]) / 6;
 
     path.push(`C ${controlPoint1X} ${controlPoint1Y}, ${controlPoint2X} ${controlPoint2Y}, ${next.x} ${next[valueKey]}`);
   }
