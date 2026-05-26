@@ -167,6 +167,10 @@ export const generateNumbersParagraph = (minChars = 80, maxChars = 120) => makeN
 
 export const generateMixedNumbersParagraph = (minChars = 80, maxChars = 120) => makeNumbersParagraph(minChars, maxChars);
 
+export const generateChallengeParagraph = (minWords = 40, maxWords = 50) => generateRandomParagraph(minWords, maxWords);
+
+export const generateMemoryChallengeParagraph = () => generateRandomParagraph(45, 45);
+
 export const generateEndlessChunk = (minWords = 12, maxWords = 20) => generateRandomParagraph(minWords, maxWords);
 
 export const generateRandomParagraph = (minWords = 35, maxWords = 35) => {

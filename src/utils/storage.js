@@ -25,7 +25,8 @@ const DAILY_GOAL_KEYS = {
 
 const DAILY_CHALLENGE_KEYS = {
   STATE: "typingMaster.dailyChallenge",
-  HISTORY: "typingMaster.dailyChallengeHistory"
+  HISTORY: "typingMaster.dailyChallengeHistory",
+  ATTEMPTS: "typingMaster.challengeAttemptsToday"
 };
 
 const ARENA_KEYS = {
@@ -49,6 +50,17 @@ const safeWrite = (key, value) => {
   try {
     if (typeof window === "undefined") return;
     window.localStorage.setItem(key, JSON.stringify(value));
+    if (typeof window.dispatchEvent === "function") {
+      const storageEvent = typeof StorageEvent === "function"
+        ? new StorageEvent("storage", { key, newValue: JSON.stringify(value), storageArea: window.localStorage, url: window.location.href })
+        : new Event("storage");
+      if (storageEvent && typeof storageEvent === "object" && !("key" in storageEvent)) {
+        try {
+          Object.defineProperty(storageEvent, "key", { value: key, configurable: true });
+        } catch {}
+      }
+      window.dispatchEvent(storageEvent);
+    }
   } catch {
     // Ignore storage write errors silently to keep typing flow stable.
   }
@@ -91,6 +103,19 @@ const sanitizeVolume = (value) => {
 
 const sanitizeDateKey = (value) => (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null);
 
+const sanitizeAttemptBucket = (value) => {
+  if (!value || typeof value !== "object") return null;
+
+  const date = sanitizeDateKey(value.date);
+  if (!date) return null;
+
+  return {
+    date,
+    attempts: Math.min(Math.max(Math.round(sanitizeNumber(value.attempts, 0)), 0), 3),
+    locked: typeof value.locked === "boolean" ? value.locked : false
+  };
+};
+
 const sanitizeDailyChallengeConfig = (value) => {
   if (!value || typeof value !== "object") return null;
 
@@ -103,6 +128,12 @@ const sanitizeDailyChallengeConfig = (value) => {
   }
   if (Object.prototype.hasOwnProperty.call(value, "targetWpm") && isFiniteNumber(value.targetWpm)) {
     config.targetWpm = sanitizeNumber(value.targetWpm, 0);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "hideAfterSeconds") && isFiniteNumber(value.hideAfterSeconds)) {
+    config.hideAfterSeconds = Math.max(0, Math.round(value.hideAfterSeconds));
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "sustainSeconds") && isFiniteNumber(value.sustainSeconds)) {
+    config.sustainSeconds = Math.max(0, Math.round(value.sustainSeconds));
   }
   if (Object.prototype.hasOwnProperty.call(value, "goalVariant") && typeof value.goalVariant === "string") {
     config.goalVariant = sanitizeGoalVariant(value.goalVariant);
@@ -120,14 +151,38 @@ const sanitizeDailyChallengeCriteria = (value) => {
   if (Object.prototype.hasOwnProperty.call(value, "minWpm") && isFiniteNumber(value.minWpm)) {
     criteria.minWpm = sanitizeNumber(value.minWpm, 0);
   }
+  if (Object.prototype.hasOwnProperty.call(value, "targetWpm") && isFiniteNumber(value.targetWpm)) {
+    criteria.targetWpm = sanitizeNumber(value.targetWpm, 0);
+  }
   if (Object.prototype.hasOwnProperty.call(value, "minAccuracy") && isFiniteNumber(value.minAccuracy)) {
     criteria.minAccuracy = sanitizeAccuracy(value.minAccuracy);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "targetAccuracy") && isFiniteNumber(value.targetAccuracy)) {
+    criteria.targetAccuracy = sanitizeAccuracy(value.targetAccuracy);
   }
   if (Object.prototype.hasOwnProperty.call(value, "timeLimitSeconds") && isFiniteNumber(value.timeLimitSeconds)) {
     criteria.timeLimitSeconds = sanitizeTimeLimitSeconds(value.timeLimitSeconds);
   }
   if (Object.prototype.hasOwnProperty.call(value, "wordCount") && isFiniteNumber(value.wordCount)) {
     criteria.wordCount = Math.min(Math.max(Math.round(value.wordCount), 1), 300);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "charTarget") && isFiniteNumber(value.charTarget)) {
+    criteria.charTarget = Math.min(Math.max(Math.round(value.charTarget), 1), 5000);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "minTypedWords") && isFiniteNumber(value.minTypedWords)) {
+    criteria.minTypedWords = Math.min(Math.max(Math.round(value.minTypedWords), 1), 300);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "allowedMistakes") && isFiniteNumber(value.allowedMistakes)) {
+    criteria.allowedMistakes = Math.min(Math.max(Math.round(value.allowedMistakes), 0), 300);
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "sustainSeconds") && isFiniteNumber(value.sustainSeconds)) {
+    criteria.sustainSeconds = Math.max(0, Math.round(value.sustainSeconds));
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "hideAfterSeconds") && isFiniteNumber(value.hideAfterSeconds)) {
+    criteria.hideAfterSeconds = Math.max(0, Math.round(value.hideAfterSeconds));
+  }
+  if (Object.prototype.hasOwnProperty.call(value, "noBackspace")) {
+    criteria.noBackspace = Boolean(value.noBackspace);
   }
   if (Object.prototype.hasOwnProperty.call(value, "goalVariant") && typeof value.goalVariant === "string") {
     criteria.goalVariant = sanitizeGoalVariant(value.goalVariant);
@@ -154,12 +209,16 @@ const sanitizeDailyChallenge = (value) => {
 
   return {
     id,
+    templateId: typeof value.templateId === "string" ? value.templateId.trim() : id,
+    family: typeof value.family === "string" ? value.family.trim() : null,
     title,
     description,
     mode,
     target,
     reward,
     prompt,
+    promptType: typeof value.promptType === "string" ? value.promptType.trim() : null,
+    objective: typeof value.objective === "string" ? value.objective.trim() : target,
     badgeId: typeof value.badgeId === "string" ? value.badgeId.trim() : id,
     badgeName: typeof value.badgeName === "string" ? value.badgeName.trim() : reward || title,
     badgeIconName: typeof value.badgeIconName === "string" ? value.badgeIconName.trim() : "Trophy",
@@ -202,6 +261,9 @@ const sanitizeDailyChallengeState = (value) => {
     lastChallengeDate,
     challengeCompleted: typeof value.challengeCompleted === "boolean" ? value.challengeCompleted : false,
     challengeCompletedToday: typeof value.challengeCompletedToday === "boolean" ? value.challengeCompletedToday : false,
+    challengeLocked: typeof value.challengeLocked === "boolean" ? value.challengeLocked : false,
+    challengeAttempts: sanitizeNumber(value.challengeAttempts, 0),
+    challengeAttemptsLeft: sanitizeNumber(value.challengeAttemptsLeft, 3),
     completedAt: typeof value.completedAt === "number" && Number.isFinite(value.completedAt) ? value.completedAt : null,
     challengeStreak: sanitizeNumber(value.challengeStreak, 0),
     challenge
@@ -610,6 +672,48 @@ export const getDailyChallengeHistory = () => {
   return stored.map(sanitizeDailyChallengeHistoryEntry).filter(Boolean).sort((left, right) => right.createdAt - left.createdAt);
 };
 
+const getCurrentUtcDateKey = (timestampMs = Date.now()) => new Date(timestampMs).toISOString().slice(0, 10);
+
+export const getChallengeAttemptsToday = (timestampMs = Date.now()) => {
+  const currentDate = getCurrentUtcDateKey(timestampMs);
+  const stored = sanitizeAttemptBucket(safeRead(DAILY_CHALLENGE_KEYS.ATTEMPTS, null));
+  if (!stored || stored.date !== currentDate) {
+    return { date: currentDate, attempts: 0, locked: false };
+  }
+  return stored;
+};
+
+export const setChallengeAttemptsToday = (value, timestampMs = Date.now()) => {
+  const currentDate = getCurrentUtcDateKey(timestampMs);
+  const sanitized = sanitizeAttemptBucket(value) || { date: currentDate, attempts: 0, locked: false };
+  const nextBucket = {
+    date: currentDate,
+    attempts: Math.min(Math.max(sanitized.attempts, 0), 3),
+    locked: Boolean(sanitized.locked)
+  };
+  safeWrite(DAILY_CHALLENGE_KEYS.ATTEMPTS, nextBucket);
+  return nextBucket;
+};
+
+export const incrementChallengeAttemptsToday = (timestampMs = Date.now()) => {
+  const current = getChallengeAttemptsToday(timestampMs);
+  const nextAttempts = Math.min(current.attempts + 1, 3);
+  const nextBucket = {
+    date: current.date,
+    attempts: nextAttempts,
+    locked: nextAttempts >= 3 ? true : current.locked
+  };
+  safeWrite(DAILY_CHALLENGE_KEYS.ATTEMPTS, nextBucket);
+  return nextBucket;
+};
+
+export const lockChallengeAttemptsToday = (timestampMs = Date.now()) => {
+  const current = getChallengeAttemptsToday(timestampMs);
+  const nextBucket = { ...current, locked: true };
+  safeWrite(DAILY_CHALLENGE_KEYS.ATTEMPTS, nextBucket);
+  return nextBucket;
+};
+
 export const setDailyChallengeHistory = (history) => {
   const sanitizedHistory = Array.isArray(history)
     ? history.map(sanitizeDailyChallengeHistoryEntry).filter(Boolean).sort((left, right) => right.createdAt - left.createdAt)
@@ -652,5 +756,6 @@ export const updateDailyChallengeHistoryEntry = (date, updater) => {
 export const resetDailyChallengeState = () => {
   safeWrite(DAILY_CHALLENGE_KEYS.STATE, null);
   safeWrite(DAILY_CHALLENGE_KEYS.HISTORY, []);
+  safeWrite(DAILY_CHALLENGE_KEYS.ATTEMPTS, null);
   return { state: null, history: [] };
 };

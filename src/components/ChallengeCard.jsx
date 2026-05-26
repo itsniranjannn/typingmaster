@@ -7,11 +7,13 @@ function starsToText(level = 1) {
   return "⭐".repeat(Math.max(1, Math.min(3, level)));
 }
 
-function ChallengeCard({ challengeState = null, history = [], isDark = true, onEnterArena, onRetryArena }) {
+function ChallengeCard({ challengeState = null, history = [], challengeAttemptsToday = null, isDark = true, onEnterArena, onRetryArena }) {
   const challenge = challengeState?.challenge || null;
   const badge = challenge ? loadBadges().find((entry) => entry.badgeId === challenge.badgeId) : null;
   const badgeMultiplier = Math.max(1, badge?.earnedCount || 1);
   const recentHistory = Array.isArray(history) ? history.slice(0, 3) : [];
+  const attemptsLeft = Math.max(0, 3 - (challengeAttemptsToday?.attempts || 0));
+  const attemptsLocked = Boolean(challengeAttemptsToday?.locked || challengeState?.challengeCompletedToday || challengeState?.challengeCompleted);
 
   const buttonLabel = challengeState?.challengeCompleted ? "Retry Arena" : "Enter Arena";
 
@@ -67,6 +69,7 @@ function ChallengeCard({ challengeState = null, history = [], isDark = true, onE
         <button
           type="button"
           onClick={() => (challengeState?.challengeCompleted ? onRetryArena?.(challenge) : onEnterArena?.(challenge))}
+          disabled={attemptsLocked && !challengeState?.challengeCompleted}
           className={`inline-flex w-full items-center justify-center gap-2 rounded-xl px-3 py-2 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/60 ${
             isDark
               ? "bg-gradient-to-r from-amber-400 to-orange-500 text-slate-950 shadow-[0_10px_24px_rgba(245,158,11,0.18)] hover:from-amber-300 hover:to-orange-400"
@@ -83,6 +86,16 @@ function ChallengeCard({ challengeState = null, history = [], isDark = true, onE
             Challenge completed! Badge earned.
           </div>
         ) : null}
+
+        <div className={`rounded-xl border px-3 py-2 text-[11px] ${isDark ? "border-slate-700/70 bg-slate-950/55 text-slate-300" : "border-slate-200 bg-white/90 text-slate-700"}`}>
+          <div className="flex items-center justify-between gap-2">
+            <span>Attempts left</span>
+            <span className="font-semibold">{attemptsLocked ? "0/3" : `${attemptsLeft}/3`}</span>
+          </div>
+          <p className={`mt-1 ${attemptsLocked ? (isDark ? "text-amber-300" : "text-amber-700") : (isDark ? "text-slate-400" : "text-slate-500")}`}>
+            {attemptsLocked ? "Try again tomorrow" : "Up to 3 attempts today"}
+          </p>
+        </div>
       </div>
 
       {recentHistory.length > 0 ? (

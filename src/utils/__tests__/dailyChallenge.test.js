@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { completeChallenge, getChallengeTemplates, getDailyChallenge, getDailyChallengeHistoryEntries } from "../dailyChallenge";
+import { completeChallenge, failDailyChallenge, getDailyChallengeAttemptState, getChallengeTemplate, getChallengeTemplates, getDailyChallenge, getDailyChallengeHistoryEntries } from "../dailyChallenge";
 import { loadBadges } from "../storage";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -27,6 +27,12 @@ describe("daily challenge helpers", () => {
 
   it("exposes at least 30 arena templates", () => {
     expect(getChallengeTemplates().length).toBeGreaterThanOrEqual(30);
+  });
+
+  it("gives every challenge template a validator", () => {
+    for (const template of getChallengeTemplates()) {
+      expect(template.validateCompletion).toBeTypeOf("function");
+    }
   });
 
   it("does not complete the challenge when accuracy is below the objective", () => {
@@ -57,6 +63,7 @@ describe("daily challenge helpers", () => {
     const rules = state.challenge.rules || {};
     const targetWpm = Number(rules.targetWpm || rules.minWpm || 35);
     const targetAccuracy = Number(rules.minAccuracy || 92);
+    const targetTypedWords = Number(rules.minTypedWords || rules.wordCount || 0);
 
     const result = {
       mode: state.challenge.mode,
@@ -66,6 +73,8 @@ describe("daily challenge helpers", () => {
       correctCharacters: 500,
       incorrectCharacters: 0,
       backspaceUsed: false,
+      completedWords: targetTypedWords,
+      typedWordCount: targetTypedWords,
       holdSeconds: Number(rules.sustainSeconds || 0),
       maxHoldWpm: targetWpm + 5,
       promptHiddenUsed: rules.hideAfterSeconds ? true : false
@@ -77,6 +86,191 @@ describe("daily challenge helpers", () => {
     expect(outcome.state?.challengeCompleted).toBe(true);
     expect(getDailyChallengeHistoryEntries()).toHaveLength(1);
     expect(getDailyChallengeHistoryEntries()[0]?.completed).toBe(true);
+  });
+
+  it("rejects no-backspace challenges when backspace was used or typed words are below the target", () => {
+    const template = getChallengeTemplates().find((challenge) => challenge.templateId === "control-silver");
+    expect(template?.validateCompletion).toBeTypeOf("function");
+
+    const failingResult = {
+      mode: template.mode,
+      wpm: 55,
+      accuracy: 96,
+      timeUsed: 62,
+      completedWords: 80,
+      typedWordCount: 80,
+      correctCharacters: 420,
+      incorrectCharacters: 0,
+      backspaceUsed: true,
+      holdSeconds: 0,
+      maxHoldWpm: 0,
+      promptHiddenUsed: false
+    };
+
+    expect(template.validateCompletion(failingResult)).toBe(false);
+
+    const passingResult = {
+      ...failingResult,
+      backspaceUsed: false,
+      typedWordCount: 80,
+      completedWords: 80
+    };
+
+    expect(template.validateCompletion(passingResult)).toBe(true);
+  });
+
+  it("requires the memory test to fade and meet the speed target", () => {
+    const template = getChallengeTemplate("memory-silver");
+    expect(template?.validateCompletion).toBeTypeOf("function");
+
+    const promptText = "Memory is built from repetition and calm attention.";
+
+    const notFaded = {
+      mode: template.mode,
+      wpm: 45,
+      accuracy: 95,
+      timeUsed: 80,
+      correctCharacters: 250,
+      incorrectCharacters: 0,
+      backspaceUsed: false,
+      holdSeconds: 0,
+      maxHoldWpm: 0,
+      promptHiddenUsed: false,
+      hasTextFaded: false,
+      typedText: promptText,
+      promptText,
+      typedCharacterCount: promptText.length
+    };
+
+    expect(template.validateCompletion(notFaded)).toBe(false);
+
+    const fadedMismatch = {
+      ...notFaded,
+      hasTextFaded: true,
+      promptHiddenUsed: true,
+      typedText: "Memory is built from repetition and calm focus.",
+      typedCharacterCount: promptText.length,
+      typedWordCount: Number(template.rules.wordCount || 45),
+      completedWords: Number(template.rules.wordCount || 45)
+    };
+
+    expect(template.validateCompletion(fadedMismatch)).toBe(true);
+
+    const passingResult = {
+      ...notFaded,
+      hasTextFaded: true,
+      promptHiddenUsed: true,
+      promptText,
+      typedText: promptText,
+      typedCharacterCount: promptText.length,
+      typedWordCount: Number(template.rules.wordCount || 45),
+      completedWords: Number(template.rules.wordCount || 45)
+    };
+
+    expect(template.validateCompletion(passingResult)).toBe(true);
+  });
+
+  it("requires the speed spike hold to be satisfied exactly", () => {
+    const template = getChallengeTemplate("spike-silver");
+    expect(template?.validateCompletion).toBeTypeOf("function");
+
+    const failingResult = {
+      mode: template.mode,
+      wpm: 50,
+      accuracy: 95,
+      timeUsed: 40,
+      correctCharacters: 300,
+      incorrectCharacters: 0,
+      backspaceUsed: false,
+      holdSeconds: 2,
+      maxHoldWpm: 50,
+      promptHiddenUsed: false,
+      hasTextFaded: false,
+      typedText: "",
+      promptText: "",
+      typedCharacterCount: 0
+    };
+
+    expect(template.validateCompletion(failingResult)).toBe(false);
+
+    const passingResult = {
+      ...failingResult,
+      holdSeconds: 3,
+      maxHoldWpm: 50,
+      typedWordCount: Number(template.rules.wordCount || 0),
+      completedWords: Number(template.rules.wordCount || 0),
+      typedText: "alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu"
+    };
+
+    expect(template.validateCompletion(passingResult)).toBe(true);
+  });
+
+  it("enforces character target and accuracy for numbers challenges", () => {
+    const template = getChallengeTemplate("numbers-silver");
+    expect(template?.validateCompletion).toBeTypeOf("function");
+
+    const failingResult = {
+      mode: template.mode,
+      wpm: 46,
+      accuracy: 94,
+      timeUsed: 40,
+      correctCharacters: 320,
+      incorrectCharacters: 0,
+      backspaceUsed: false,
+      holdSeconds: 0,
+      maxHoldWpm: 0,
+      promptHiddenUsed: false,
+      hasTextFaded: false,
+      typedText: "123 456",
+      promptText: "123 456",
+      typedCharacterCount: 10
+    };
+
+    expect(template.validateCompletion(failingResult)).toBe(false);
+
+    const passingResult = {
+      ...failingResult,
+      typedCharacterCount: 90
+    };
+
+    expect(template.validateCompletion(passingResult)).toBe(true);
+  });
+
+  it("enforces word count and accuracy for endurance and precision challenges", () => {
+    const endurance = getChallengeTemplate("endurance-silver");
+    const precision = getChallengeTemplate("precision-silver");
+
+    const baseResult = {
+      mode: endurance.mode,
+      wpm: 50,
+      accuracy: 95,
+      timeUsed: 90,
+      correctCharacters: 500,
+      incorrectCharacters: 0,
+      backspaceUsed: false,
+      holdSeconds: 0,
+      maxHoldWpm: 0,
+      promptHiddenUsed: false,
+      hasTextFaded: false,
+      typedText: "alpha beta gamma delta epsilon zeta eta theta",
+      promptText: "alpha beta gamma delta epsilon zeta eta theta",
+      typedCharacterCount: 48,
+      typedWordCount: 4,
+      completedWords: 4
+    };
+
+    expect(endurance.validateCompletion(baseResult)).toBe(false);
+    expect(precision.validateCompletion(baseResult)).toBe(false);
+
+    const passingResult = {
+      ...baseResult,
+      timeUsed: Math.max(1, Number(precision.rules.timeLimitSeconds || 75) - 1),
+      typedWordCount: Number(endurance.rules.wordCount || 0),
+      completedWords: Number(endurance.rules.wordCount || 0)
+    };
+
+    expect(endurance.validateCompletion(passingResult)).toBe(true);
+    expect(precision.validateCompletion({ ...passingResult, typedWordCount: Number(precision.rules.wordCount || 0), completedWords: Number(precision.rules.wordCount || 0) })).toBe(true);
   });
 
   it("avoids repeating the same challenge on the next UTC day", () => {
@@ -106,6 +300,7 @@ describe("daily challenge helpers", () => {
   it("awards the challenge badge only once per day", () => {
     const state = getDailyChallenge();
     const rules = state.challenge.rules || {};
+    const typedWords = Number(rules.minTypedWords || rules.wordCount || 0);
     const result = {
       mode: state.challenge.mode,
       wpm: Number(rules.minWpm || rules.targetWpm || 35) + 20,
@@ -114,6 +309,8 @@ describe("daily challenge helpers", () => {
       correctCharacters: 500,
       incorrectCharacters: 0,
       backspaceUsed: false,
+      completedWords: typedWords,
+      typedWordCount: typedWords,
       holdSeconds: Number(rules.sustainSeconds || 0),
       maxHoldWpm: Number(rules.minWpm || rules.targetWpm || 35) + 20,
       promptHiddenUsed: rules.hideAfterSeconds ? true : false
@@ -126,5 +323,45 @@ describe("daily challenge helpers", () => {
     expect(firstOutcome.state?.challengeCompletedToday).toBe(true);
     expect(secondOutcome.alreadyCompleted).toBe(true);
     expect(loadBadges()).toHaveLength(1);
+  });
+
+  it("locks the daily challenge after three failed attempts and resets on the next UTC day", () => {
+    const state = getDailyChallenge();
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const failedState = failDailyChallenge(Date.now() + attempt);
+      expect(failedState?.challengeFailed).toBe(true);
+    }
+
+    const attempts = getDailyChallengeAttemptState(Date.now());
+    expect(attempts.attempts).toBe(3);
+    expect(attempts.locked).toBe(true);
+
+    const lockedOutcome = completeChallenge(
+      {
+        mode: state.challenge.mode,
+        wpm: Number(state.challenge.rules?.minWpm || state.challenge.rules?.targetWpm || 35) + 20,
+        accuracy: Number(state.challenge.rules?.minAccuracy || 92),
+        timeUsed: Math.max(1, Number(state.challenge.rules?.timeLimitSeconds || 60) - 1),
+        correctCharacters: 500,
+        incorrectCharacters: 0,
+        backspaceUsed: false,
+        holdSeconds: Number(state.challenge.rules?.sustainSeconds || 0),
+        maxHoldWpm: Number(state.challenge.rules?.minWpm || state.challenge.rules?.targetWpm || 35) + 20,
+        promptHiddenUsed: state.challenge.rules?.hideAfterSeconds ? true : false,
+        hasTextFaded: state.challenge.rules?.hideAfterSeconds ? true : false,
+        typedText: state.challenge.prompt,
+        promptText: state.challenge.prompt,
+        typedCharacterCount: state.challenge.prompt.length
+      },
+      Date.now()
+    );
+
+    expect(lockedOutcome.completed).toBe(false);
+
+    vi.setSystemTime(new Date("2026-05-25T12:00:00.000Z"));
+    const nextDayAttempts = getDailyChallengeAttemptState(Date.now());
+    expect(nextDayAttempts.attempts).toBe(0);
+    expect(nextDayAttempts.locked).toBe(false);
   });
 });

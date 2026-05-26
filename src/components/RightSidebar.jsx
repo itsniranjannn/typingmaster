@@ -19,7 +19,7 @@ function SidebarCard({ title, children, isDark = true }) {
   );
 }
 
-function RightSidebar({ bestWpm, bestWpmLabel = "Current mode", liveWpm, resetKey = 0, isDark = true, streakInfo: streakInfoProp = null, dailyGoalProgress = { count: 0, date: null }, dailyChallenge = null, dailyChallengeHistory = [], onStartChallenge = null }) {
+function RightSidebar({ bestWpm, bestWpmLabel = "Current mode", liveWpm, resetKey = 0, isDark = true, streakInfo: streakInfoProp = null, dailyGoalProgress = { count: 0, date: null }, dailyChallenge = null, dailyChallengeHistory = [], challengeAttemptsToday = null, onStartChallenge = null }) {
   const [tipIndex, setTipIndex] = useState(0);
   const [streakInfo, setStreakInfo] = useState(() => streakInfoProp || getStreak());
 
@@ -61,6 +61,7 @@ function RightSidebar({ bestWpm, bestWpmLabel = "Current mode", liveWpm, resetKe
       <ChallengeCard
         challengeState={dailyChallenge}
         history={dailyChallengeHistory}
+        challengeAttemptsToday={challengeAttemptsToday}
         isDark={isDark}
         onEnterArena={onStartChallenge}
         onRetryArena={onStartChallenge}

@@ -2,7 +2,7 @@ import { memo } from "react";
 import { motion } from "framer-motion";
 import { Flag, XCircle, RotateCcw, Timer, Target, Keyboard, ChevronDown, ChevronUp } from "lucide-react";
 
-function ChallengeArenaBanner({ challenge = null, progress = null, challengeFailed = false, challengeCompleted = false, collapsed = false, isDark = true, onToggleCollapsed, onCancel, onRetry }) {
+function ChallengeArenaBanner({ challenge = null, progress = null, challengeFailed = false, challengeCompleted = false, collapsed = false, isDark = true, onToggleCollapsed, onCancel, onRetry, attemptsLeft = 3 }) {
   if (!challenge) return null;
 
   const surfaceClass = isDark
@@ -88,8 +88,13 @@ function ChallengeArenaBanner({ challenge = null, progress = null, challengeFail
           </div>
         </div>
 
-        <div className={`rounded-2xl border px-3 py-2 text-sm font-semibold ${badgeTone}`}>
-          {challenge.badgeName}
+        <div className="flex items-center gap-3">
+          <div className={`rounded-2xl border px-3 py-2 text-sm font-semibold ${badgeTone}`}>
+            {challenge.badgeName}
+          </div>
+          <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${isDark ? 'bg-slate-800 text-slate-200 border-gray-700' : 'bg-white text-slate-700 border-slate-200'}`}>
+            Attempts: {attemptsLeft}/3
+          </div>
         </div>
       </div>
 

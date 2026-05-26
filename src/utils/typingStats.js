@@ -1,14 +1,17 @@
 export const calculateWpm = (correctCharacters, elapsedSeconds) => {
-  // Avoid division by zero before the test starts.
-  if (elapsedSeconds <= 0) return 0;
+  if (!Number.isFinite(correctCharacters) || correctCharacters <= 0) return 0;
+  if (!Number.isFinite(elapsedSeconds) || elapsedSeconds <= 0) return 0;
 
-  // WPM = (characters typed / 5) / minutes elapsed
   const elapsedMinutes = elapsedSeconds / 60;
   const words = correctCharacters / 5;
   const rawWpm = words / elapsedMinutes;
 
   if (!Number.isFinite(rawWpm) || rawWpm < 0) return 0;
-  // Return a floating value for smoother live WPM. Round only when displaying final results.
+
+  if (rawWpm > 300) {
+    return 300;
+  }
+
   return Number(rawWpm.toFixed(2));
 };
 

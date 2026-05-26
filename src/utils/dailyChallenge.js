@@ -1,10 +1,14 @@
 import { GOAL_VARIANTS, TYPING_MODES } from "../constants/typingModes";
+import { generateChallengeParagraph, generateMemoryChallengeParagraph } from "./paragraphGenerator";
 import {
   appendDailyChallengeHistoryEntry,
+  getChallengeAttemptsToday,
   getDailyChallengeHistory,
   getDailyChallengeState,
   loadBadges,
   saveBadge,
+  incrementChallengeAttemptsToday,
+  lockChallengeAttemptsToday,
   setDailyChallengeState,
   updateBadgeCount,
   updateDailyChallengeHistoryEntry
@@ -71,6 +75,135 @@ const MILESTONE_BADGES = [
   { badgeId: "milestone-legend", name: "Legend", iconName: "Trophy" },
   { badgeId: "milestone-master-of-all", name: "Master of All", iconName: "Crown" }
 ];
+
+const getTypedWordCount = (result) => {
+  if (typeof result?.typedWordCount === "number" && Number.isFinite(result.typedWordCount)) {
+    return Math.max(0, Math.round(result.typedWordCount));
+  }
+
+  if (typeof result?.typedText === "string") {
+    return result.typedText.trim().split(/\s+/).filter(Boolean).length;
+  }
+
+  if (typeof result?.completedWords === "number" && Number.isFinite(result.completedWords)) {
+    return Math.max(0, Math.round(result.completedWords));
+  }
+
+  return 0;
+};
+
+const normalizeChallengeText = (value) => normalizeWhitespace(String(value || ""));
+
+const getChallengeFamily = (challenge) => {
+  if (!challenge || typeof challenge !== "object") return "";
+  if (typeof challenge.family === "string" && challenge.family.trim()) return challenge.family.trim();
+  if (typeof challenge.templateId === "string" && challenge.templateId.includes("-")) {
+    return challenge.templateId.split("-")[0];
+  }
+  if (typeof challenge.id === "string" && challenge.id.includes("-")) {
+    return challenge.id.split("-")[0];
+  }
+  return "";
+};
+
+const validateBaseChallengeRules = (challenge, result) => {
+  const rules = challenge.rules || {};
+  const wpm = Math.max(0, Number(result.wpm) || 0);
+  const accuracy = Math.max(0, Number(result.accuracy) || 0);
+  const timeUsed = Math.max(0, Number(result.timeUsed) || 0);
+  const incorrectCharacters = Math.max(0, Number(result.incorrectCharacters) || 0);
+  const typedWordCount = getTypedWordCount(result);
+  const minWpm = typeof rules.targetWpm === "number" ? rules.targetWpm : rules.minWpm;
+  const minAccuracy = typeof rules.targetAccuracy === "number" ? rules.targetAccuracy : rules.minAccuracy;
+
+  if (rules.noBackspace && result.backspaceUsed) return false;
+  if (typeof rules.allowedMistakes === "number" && incorrectCharacters > rules.allowedMistakes) return false;
+  if (typeof minWpm === "number" && wpm < minWpm) return false;
+  if (typeof minAccuracy === "number" && accuracy < minAccuracy) return false;
+  if (typeof rules.timeLimitSeconds === "number" && timeUsed > rules.timeLimitSeconds) return false;
+  if (typeof rules.minTypedWords === "number" && typedWordCount < rules.minTypedWords) return false;
+  return true;
+};
+
+const validateEnduranceChallenge = (challenge, result) => {
+  const rules = challenge.rules || {};
+  if (!validateBaseChallengeRules(challenge, result)) return false;
+  if (typeof rules.wordCount === "number" && getTypedWordCount(result) < rules.wordCount) return false;
+  return true;
+};
+
+const validateControlChallenge = (challenge, result) => {
+  const rules = challenge.rules || {};
+  if (!validateBaseChallengeRules(challenge, result)) return false;
+  if (!rules.noBackspace || result.backspaceUsed) return false;
+  if (typeof rules.wordCount === "number" && getTypedWordCount(result) < rules.wordCount) return false;
+  return true;
+};
+
+const validateSpikeChallenge = (challenge, result) => {
+  const rules = challenge.rules || {};
+  if (!validateBaseChallengeRules(challenge, result)) return false;
+  const targetWpm = Math.max(0, Number(rules.targetWpm || rules.minWpm) || 0);
+  const holdSeconds = Math.max(0, Number(result.holdSeconds) || 0);
+  const maxHoldWpm = Math.max(0, Number(result.maxHoldWpm) || 0);
+  if (!targetWpm) return false;
+  if (holdSeconds < (rules.sustainSeconds || 0)) return false;
+  if (maxHoldWpm < targetWpm) return false;
+  return true;
+};
+
+const validatePrecisionChallenge = (challenge, result) => {
+  const rules = challenge.rules || {};
+  if (!validateBaseChallengeRules(challenge, result)) return false;
+  if (typeof rules.wordCount === "number" && getTypedWordCount(result) < rules.wordCount) return false;
+  return true;
+};
+
+const validateNumbersChallenge = (challenge, result) => {
+  const rules = challenge.rules || {};
+  if (!validateBaseChallengeRules(challenge, result)) return false;
+  const typedCharacterCount = Math.max(0, Number(result.typedCharacterCount ?? result.typedText?.length ?? 0) || 0);
+  if (typeof rules.charTarget === "number" && typedCharacterCount < rules.charTarget) return false;
+  return true;
+};
+
+const validateMemoryChallenge = (challenge, result) => {
+  const rules = challenge.rules || {};
+  if (!validateBaseChallengeRules(challenge, result)) return false;
+  if (!rules.hideAfterSeconds || !result.hasTextFaded || !result.promptHiddenUsed) return false;
+
+  const typedWords = getTypedWordCount(result);
+  const requiredWords = typeof rules.wordCount === "number" ? rules.wordCount : typedWords;
+  if (typedWords < requiredWords) return false;
+
+  const challengeText = normalizeChallengeText(result.promptText || challenge.prompt);
+  const typedText = normalizeChallengeText(result.typedText);
+  if (!challengeText || !typedText) return false;
+
+  const wordsMatch = challengeText.split(" ").length === typedText.split(" ").length;
+  if (!wordsMatch) return false;
+
+  return true;
+};
+
+const validateChallengeCompletion = (challenge, result) => {
+  if (!challenge || !result) return false;
+
+  const family = getChallengeFamily(challenge);
+  const validators = {
+    endurance: validateEnduranceChallenge,
+    control: validateControlChallenge,
+    spike: validateSpikeChallenge,
+    precision: validatePrecisionChallenge,
+    numbers: validateNumbersChallenge,
+    memory: validateMemoryChallenge
+  };
+
+  const validator = validators[family];
+  if (!validator) return false;
+
+  return validator(challenge, result);
+};
 
 const hashSeed = (seed) => {
   const input = String(seed || "arena");
@@ -162,7 +295,8 @@ const createTemplate = (template) => ({
   ...template,
   mode: ARENA_MODE,
   challengeMode: ARENA_MODE,
-  badge: BADGE_LOOKUP.get(template.badgeId) || BADGE_LOOKUP.get("endurance-bronze")
+  badge: BADGE_LOOKUP.get(template.badgeId) || BADGE_LOOKUP.get("endurance-bronze"),
+  validateCompletion: (result) => validateChallengeCompletion(template, result)
 });
 
 const buildTemplates = () => {
@@ -174,11 +308,11 @@ const buildTemplates = () => {
       title: "Endurance",
       promptType: "paragraph",
       variants: [
-        { suffix: "bronze", description: "Type 110 words at 35 WPM and 92% accuracy.", wordCount: 110, minWpm: 35, minAccuracy: 92, timeLimitSeconds: 120 },
-        { suffix: "silver", description: "Type 140 words at 42 WPM and 94% accuracy.", wordCount: 140, minWpm: 42, minAccuracy: 94, timeLimitSeconds: 135 },
-        { suffix: "gold", description: "Type 180 words at 50 WPM and 96% accuracy.", wordCount: 180, minWpm: 50, minAccuracy: 96, timeLimitSeconds: 150 },
-        { suffix: "legend", description: "Clear a 220-word endurance run at 58 WPM and 97% accuracy.", wordCount: 220, minWpm: 58, minAccuracy: 97, timeLimitSeconds: 180 },
-        { suffix: "master", description: "Finish 260 words at 66 WPM and 98% accuracy.", wordCount: 260, minWpm: 66, minAccuracy: 98, timeLimitSeconds: 210 }
+        { suffix: "bronze", description: "Type 45 words at 35 WPM and 92% accuracy.", wordCount: 45, minWpm: 35, minAccuracy: 92, timeLimitSeconds: 120 },
+        { suffix: "silver", description: "Type 45 words at 42 WPM and 94% accuracy.", wordCount: 45, minWpm: 42, minAccuracy: 94, timeLimitSeconds: 135 },
+        { suffix: "gold", description: "Type 45 words at 50 WPM and 96% accuracy.", wordCount: 45, minWpm: 50, minAccuracy: 96, timeLimitSeconds: 150 },
+        { suffix: "legend", description: "Clear a 45-word endurance run at 58 WPM and 97% accuracy.", wordCount: 45, minWpm: 58, minAccuracy: 97, timeLimitSeconds: 180 },
+        { suffix: "master", description: "Finish 45 words at 66 WPM and 98% accuracy.", wordCount: 45, minWpm: 66, minAccuracy: 98, timeLimitSeconds: 210 }
       ]
     },
     {
@@ -186,11 +320,11 @@ const buildTemplates = () => {
       title: "No Backspace",
       promptType: "paragraph",
       variants: [
-        { suffix: "bronze", description: "Type 60 words without Backspace and keep 92% accuracy.", wordCount: 60, noBackspace: true, allowedMistakes: 2, minAccuracy: 92, minWpm: 35 },
-        { suffix: "silver", description: "Type 80 words without Backspace and keep 94% accuracy.", wordCount: 80, noBackspace: true, allowedMistakes: 1, minAccuracy: 94, minWpm: 42 },
-        { suffix: "gold", description: "Type 100 words without Backspace and keep 96% accuracy.", wordCount: 100, noBackspace: true, allowedMistakes: 1, minAccuracy: 96, minWpm: 48 },
-        { suffix: "legend", description: "Type 120 words without Backspace and stay near-perfect.", wordCount: 120, noBackspace: true, allowedMistakes: 0, minAccuracy: 98, minWpm: 55 },
-        { suffix: "master", description: "Type 150 words without Backspace and stay flawless at speed.", wordCount: 150, noBackspace: true, allowedMistakes: 0, minAccuracy: 99, minWpm: 60 }
+        { suffix: "bronze", description: "Type 45 words without Backspace and keep 92% accuracy.", wordCount: 45, noBackspace: true, minTypedWords: 45, minAccuracy: 92 },
+        { suffix: "silver", description: "Type 45 words without Backspace and keep 94% accuracy.", wordCount: 45, noBackspace: true, minTypedWords: 45, minAccuracy: 94 },
+        { suffix: "gold", description: "Type 45 words without Backspace and keep 96% accuracy.", wordCount: 45, noBackspace: true, minTypedWords: 45, minAccuracy: 96 },
+        { suffix: "legend", description: "Type 45 words without Backspace and stay near-perfect.", wordCount: 45, noBackspace: true, minTypedWords: 45, minAccuracy: 98 },
+        { suffix: "master", description: "Type 45 words without Backspace and stay flawless at speed.", wordCount: 45, noBackspace: true, minTypedWords: 45, minAccuracy: 99 }
       ]
     },
     {
@@ -198,11 +332,11 @@ const buildTemplates = () => {
       title: "Speed Spike",
       promptType: "paragraph",
       variants: [
-        { suffix: "bronze", description: "Reach 35 WPM and hold it for 2 seconds within 60 seconds.", wordCount: 60, targetWpm: 35, sustainSeconds: 2, timeLimitSeconds: 60, minAccuracy: 92 },
-        { suffix: "silver", description: "Reach 45 WPM and hold it for 3 seconds within 60 seconds.", wordCount: 75, targetWpm: 45, sustainSeconds: 3, timeLimitSeconds: 60, minAccuracy: 94 },
-        { suffix: "gold", description: "Reach 55 WPM and hold it for 4 seconds within 60 seconds.", wordCount: 90, targetWpm: 55, sustainSeconds: 4, timeLimitSeconds: 60, minAccuracy: 96 },
-        { suffix: "legend", description: "Reach 65 WPM and hold it for 5 seconds within 75 seconds.", wordCount: 105, targetWpm: 65, sustainSeconds: 5, timeLimitSeconds: 75, minAccuracy: 97 },
-        { suffix: "master", description: "Reach 75 WPM and hold it for 6 seconds within 90 seconds.", wordCount: 120, targetWpm: 75, sustainSeconds: 6, timeLimitSeconds: 90, minAccuracy: 98 }
+        { suffix: "bronze", description: "Reach 35 WPM and hold it for 2 seconds within 60 seconds.", wordCount: 45, targetWpm: 35, sustainSeconds: 2, timeLimitSeconds: 60, minAccuracy: 92 },
+        { suffix: "silver", description: "Reach 45 WPM and hold it for 3 seconds within 60 seconds.", wordCount: 45, targetWpm: 45, sustainSeconds: 3, timeLimitSeconds: 60, minAccuracy: 94 },
+        { suffix: "gold", description: "Reach 55 WPM and hold it for 4 seconds within 60 seconds.", wordCount: 45, targetWpm: 55, sustainSeconds: 4, timeLimitSeconds: 60, minAccuracy: 96 },
+        { suffix: "legend", description: "Reach 65 WPM and hold it for 5 seconds within 75 seconds.", wordCount: 45, targetWpm: 65, sustainSeconds: 5, timeLimitSeconds: 75, minAccuracy: 97 },
+        { suffix: "master", description: "Reach 75 WPM and hold it for 6 seconds within 90 seconds.", wordCount: 45, targetWpm: 75, sustainSeconds: 6, timeLimitSeconds: 90, minAccuracy: 98 }
       ]
     },
     {
@@ -211,10 +345,10 @@ const buildTemplates = () => {
       promptType: "quote",
       variants: [
         { suffix: "bronze", description: "Type a 45-word quote with at least 92% accuracy.", wordCount: 45, minAccuracy: 92, minWpm: 35, timeLimitSeconds: 60 },
-        { suffix: "silver", description: "Type a 65-word quote with at least 95% accuracy.", wordCount: 65, minAccuracy: 95, minWpm: 40, timeLimitSeconds: 75 },
-        { suffix: "gold", description: "Type an 85-word quote with at least 97% accuracy.", wordCount: 85, minAccuracy: 97, minWpm: 45, timeLimitSeconds: 90 },
-        { suffix: "legend", description: "Type a 105-word quote with near-perfect accuracy.", wordCount: 105, minAccuracy: 99, minWpm: 50, timeLimitSeconds: 120 },
-        { suffix: "master", description: "Type a 130-word quote with perfect accuracy.", wordCount: 130, minAccuracy: 100, minWpm: 55, timeLimitSeconds: 135 }
+        { suffix: "silver", description: "Type a 45-word quote with at least 95% accuracy.", wordCount: 45, minAccuracy: 95, minWpm: 40, timeLimitSeconds: 75 },
+        { suffix: "gold", description: "Type a 45-word quote with at least 97% accuracy.", wordCount: 45, minAccuracy: 97, minWpm: 45, timeLimitSeconds: 90 },
+        { suffix: "legend", description: "Type a 45-word quote with near-perfect accuracy.", wordCount: 45, minAccuracy: 99, minWpm: 50, timeLimitSeconds: 120 },
+        { suffix: "master", description: "Type a 45-word quote with perfect accuracy.", wordCount: 45, minAccuracy: 100, minWpm: 55, timeLimitSeconds: 135 }
       ]
     },
     {
@@ -234,11 +368,11 @@ const buildTemplates = () => {
       title: "Memory Test",
       promptType: "memory",
       variants: [
-        { suffix: "bronze", description: "Memorize a paragraph that fades after 4 seconds and finish at 35 WPM.", wordCount: 60, hideAfterSeconds: 4, minWpm: 35, minAccuracy: 92 },
-        { suffix: "silver", description: "Memorize a paragraph that fades after 3 seconds and finish at 42 WPM.", wordCount: 72, hideAfterSeconds: 3, minWpm: 42, minAccuracy: 94 },
-        { suffix: "gold", description: "Memorize a paragraph that fades after 2 seconds and finish at 50 WPM.", wordCount: 88, hideAfterSeconds: 2, minWpm: 50, minAccuracy: 96 },
-        { suffix: "legend", description: "Memorize a paragraph that fades after 2 seconds and finish at 58 WPM.", wordCount: 100, hideAfterSeconds: 2, minWpm: 58, minAccuracy: 97 },
-        { suffix: "master", description: "Memorize a paragraph that fades after 1 second and finish at 66 WPM.", wordCount: 112, hideAfterSeconds: 1, minWpm: 66, minAccuracy: 98 }
+        { suffix: "bronze", description: "Memorize a paragraph that fades after 3 seconds and finish at 35 WPM.", wordCount: 45, hideAfterSeconds: 3, minWpm: 35, minAccuracy: 92 },
+        { suffix: "silver", description: "Memorize a paragraph that fades after 3 seconds and finish at 42 WPM.", wordCount: 45, hideAfterSeconds: 3, minWpm: 42, minAccuracy: 94 },
+        { suffix: "gold", description: "Memorize a paragraph that fades after 3 seconds and finish at 50 WPM.", wordCount: 45, hideAfterSeconds: 3, minWpm: 50, minAccuracy: 96 },
+        { suffix: "legend", description: "Memorize a paragraph that fades after 3 seconds and finish at 58 WPM.", wordCount: 45, hideAfterSeconds: 3, minWpm: 58, minAccuracy: 97 },
+        { suffix: "master", description: "Memorize a paragraph that fades after 3 seconds and finish at 66 WPM.", wordCount: 45, hideAfterSeconds: 3, minWpm: 66, minAccuracy: 98 }
       ]
     }
   ];
@@ -263,8 +397,10 @@ const buildTemplates = () => {
             wordCount: variant.wordCount || null,
             minWpm: variant.minWpm || null,
             minAccuracy: variant.minAccuracy || null,
+            targetAccuracy: variant.targetAccuracy || null,
             noBackspace: Boolean(variant.noBackspace),
-            allowedMistakes: typeof variant.allowedMistakes === "number" ? variant.allowedMistakes : 0,
+            allowedMistakes: typeof variant.allowedMistakes === "number" ? variant.allowedMistakes : null,
+            minTypedWords: typeof variant.minTypedWords === "number" ? variant.minTypedWords : (typeof variant.wordCount === "number" ? variant.wordCount : null),
             sustainSeconds: variant.sustainSeconds || null,
             hideAfterSeconds: variant.hideAfterSeconds || null,
             targetWpm: variant.targetWpm || null,
@@ -289,15 +425,15 @@ const getChallengeTemplateById = (templateId) => CHALLENGE_TEMPLATES.find((templ
 const getBadgeById = (badgeId) => BADGE_LOOKUP.get(badgeId) || null;
 
 const buildPromptFromTemplate = (template, seed) => {
-  if (template.promptType === "quote") {
-    return buildQuote(seed, Math.max(2, Math.ceil((template.rules.wordCount || 60) / 40)));
-  }
-
   if (template.promptType === "numbers") {
-    return normalizeWhitespace(`${buildNumbers(seed, 3)} ${buildParagraph(`${seed}:tail`, 12, 1)}`);
+    return normalizeWhitespace(`${buildNumbers(seed, 2)} ${generateChallengeParagraph(10, 12)}`);
   }
 
-  return buildParagraph(seed, template.rules.wordCount || 80, Math.max(2, Math.ceil((template.rules.wordCount || 80) / 60)));
+  if (template.family === "memory") {
+    return generateMemoryChallengeParagraph();
+  }
+
+  return generateChallengeParagraph(40, 50);
 };
 
 const buildChallengeInstance = (template, dateKey, timestampMs) => {
@@ -403,6 +539,9 @@ const buildInitialState = (template, dateKey, timestampMs) => {
     challengeCompleted: false,
     challengeCompletedToday: false,
     challengeFailed: false,
+    challengeLocked: false,
+    challengeAttempts: 0,
+    challengeAttemptsLeft: 3,
     completedAt: null,
     challengeStreak: 0,
     challenge: instance,
@@ -468,24 +607,7 @@ export const getArenaChallengeProgress = (state, stats = {}) => {
 };
 
 const meetsChallengeObjectives = (challenge, result, { requireHold = true } = {}) => {
-  if (!challenge || !result) return false;
-  const rules = challenge.rules || {};
-  const wpm = Math.max(0, Number(result.wpm) || 0);
-  const accuracy = Math.max(0, Number(result.accuracy) || 0);
-  const timeUsed = Math.max(0, Number(result.timeUsed) || 0);
-  const incorrectCharacters = Math.max(0, Number(result.incorrectCharacters) || 0);
-  const holdSeconds = Math.max(0, Number(result.holdSeconds) || 0);
-  const maxHoldWpm = Math.max(0, Number(result.maxHoldWpm) || 0);
-
-  if (rules.noBackspace && result.backspaceUsed) return false;
-  if (typeof rules.allowedMistakes === "number" && incorrectCharacters > rules.allowedMistakes) return false;
-  if (typeof rules.minWpm === "number" && wpm < rules.minWpm) return false;
-  if (typeof rules.minAccuracy === "number" && accuracy < rules.minAccuracy) return false;
-  if (rules.timeLimitSeconds && timeUsed > rules.timeLimitSeconds) return false;
-  if (rules.hideAfterSeconds && !result.promptHiddenUsed) return false;
-  if (rules.targetWpm && maxHoldWpm < rules.targetWpm) return false;
-  if (rules.sustainSeconds && requireHold && holdSeconds < rules.sustainSeconds) return false;
-  return true;
+  return validateChallengeCompletion(challenge, result, { requireHold });
 };
 
 const awardMilestoneBadges = () => {
@@ -531,9 +653,19 @@ export const completeChallenge = (result, timestampMs = Date.now()) => {
     return { state, history: getDailyChallengeHistory(), completed: Boolean(state?.challengeCompleted || state?.challengeCompletedToday), alreadyCompleted: Boolean(state?.challengeCompletedToday || state?.challengeCompleted), badgeAwarded: existingBadge };
   }
 
+  const attempts = getChallengeAttemptsToday(timestampMs);
+  if (attempts.locked) {
+    return { state, history: getDailyChallengeHistory(), completed: false, badgeAwarded: null, locked: true };
+  }
+
   const challenge = state.challenge;
-  const completed = meetsChallengeObjectives(challenge, result);
+  const completed = typeof challenge?.validateCompletion === "function"
+    ? challenge.validateCompletion(result)
+    : meetsChallengeObjectives(challenge, result);
   if (!completed) {
+    if (!result?.challengeFailed) {
+      incrementChallengeAttemptsToday(timestampMs);
+    }
     return { state, history: getDailyChallengeHistory(), completed: false, badgeAwarded: null };
   }
 
@@ -546,6 +678,7 @@ export const completeChallenge = (result, timestampMs = Date.now()) => {
     iconName: challenge.badgeIconName
   }, timestampMs);
 
+  lockChallengeAttemptsToday(timestampMs);
   awardMilestoneBadges();
 
   const completedState = {
@@ -553,6 +686,9 @@ export const completeChallenge = (result, timestampMs = Date.now()) => {
     challengeCompleted: true,
     challengeCompletedToday: true,
     challengeFailed: false,
+    challengeLocked: true,
+    challengeAttempts: getChallengeAttemptsToday(timestampMs).attempts,
+    challengeAttemptsLeft: 0,
     completedAt: timestampMs,
     challengeStreak: nextChallengeStreak,
     badgeEarnedCount: awardedBadge?.earnedCount || 1
@@ -575,17 +711,25 @@ export const failDailyChallenge = (timestampMs = Date.now()) => {
   const state = ensureDailyChallenge(timestampMs);
   if (!state || state.challengeCompleted) return state;
 
+  const attempts = incrementChallengeAttemptsToday(timestampMs);
+  const shouldLock = attempts.attempts >= 3;
+
   const failedState = {
     ...state,
     challengeFailed: true,
     challengeCompleted: false,
-    challengeCompletedToday: false
+    challengeCompletedToday: false,
+    challengeLocked: shouldLock,
+    challengeAttempts: attempts.attempts,
+    challengeAttemptsLeft: Math.max(3 - attempts.attempts, 0)
   };
 
   setDailyChallengeState(failedState);
   updateTodayHistoryEntry(failedState, timestampMs);
   return failedState;
 };
+
+export const getDailyChallengeAttemptState = (timestampMs = Date.now()) => getChallengeAttemptsToday(timestampMs);
 
 export const getBadgeByChallengeId = (challengeId) => {
   const template = getChallengeTemplateById(challengeId);

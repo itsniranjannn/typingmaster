@@ -17,6 +17,10 @@ describe("calculateWpm", () => {
   it("calculates expected WPM for edge case 60 chars in 60 seconds", () => {
     expect(calculateWpm(60, 60)).toBe(12);
   });
+
+  it("caps implausibly high WPM at 300", () => {
+    expect(calculateWpm(524, 8)).toBe(300);
+  });
 });
 
 describe("calculateAccuracy", () => {

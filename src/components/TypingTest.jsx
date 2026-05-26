@@ -1,6 +1,6 @@
 ﻿import { memo, useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { Moon, Sun, Settings, RotateCcw, Trophy, BarChart2 } from "lucide-react";
+import { Moon, Sun, Settings, RotateCcw, Trophy, BarChart2, CheckCircle, XCircle } from "lucide-react";
 import confetti from "canvas-confetti";
 import AppLogo from "./AppLogo";
 import TextSelector from "./TextSelector";
@@ -65,11 +65,15 @@ function TypingTest({ theme, onToggleTheme }) {
     dailyGoalProgress,
     dailyChallenge,
     dailyChallengeHistory,
+    challengeAttemptsToday,
     challengeConfig,
     challengeProgress,
     challengeCompleted,
     challengeFailed,
+    challengeWarningMessage,
     challengePromptHidden,
+    challengeHasTextFaded,
+    fadedWords,
     startTest,
     pauseTest,
     toggleActive,
@@ -77,6 +81,10 @@ function TypingTest({ theme, onToggleTheme }) {
     startDailyChallenge,
     cancelDailyChallenge
   } = useTypingTest();
+
+  useEffect(() => {
+    // Debug logging removed after fade mechanism verified
+  }, [fadedWords]);
 
   const [fontScale, setFontScale] = useState(1);
   const [goalReachedShown, setGoalReachedShown] = useState(false);
@@ -96,6 +104,9 @@ function TypingTest({ theme, onToggleTheme }) {
   const [isTypingAreaFocused, setIsTypingAreaFocused] = useState(false);
   const [isWelcomeTourOpen, setIsWelcomeTourOpen] = useState(() => !getHasSeenTour());
   const [isArenaBannerCollapsed, setIsArenaBannerCollapsed] = useState(() => getArenaBannerCollapsed());
+  const [arenaOverlayOpen, setArenaOverlayOpen] = useState(false);
+  const [arenaOverlayType, setArenaOverlayType] = useState(null); // 'success' | 'locked'
+  const [arenaOverlayBadgeName, setArenaOverlayBadgeName] = useState(null);
   const [welcomeTourStep, setWelcomeTourStep] = useState(0);
   const [welcomeTourRect, setWelcomeTourRect] = useState(null);
   const [timeInput, setTimeInput] = useState(String(timeLimitSeconds));
@@ -218,7 +229,7 @@ function TypingTest({ theme, onToggleTheme }) {
 
   const handleInlineKeyDown = useCallback(
     (event) => {
-      if (isFinished) return;
+      if (isFinished || arenaOverlayOpen) return;
 
       const { key } = event;
       if (event.ctrlKey || event.metaKey || event.altKey) {
@@ -246,7 +257,7 @@ function TypingTest({ theme, onToggleTheme }) {
         handleTyping(`${typedText}${key}`);
       }
     },
-    [handleTyping, isFinished, typedText]
+    [handleTyping, isFinished, typedText, arenaOverlayOpen]
   );
 
   useEffect(() => {
@@ -301,6 +312,31 @@ function TypingTest({ theme, onToggleTheme }) {
       });
     }, 220);
   }, [finalResult]);
+
+  useEffect(() => {
+    if (!finalResult || !isArenaMode) return;
+    // Determine remaining attempts
+    const attemptsUsed = challengeAttemptsToday?.attempts || 0;
+    const remaining = Math.max(0, 3 - attemptsUsed);
+
+    if (finalResult.challengeCompleted) {
+      const badgeName = finalResult.challengeBadgeName || (dailyChallenge?.challenge?.badgeName) || (challengeConfig?.badgeName) || "Badge";
+      setArenaOverlayBadgeName(badgeName);
+      setArenaOverlayType("success");
+      setArenaOverlayOpen(true);
+      // blur/defocus typing
+      try { hiddenInputRef.current?.blur(); } catch {}
+      return;
+    }
+
+    if (finalResult.challengeFailed && remaining === 0) {
+      setArenaOverlayType("locked");
+      setArenaOverlayBadgeName(null);
+      setArenaOverlayOpen(true);
+      try { hiddenInputRef.current?.blur(); } catch {}
+      return;
+    }
+  }, [finalResult, isArenaMode, challengeAttemptsToday, dailyChallenge, challengeConfig]);
 
   const closeOverlays = useCallback(() => {
     setIsSettingsOpen(false);
@@ -749,6 +785,7 @@ function TypingTest({ theme, onToggleTheme }) {
                   onToggleCollapsed={toggleArenaBanner}
                   onCancel={cancelDailyChallenge}
                   onRetry={handleRestart}
+                  attemptsLeft={Math.max(0, 3 - (challengeAttemptsToday?.attempts || 0))}
                 />
               ) : null}
 
@@ -855,7 +892,8 @@ function TypingTest({ theme, onToggleTheme }) {
                     isDark={isDark}
                     fontScale={fontScale}
                     focused={isTypingAreaFocused}
-                    hideContent={isArenaMode && challengePromptHidden}
+                    hideContent={false}
+                    fadedWords={fadedWords}
                     onPointerDown={focusTypingArea}
                     onKeyDown={handleInlineKeyDown}
                     onFocus={syncTypingFocusState}
@@ -880,6 +918,11 @@ function TypingTest({ theme, onToggleTheme }) {
                   <div id="typing-input-instructions" className="mt-2 text-center text-sm text-slate-400">
                     Click the text and type directly. Paste is blocked. Characters typed {typedText.length} / {Math.max((paragraph || customText || "").length, 0)}
                   </div>
+                  {challengeWarningMessage ? (
+                    <div className="mt-2 text-center text-sm font-semibold text-amber-300 animate-pulse">
+                      {challengeWarningMessage}
+                    </div>
+                  ) : null}
                   {isTextLoading && textLoadingMessage ? (
                     <div className={`mt-2 text-center text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                       {textLoadingMessage}
@@ -932,6 +975,7 @@ function TypingTest({ theme, onToggleTheme }) {
                   dailyGoalProgress={dailyGoalProgress}
                   dailyChallenge={dailyChallenge}
                   dailyChallengeHistory={dailyChallengeHistory}
+                  challengeAttemptsToday={challengeAttemptsToday}
                   onStartChallenge={startDailyChallenge}
                 />
               </div>
@@ -966,10 +1010,42 @@ function TypingTest({ theme, onToggleTheme }) {
             dailyGoalProgress={dailyGoalProgress}
             dailyChallenge={dailyChallenge}
             dailyChallengeHistory={dailyChallengeHistory}
+            challengeAttemptsToday={challengeAttemptsToday}
             onStartChallenge={startDailyChallenge}
           />
         </div>
       </motion.main>
+
+      {/* Arena completion / locked overlay */}
+      {arenaOverlayOpen ? (
+        <div className="fixed inset-0 z-60 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+          <div className="relative z-70 max-w-xl w-full px-6">
+            <div className={`rounded-2xl p-6 text-center ${isDark ? 'bg-slate-900/90 border border-white/10' : 'bg-white border-slate-200'}`}>
+              {arenaOverlayType === 'success' ? (
+                <div className="space-y-3">
+                  <CheckCircle size={48} className="mx-auto text-emerald-400" />
+                  <h3 className={`text-xl font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>Challenge Completed!</h3>
+                  <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Check your badge: <strong>{arenaOverlayBadgeName}</strong></p>
+                  <div className="mt-4 flex items-center justify-center gap-3">
+                    <button onClick={() => { setIsBadgeGalleryOpen(true); setBadgeGalleryRefreshKey((v)=>v+1); }} className="rounded-md px-4 py-2 bg-amber-400 text-slate-900 font-semibold">View Badge Gallery</button>
+                    <button onClick={() => { exitToClassicCore(); setArenaOverlayOpen(false);} } className="rounded-md px-4 py-2 border bg-transparent text-slate-200">Exit to Classic Core</button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <XCircle size={48} className="mx-auto text-rose-400" />
+                  <h3 className={`text-xl font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>No attempts left</h3>
+                  <p className={`text-sm ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>Try again tomorrow.</p>
+                  <div className="mt-4 flex items-center justify-center">
+                    <button onClick={() => { exitToClassicCore(); setArenaOverlayOpen(false);} } className="rounded-md px-4 py-2 bg-amber-400 text-slate-900 font-semibold">Exit to Classic Core</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* Modals */}
       <SettingsModal

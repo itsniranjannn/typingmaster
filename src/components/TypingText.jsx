@@ -55,7 +55,18 @@ const areTokenPropsEqual = (previousProps, nextProps) => {
   if (previousProps.isDark !== nextProps.isDark) return false;
   if (previousProps.fontScale !== nextProps.fontScale) return false;
   if (previousProps.focused !== nextProps.focused) return false;
+  if (previousProps.hideContent !== nextProps.hideContent) return false;
+  
+  // Check fadedWords: not just length, but also if this specific word changed faded state
+  const previousFadedArray = previousProps.fadedWords || [];
+  const nextFadedArray = nextProps.fadedWords || [];
+  const previousWordFaded = previousFadedArray.includes(previousToken.wordIndex);
+  const nextWordFaded = nextFadedArray.includes(nextToken.wordIndex);
+  
+  if (previousWordFaded !== nextWordFaded) return false;
+  
   if (previousProps.currentWordIndex !== nextProps.currentWordIndex) return false;
+  if (previousProps.activeIndex !== nextProps.activeIndex) return false;
   if (previousToken.id !== nextToken.id) return false;
   if (previousToken.text !== nextToken.text) return false;
   if (previousToken.start !== nextToken.start || previousToken.end !== nextToken.end) return false;
@@ -75,7 +86,10 @@ const TypingToken = memo(function TypingToken({
   token,
   characterStates,
   currentWordIndex,
+  activeIndex,
   isDark,
+  hideContent,
+  fadedWords,
   registerWordRef,
   registerCharacterRef,
   registerCharacterRangeRef
@@ -92,12 +106,15 @@ const TypingToken = memo(function TypingToken({
         correct: "text-emerald-700",
         incorrect: "text-rose-700"
       };
+      const isFaded = Boolean(hideContent) || (typeof token.wordIndex === "number" && Array.isArray(fadedWords) && fadedWords.includes(token.wordIndex));
+      const fadeStyle = isFaded ? { visibility: 'hidden', opacity: 0 } : { visibility: 'visible', opacity: 1 };
 
   if (token.isSpace) {
     return (
       <span
         ref={(node) => registerCharacterRangeRef(token.start, token.end, node)}
-        className={`${tokenClass[characterStates[token.start]] || tokenClass.default} inline-block align-top whitespace-pre-wrap`}
+        className={`${tokenClass[characterStates[token.start]] || tokenClass.default} inline-block align-top whitespace-pre-wrap transition-[opacity,visibility] duration-500 ease-out ${isFaded ? "opacity-0" : "opacity-100"}`}
+        style={fadeStyle}
       >
         {token.text}
       </span>
@@ -107,9 +124,8 @@ const TypingToken = memo(function TypingToken({
   return (
     <span
       ref={(node) => registerWordRef(token.wordIndex, node)}
-      className={`inline-block align-top transition-transform duration-150 ${
-        currentWordIndex === token.wordIndex ? "scale-[1.01]" : "scale-100"
-      } ${
+      data-word-index={token.wordIndex}
+      className={`inline-block align-top rounded-sm transition-[opacity,visibility,color,transform] duration-500 ease-out ${
         tokenState === "correct"
           ? isDark
             ? "text-emerald-400"
@@ -121,7 +137,8 @@ const TypingToken = memo(function TypingToken({
           : isDark
           ? "text-slate-200"
           : "text-slate-800"
-      }`}
+      } ${isFaded ? "opacity-0" : "opacity-100"}`}
+      style={fadeStyle}
     >
       {token.text.split("").map((character, characterIndex) => {
         const index = token.start + characterIndex;
@@ -129,7 +146,13 @@ const TypingToken = memo(function TypingToken({
           <span
             key={`${token.id}-${characterIndex}`}
             ref={(node) => registerCharacterRef(index, node)}
-            className={`${tokenClass[characterStates[index]] || tokenClass.default} transition-colors duration-150`}
+            className={`${tokenClass[characterStates[index]] || tokenClass.default} transition-colors duration-150 ${
+              index === activeIndex
+                ? isDark
+                  ? "bg-yellow-500/60 text-white"
+                  : "bg-yellow-300/80 text-black"
+                : ""
+            }`}
           >
             {character}
           </span>
@@ -149,6 +172,7 @@ function TypingText({
   fontScale = 1,
   focused = false,
   hideContent = false,
+  fadedWords = [],
   onPointerDown,
   onKeyDown,
   onFocus,
@@ -286,30 +310,25 @@ function TypingText({
       setCaret((currentCaret) => (currentCaret.visible ? { ...currentCaret, visible: false } : currentCaret));
       return;
     }
-
-    if (activeIndex > 0) {
-      setCaret((currentCaret) => (currentCaret.visible ? { ...currentCaret, visible: false } : currentCaret));
-      return;
-    }
-
     const currentWordToken = wordTokens[currentWordIndex] || null;
-    let wordNode = wordRefs.current[currentWordIndex] || null;
-    if (!wordNode && currentWordToken) {
-      wordNode = characterRefs.current[currentWordToken.start] || null;
+    // Prefer the exact active character node, fall back to current word start node
+    let targetNode = characterRefs.current[activeIndex] || null;
+    if (!targetNode) {
+      targetNode = wordRefs.current[currentWordIndex] || (currentWordToken ? characterRefs.current[currentWordToken.start] : null) || null;
     }
 
-    if (wordNode) {
+    if (targetNode) {
       try {
-        const left = wordNode.offsetLeft + 2;
-        const top = wordNode.offsetTop;
-        const height = wordNode.offsetHeight || parseFloat(getComputedStyle(container).fontSize) * 1.1;
+        const left = targetNode.offsetLeft;
+        const top = targetNode.offsetTop;
+        const height = targetNode.offsetHeight || parseFloat(getComputedStyle(container).fontSize) * 1.1;
         setCaret({ left, top, height, visible: true });
       } catch (error) {
-        const wordRect = wordNode.getBoundingClientRect();
+        const nodeRect = targetNode.getBoundingClientRect();
         const containerRect = container.getBoundingClientRect();
-        const left = wordRect.left - containerRect.left + container.scrollLeft + 2;
-        const top = wordRect.top - containerRect.top + container.scrollTop;
-        const height = wordRect.height || parseFloat(getComputedStyle(container).fontSize) * 1.1;
+        const left = nodeRect.left - containerRect.left + container.scrollLeft;
+        const top = nodeRect.top - containerRect.top + container.scrollTop;
+        const height = nodeRect.height || parseFloat(getComputedStyle(container).fontSize) * 1.1;
         setCaret({ left, top, height, visible: true });
       }
     } else {
@@ -351,14 +370,17 @@ function TypingText({
           />
         ) : null}
 
-        <div className={hideContent ? "opacity-0 select-none" : ""}>
+        <div className={hideContent ? "select-none" : ""}>
           {segments.map((token) => (
             <TypingToken
               key={token.id}
               token={token}
               characterStates={characterStates}
               currentWordIndex={currentWordIndex}
+              activeIndex={activeIndex}
               isDark={isDark}
+              hideContent={hideContent}
+              fadedWords={fadedWords}
               registerWordRef={registerWordRef}
               registerCharacterRef={registerCharacterRef}
               registerCharacterRangeRef={registerCharacterRangeRef}

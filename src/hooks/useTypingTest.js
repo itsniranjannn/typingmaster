@@ -20,6 +20,7 @@ import {
   updateStreakWithTimestamp,
   getDailyGoalProgress,
   incrementDailyGoalProgress,
+  getChallengeAttemptsToday,
   syncLeaderboard,
   updateLeaderboard,
   getPreferredMode,
@@ -119,8 +120,13 @@ export const useTypingTest = () => {
   const [dailyGoalProgress, setDailyGoalProgress] = useState(() => getDailyGoalProgress());
   const [dailyChallenge, setDailyChallenge] = useState(() => getDailyChallenge());
   const [dailyChallengeHistory, setDailyChallengeHistory] = useState(() => getDailyChallengeRecentHistory());
+  const [challengeAttemptsToday, setChallengeAttemptsToday] = useState(() => getChallengeAttemptsToday());
   const [challengePromptHidden, setChallengePromptHidden] = useState(false);
+  const [challengeHasTextFaded, setChallengeHasTextFaded] = useState(false);
+  const [fadedWords, setFadedWords] = useState([]);
+  const [missedWords, setMissedWords] = useState([]);
   const [challengeFailed, setChallengeFailed] = useState(false);
+  const [challengeWarningMessage, setChallengeWarningMessage] = useState("");
   const [liveWpm, setLiveWpm] = useState(0);
   const [finalResult, setFinalResult] = useState(null);
   const [engineSnapshot, setEngineSnapshot] = useState({
@@ -154,14 +160,24 @@ export const useTypingTest = () => {
   const goalMilestoneResetTimerRef = useRef(null);
   const latestRawWpmRef = useRef(0);
   const latestLiveWpmRef = useRef(0);
+  const elapsedSecondsRef = useRef(0);
+  const testStartTimestampRef = useRef(null);
   const lastWordBoundaryRef = useRef(0);
   const canDeleteTrailingSpaceRef = useRef(false);
   const loadingDelayTimerRef = useRef(null);
   const challengeHideTimerRef = useRef(null);
+  const challengeFadeTimerRef = useRef(null);
+  const wordFadeTimersRef = useRef(new Map());
+  const wordIdleTimersRef = useRef(new Map());
+  const wordTypedOnceRef = useRef(new Set());
+  const memoryIdleTimerRef = useRef(null);
+  const currentArenaChallengeRef = useRef(null);
+  const challengeWarningTimerRef = useRef(null);
   const quoteRequestIdRef = useRef(0);
   const lastAppendedElapsedRef = useRef(0);
   const lastAppendedCorrectCharsRef = useRef(0);
   const lastAppendTriggerRef = useRef("");
+  const fadedWordsRef = useRef([]);
   const arenaPreviousModeRef = useRef(null);
   const arenaBackspaceUsedRef = useRef(false);
   const arenaHoldSecondsRef = useRef(0);
@@ -174,6 +190,7 @@ export const useTypingTest = () => {
   const activeArenaChallenge = dailyChallenge?.challenge || null;
   const arenaRules = activeArenaChallenge?.rules || {};
   const isArenaMode = mode === TYPING_MODES.CHALLENGE_ARENA;
+  const isArenaChallengeLocked = Boolean(dailyChallenge?.challengeCompletedToday || dailyChallenge?.challengeCompleted || challengeAttemptsToday?.locked);
   const {
     playCorrectKey,
     playMilestoneSound,
@@ -182,6 +199,10 @@ export const useTypingTest = () => {
     setVolume,
     resetWordsWithError
   } = useTypingSounds(isSoundEnabled);
+
+  useEffect(() => {
+    fadedWordsRef.current = fadedWords;
+  }, [fadedWords]);
 
   const isFinished = useMemo(() => {
     if (isArenaMode) {
@@ -253,6 +274,165 @@ export const useTypingTest = () => {
     setTextLoadingMessage("");
   }, [clearLoadingDelay]);
 
+  const clearMemoryWordIdleTimer = useCallback((wordIndex) => {
+    const timerId = wordIdleTimersRef.current.get(wordIndex);
+    if (timerId) {
+      window.clearTimeout(timerId);
+      wordIdleTimersRef.current.delete(wordIndex);
+    }
+  }, []);
+
+  const clearMemoryIdleTimer = useCallback(() => {
+    if (memoryIdleTimerRef.current) {
+      window.clearTimeout(memoryIdleTimerRef.current);
+      memoryIdleTimerRef.current = null;
+    }
+  }, []);
+
+  // Clear both single-shot idle timer and continuous fade interval
+  const clearAllMemoryFadeTimers = useCallback(() => {
+    if (memoryIdleTimerRef.current) {
+      window.clearTimeout(memoryIdleTimerRef.current);
+      memoryIdleTimerRef.current = null;
+    }
+    if (continuousFadeIntervalRef.current) {
+      window.clearInterval(continuousFadeIntervalRef.current);
+      continuousFadeIntervalRef.current = null;
+    }
+  }, []);
+
+  // Interval used to continuously fade subsequent words while the user remains idle
+  const continuousFadeIntervalRef = useRef(null);
+
+  const clearContinuousFadeInterval = useCallback(() => {
+    if (continuousFadeIntervalRef.current) {
+      window.clearInterval(continuousFadeIntervalRef.current);
+      continuousFadeIntervalRef.current = null;
+    }
+  }, []);
+
+  // timestamp of the last typing event (ms)
+  const lastTypingTimeRef = useRef(0);
+  const TYPING_ACTIVE_WINDOW_MS = 1200;
+
+  const computeFadeDelaySeconds = useCallback(() => {
+    const fast = Math.max(2, Number(arenaRules.hideAfterSeconds ?? 2));
+    const slow = Math.max(fast * 2, 4);
+    const now = Date.now();
+    if (now - lastTypingTimeRef.current < TYPING_ACTIVE_WINDOW_MS) return slow;
+    return fast;
+  }, [arenaRules.hideAfterSeconds]);
+  
+  const startContinuousFadeLoop = useCallback(() => {
+    if (continuousFadeIntervalRef.current) return;
+    const run = () => {
+      let nextIndex = -1;
+      for (let i = 0; i < targetWordsRef.current.length; i += 1) {
+        if (!fadedWordsRef.current.includes(i)) {
+          nextIndex = i;
+          break;
+        }
+      }
+
+      if (nextIndex < 0) {
+        clearAllMemoryFadeTimers();
+        return;
+      }
+
+      // mark as missed (inline to avoid referencing hoisted callbacks)
+      setFadedWords((prev) => (prev.includes(nextIndex) ? prev : [...prev, nextIndex]));
+      setMissedWords((prev) => (prev.includes(nextIndex) ? prev : [...prev, nextIndex]));
+      setChallengeHasTextFaded(true);
+      setChallengeWarningMessage("Word faded. Keep going.");
+      if (challengeWarningTimerRef.current) {
+        window.clearTimeout(challengeWarningTimerRef.current);
+      }
+      challengeWarningTimerRef.current = window.setTimeout(() => {
+        setChallengeWarningMessage("");
+        challengeWarningTimerRef.current = null;
+      }, 1500);
+
+      const delay = computeFadeDelaySeconds() * 1000;
+      continuousFadeIntervalRef.current = window.setTimeout(run, delay);
+    };
+
+    const initialDelay = computeFadeDelaySeconds() * 1000;
+    continuousFadeIntervalRef.current = window.setTimeout(run, initialDelay);
+  }, [clearAllMemoryFadeTimers, computeFadeDelaySeconds]);
+
+  
+
+
+  function getFirstUnfadedMemoryWordIndex() {
+    for (let index = 0; index < targetWordsRef.current.length; index += 1) {
+      if (!fadedWordsRef.current.includes(index)) {
+        return index;
+      }
+    }
+    return -1;
+  }
+
+  function markMemoryWordMissed(wordIndex) {
+    setFadedWords((prev) => {
+      const newFaded = prev.includes(wordIndex) ? prev : [...prev, wordIndex];
+      return newFaded;
+    });
+    setMissedWords((prev) => (prev.includes(wordIndex) ? prev : [...prev, wordIndex]));
+    setChallengeHasTextFaded(true);
+    setChallengeWarningMessage("Word faded. Keep going.");
+    if (challengeWarningTimerRef.current) {
+      window.clearTimeout(challengeWarningTimerRef.current);
+    }
+    challengeWarningTimerRef.current = window.setTimeout(() => {
+      setChallengeWarningMessage("");
+      challengeWarningTimerRef.current = null;
+    }, 1500);
+  }
+
+  const scheduleMemoryIdleFade = useCallback(() => {
+    const isMemoryChallenge = currentArenaChallengeRef.current?.family === "memory";
+    const hasHideAfterSeconds = typeof arenaRules.hideAfterSeconds === "number" && arenaRules.hideAfterSeconds > 0;
+    const shouldFade = mode === TYPING_MODES.CHALLENGE_ARENA && isMemoryChallenge && hasHideAfterSeconds && !isFinished;
+    if (!shouldFade) return;
+
+    // If continuous loop already running, leave it running; it will adapt delay based on typing
+    if (continuousFadeIntervalRef.current) return;
+
+    // If a single-shot idle timer is already scheduled, don't schedule another
+    if (memoryIdleTimerRef.current) return;
+
+    const fadeDelay = Math.max(1, Number(arenaRules.hideAfterSeconds || 3));
+
+    const startContinuousFade = () => {
+      memoryIdleTimerRef.current = null;
+      const firstIndex = getFirstUnfadedMemoryWordIndex();
+      if (firstIndex < 0) return;
+
+      markMemoryWordMissed(firstIndex);
+      // start adaptive continuous loop
+      startContinuousFadeLoop();
+    };
+
+    memoryIdleTimerRef.current = window.setTimeout(startContinuousFade, fadeDelay * 1000);
+  }, [currentArenaChallengeRef, getFirstUnfadedMemoryWordIndex, isFinished, markMemoryWordMissed, mode, arenaRules.hideAfterSeconds, startContinuousFadeLoop]);
+
+  const scheduleMemoryWordIdleTimer = useCallback((wordIndex) => {
+    if (mode !== TYPING_MODES.CHALLENGE_ARENA || currentArenaChallengeRef.current?.family !== "memory") return;
+    if (wordIndex < 0 || wordIndex >= targetWordsRef.current.length) return;
+    if (wordTypedOnceRef.current.has(wordIndex)) return;
+
+    clearMemoryWordIdleTimer(wordIndex);
+
+    const fadeDelay = Math.max(1, Number(arenaRules.hideAfterSeconds || 3));
+    const timerId = window.setTimeout(() => {
+      wordIdleTimersRef.current.delete(wordIndex);
+      if (wordTypedOnceRef.current.has(wordIndex)) return;
+      markMemoryWordMissed(wordIndex);
+    }, fadeDelay * 1000);
+
+    wordIdleTimersRef.current.set(wordIndex, timerId);
+  }, [arenaRules.hideAfterSeconds, clearMemoryWordIdleTimer, markMemoryWordMissed, mode]);
+
   const resetTypingState = useCallback(
     ({
       nextMode = mode,
@@ -281,6 +461,9 @@ export const useTypingTest = () => {
           : getGeneratedTextForMode(nextMode, nextWordCount))
       );
 
+      // Clear any running memory-fade timers when resetting the state
+      clearAllMemoryFadeTimers();
+
       if (nextMode !== mode) {
         setMode(nextMode);
       }
@@ -300,17 +483,28 @@ export const useTypingTest = () => {
         setCustomText(nextCustomText);
       }
       if (isArenaMode) {
-        arenaBackspaceUsedRef.current = false;
-        arenaHoldSecondsRef.current = 0;
-        arenaMaxHoldWpmRef.current = 0;
-        setChallengePromptHidden(Boolean(arenaChallenge?.rules?.hideAfterSeconds));
-        setChallengeFailed(false);
-      } else {
+        currentArenaChallengeRef.current = arenaChallenge;
         arenaBackspaceUsedRef.current = false;
         arenaHoldSecondsRef.current = 0;
         arenaMaxHoldWpmRef.current = 0;
         setChallengePromptHidden(false);
+        setChallengeHasTextFaded(false);
+        setFadedWords([]);
+        setMissedWords([]);
+        wordTypedOnceRef.current = new Set();
         setChallengeFailed(false);
+        setChallengeWarningMessage("");
+      } else {
+        currentArenaChallengeRef.current = null;
+        arenaBackspaceUsedRef.current = false;
+        arenaHoldSecondsRef.current = 0;
+        arenaMaxHoldWpmRef.current = 0;
+        setChallengePromptHidden(false);
+        setChallengeHasTextFaded(false);
+        setMissedWords([]);
+        wordTypedOnceRef.current = new Set();
+        setChallengeFailed(false);
+        setChallengeWarningMessage("");
       }
 
       if (nextMode !== TYPING_MODES.QUOTE) {
@@ -338,6 +532,8 @@ export const useTypingTest = () => {
       setTypedText("");
       setTimeLeft(nextMode === TYPING_MODES.TIME || nextMode === TYPING_MODES.GOAL ? nextTimeLimitSeconds : TEST_DURATION_SECONDS);
       setElapsedSeconds(0);
+      elapsedSecondsRef.current = 0;
+      testStartTimestampRef.current = null;
       setIsComposing(false);
       setHasStarted(false);
       setIsActive(false);
@@ -377,14 +573,27 @@ export const useTypingTest = () => {
         window.clearTimeout(challengeHideTimerRef.current);
         challengeHideTimerRef.current = null;
       }
-      setFocusTrigger((previous) => previous + 1);
-
-      if (isArenaMode && arenaChallenge?.rules?.hideAfterSeconds) {
-        challengeHideTimerRef.current = window.setTimeout(() => {
-          setChallengePromptHidden(true);
-          challengeHideTimerRef.current = null;
-        }, arenaChallenge.rules.hideAfterSeconds * 1000);
+      if (challengeFadeTimerRef.current) {
+        window.clearTimeout(challengeFadeTimerRef.current);
+        challengeFadeTimerRef.current = null;
       }
+      clearMemoryIdleTimer();
+      // clear per-word idle/fade timers
+      try {
+        for (const t of wordFadeTimersRef.current.values()) {
+          window.clearTimeout(t);
+        }
+        for (const t of wordIdleTimersRef.current.values()) {
+          window.clearTimeout(t);
+        }
+      } catch (e) {}
+      wordFadeTimersRef.current.clear();
+      wordIdleTimersRef.current.clear();
+      if (challengeWarningTimerRef.current) {
+        window.clearTimeout(challengeWarningTimerRef.current);
+        challengeWarningTimerRef.current = null;
+      }
+      setFocusTrigger((previous) => previous + 1);
 
       if (isQuoteMode) {
         setIsTextLoading(true);
@@ -401,6 +610,7 @@ export const useTypingTest = () => {
             setParagraph(nextQuote);
             setTypedText("");
             setElapsedSeconds(0);
+            elapsedSecondsRef.current = 0;
             setTimeLeft(TEST_DURATION_SECONDS);
             currentIndexRef.current = 0;
             currentWordRef.current = "";
@@ -426,12 +636,24 @@ export const useTypingTest = () => {
         hideLoadingMessage();
       }
     },
-    [dailyChallenge, goalVariant, hideLoadingMessage, mode, resetWordsWithError, showDelayedGenerationMessage, targetWpm, timeLimitSeconds, wordCount]
+    [clearMemoryIdleTimer, dailyChallenge, goalVariant, hideLoadingMessage, isArenaMode, mode, resetWordsWithError, showDelayedGenerationMessage, targetWpm, timeLimitSeconds, wordCount]
   );
 
   const finishTest = useCallback(() => {
     if (isTestFinishedRef.current) return;
     isTestFinishedRef.current = true;
+      const attempts = getChallengeAttemptsToday();
+      if (attempts.locked || dailyChallenge?.challengeCompletedToday || dailyChallenge?.challengeCompleted) {
+        setChallengeWarningMessage(attempts.locked ? "Daily challenge locked. Try tomorrow." : "Challenge already completed today.");
+        if (challengeWarningTimerRef.current) {
+          window.clearTimeout(challengeWarningTimerRef.current);
+        }
+        challengeWarningTimerRef.current = window.setTimeout(() => {
+          setChallengeWarningMessage("");
+          challengeWarningTimerRef.current = null;
+        }, 2200);
+        return;
+      }
 
     if (timerRef.current) {
       window.clearInterval(timerRef.current);
@@ -463,6 +685,7 @@ export const useTypingTest = () => {
     timerRef.current = window.setInterval(() => {
       setElapsedSeconds((previousElapsed) => {
         const nextElapsed = previousElapsed + 1;
+        elapsedSecondsRef.current = nextElapsed;
 
         if (mode === TYPING_MODES.CHALLENGE_ARENA) {
           if (arenaRules.timeLimitSeconds) {
@@ -485,7 +708,8 @@ export const useTypingTest = () => {
               timeUsed: nextElapsed,
               incorrectCharacters: engineSnapshot.incorrectCharacters,
               backspaceUsed: arenaBackspaceUsedRef.current,
-              promptHiddenUsed: challengePromptHidden,
+              promptHiddenUsed: challengePromptHidden || challengeHasTextFaded,
+              hasTextFaded: challengeHasTextFaded,
               maxHoldWpm: Math.max(arenaMaxHoldWpmRef.current, currentWpm),
               holdSeconds: arenaHoldSecondsRef.current
             });
@@ -548,7 +772,7 @@ export const useTypingTest = () => {
         timerRef.current = null;
       }
     };
-  }, [arenaRules.minAccuracy, arenaRules.sustainSeconds, arenaRules.targetWpm, arenaRules.timeLimitSeconds, challengePromptHidden, dailyChallenge, finishTest, goalVariant, hasStarted, isFinished, mode, targetWpm]);
+  }, [arenaRules.minAccuracy, arenaRules.sustainSeconds, arenaRules.targetWpm, arenaRules.timeLimitSeconds, challengeHasTextFaded, challengePromptHidden, dailyChallenge, finishTest, goalVariant, hasStarted, isFinished, mode, targetWpm]);
 
   // Control helpers for keyboard shortcuts
   const startTest = useCallback(() => {
@@ -646,6 +870,9 @@ export const useTypingTest = () => {
       if (!hasStarted && nextValue.length > 0) {
         setHasStarted(true);
         setIsActive(true);
+        if (!testStartTimestampRef.current) {
+          testStartTimestampRef.current = Date.now();
+        }
       }
 
       if (skipEngine) {
@@ -678,6 +905,17 @@ export const useTypingTest = () => {
         const newChar = nextValue[typedIndex];
         const targetChar = paragraph[typedIndex];
         const isCorrectCharacter = newChar === targetChar;
+        const currentWordIndex = currentWordIndexRef.current;
+
+        if (mode === TYPING_MODES.CHALLENGE_ARENA && currentArenaChallengeRef.current?.family === "memory") {
+          lastTypingTimeRef.current = Date.now();
+          scheduleMemoryIdleFade();
+          if (currentWordRef.current.length === 0 && newChar !== " ") {
+            wordTypedOnceRef.current.add(currentWordIndex);
+            // Do not remove the word from fadedWords when user starts typing.
+            // Keep faded words as-is so typed words can still be faded later.
+          }
+        }
 
         currentIndexRef.current += 1;
         if (isCorrectCharacter) {
@@ -707,16 +945,44 @@ export const useTypingTest = () => {
             lastWordBoundaryRef.current = nextValue.length;
             canDeleteTrailingSpaceRef.current = true;
           }
+
+          if (mode === TYPING_MODES.CHALLENGE_ARENA && currentArenaChallengeRef.current?.family === "memory") {
+            wordTypedOnceRef.current.add(currentWordIndex);
+            lastTypingTimeRef.current = Date.now();
+            scheduleMemoryIdleFade();
+          }
         } else {
           if (typedIndex === 0 || typedText[typedIndex - 1] === " ") {
             lastWordBoundaryRef.current = typedIndex;
           }
           canDeleteTrailingSpaceRef.current = false;
           currentWordRef.current += newChar;
+
+          if (mode === TYPING_MODES.CHALLENGE_ARENA && currentArenaChallengeRef.current?.family === "memory") {
+            lastTypingTimeRef.current = Date.now();
+            scheduleMemoryIdleFade();
+          }
         }
       }
 
       if (isBackspace) {
+        if (isArenaMode && arenaRules.noBackspace) {
+          arenaBackspaceUsedRef.current = true;
+          setChallengeWarningMessage("Backspace is disabled for this challenge!");
+          if (challengeWarningTimerRef.current) {
+            window.clearTimeout(challengeWarningTimerRef.current);
+          }
+          challengeWarningTimerRef.current = window.setTimeout(() => {
+            setChallengeWarningMessage("");
+            challengeWarningTimerRef.current = null;
+          }, 1400);
+          setChallengeFailed(true);
+          failDailyChallenge(Date.now());
+          setChallengeAttemptsToday(getChallengeAttemptsToday(Date.now()));
+          commitSnapshot();
+          return;
+        }
+
         if (mode === TYPING_MODES.CHALLENGE_ARENA) {
           arenaBackspaceUsedRef.current = true;
         }
@@ -791,6 +1057,8 @@ export const useTypingTest = () => {
       }
     },
     [
+      arenaRules.hideAfterSeconds,
+      scheduleMemoryIdleFade,
       finishTest,
       goalVariant,
       hasStarted,
@@ -836,6 +1104,18 @@ export const useTypingTest = () => {
   const startDailyChallenge = useCallback(
     (challenge = dailyChallenge?.challenge) => {
       if (!challenge) return;
+      const latestAttempts = getChallengeAttemptsToday(Date.now());
+      if (latestAttempts.locked || dailyChallenge?.challengeCompletedToday || dailyChallenge?.challengeCompleted) {
+        setChallengeWarningMessage(latestAttempts.locked ? "Daily challenge locked. Try tomorrow." : "Challenge already completed today.");
+        if (challengeWarningTimerRef.current) {
+          window.clearTimeout(challengeWarningTimerRef.current);
+        }
+        challengeWarningTimerRef.current = window.setTimeout(() => {
+          setChallengeWarningMessage("");
+          challengeWarningTimerRef.current = null;
+        }, 2200);
+        return;
+      }
 
       arenaPreviousModeRef.current = {
         mode,
@@ -991,36 +1271,30 @@ export const useTypingTest = () => {
     () => calculateAccuracy(engineSnapshot.correctCharacters, typedText.length),
     [engineSnapshot.correctCharacters, typedText.length]
   );
+  const getElapsedSeconds = useCallback(() => {
+    const elapsedFromState = Math.max(elapsedSecondsRef.current, elapsedSeconds, 0);
+    if (!testStartTimestampRef.current) return elapsedFromState;
+
+    const elapsedFromClock = Math.floor((Date.now() - testStartTimestampRef.current) / 1000);
+    return Math.max(elapsedFromClock, elapsedFromState, 0);
+  }, [elapsedSeconds]);
   const displayWpm = useMemo(() => {
     if (!hasStarted) return 0;
 
-    const actualElapsed = mode === TYPING_MODES.TIME || mode === TYPING_MODES.GOAL
-      ? Math.max(timeLimitSeconds - timeLeft, 1)
-      : Math.max(elapsedSeconds, 1);
-
-    // Use a short warm-up window so the live display does not spike unrealistically
-    // in the first couple of seconds of a run.
-    const smoothedElapsed = Math.max(actualElapsed, 10);
-    const grossWpm = calculateWpm(engineSnapshot.correctCharacters, smoothedElapsed);
-    const accuracyFactor = Math.max(0, Math.min(1, Number(accuracy) / 100 || 0));
-    return Math.min(120, Math.max(0, grossWpm * accuracyFactor));
-  }, [accuracy, elapsedSeconds, engineSnapshot.correctCharacters, hasStarted, mode, timeLeft, timeLimitSeconds]);
+    return calculateWpm(engineSnapshot.correctCharacters, Math.max(getElapsedSeconds(), 1));
+  }, [engineSnapshot.correctCharacters, getElapsedSeconds, hasStarted]);
 
   const calculateArenaWpm = useCallback((correctCharacters, elapsedSeconds, currentAccuracy = 100) => {
-    const grossWpm = calculateWpm(correctCharacters, Math.max(1, elapsedSeconds));
-    const accuracyFactor = Math.max(0, Math.min(1, Number(currentAccuracy) / 100 || 0));
-    return Math.min(300, Math.max(0, grossWpm * accuracyFactor));
+    void currentAccuracy;
+    return calculateWpm(correctCharacters, Math.max(1, elapsedSeconds));
   }, []);
 
   const rawWpm = useMemo(
     () => {
       if (!hasStarted) return 0;
-      const actualElapsed = mode === TYPING_MODES.TIME || mode === TYPING_MODES.GOAL
-        ? Math.max(timeLimitSeconds - timeLeft, 1)
-        : Math.max(elapsedSeconds, 1);
-      return calculateArenaWpm(engineSnapshot.correctCharacters, actualElapsed, accuracy);
+      return calculateArenaWpm(engineSnapshot.correctCharacters, Math.max(getElapsedSeconds(), 1), accuracy);
     },
-    [accuracy, calculateArenaWpm, engineSnapshot.correctCharacters, elapsedSeconds, hasStarted, mode, timeLeft, timeLimitSeconds]
+    [accuracy, calculateArenaWpm, engineSnapshot.correctCharacters, getElapsedSeconds, hasStarted]
   );
   useEffect(() => {
     latestRawWpmRef.current = rawWpm;
@@ -1150,6 +1424,7 @@ export const useTypingTest = () => {
       const nextChallenge = getDailyChallenge();
       setDailyChallenge(nextChallenge);
       setDailyChallengeHistory(getDailyChallengeRecentHistory());
+      setChallengeAttemptsToday(getChallengeAttemptsToday(Date.now()));
     }, 60000);
 
     return () => window.clearInterval(timer);
@@ -1172,11 +1447,11 @@ export const useTypingTest = () => {
           elapsedSeconds,
           holdSeconds: arenaHoldSecondsRef.current,
           backspaceUsed: arenaBackspaceUsedRef.current,
-          promptHidden: challengePromptHidden,
+          promptHidden: challengePromptHidden || challengeHasTextFaded,
           incorrectCharacters: engineSnapshot.incorrectCharacters
         })
       : null),
-    [accuracy, challengePromptHidden, dailyChallenge, elapsedSeconds, engineSnapshot.incorrectCharacters, isArenaMode, rawWpm]
+    [accuracy, challengeHasTextFaded, challengePromptHidden, dailyChallenge, elapsedSeconds, engineSnapshot.incorrectCharacters, isArenaMode, rawWpm]
   );
 
   const activeIndex = useMemo(() => {
@@ -1216,7 +1491,7 @@ export const useTypingTest = () => {
   useEffect(() => {
     if (!isFinished || !hasStarted || hasSavedResultRef.current) return;
 
-    const timeUsed = Math.max(mode === TYPING_MODES.TIME || mode === TYPING_MODES.GOAL ? timeLimitSeconds - timeLeft : elapsedSeconds, 1);
+    const timeUsed = Math.max(getElapsedSeconds(), 1);
     const finalWpm = Math.round(calculateArenaWpm(engineSnapshot.correctCharacters, timeUsed, accuracy));
     const currentBestKey = getBestWpmModeKey({ mode, wordCount, goalVariant, timeLimitSeconds });
     const previousBest = bestWpmByMode[currentBestKey] || 0;
@@ -1245,6 +1520,8 @@ export const useTypingTest = () => {
       accuracy,
       correctCharacters: engineSnapshot.correctCharacters,
       incorrectCharacters: engineSnapshot.incorrectCharacters,
+      completedWords: engineSnapshot.completedWords,
+      typedWordCount: typedText.trim().length > 0 ? typedText.trim().split(/\s+/).filter(Boolean).length : 0,
       mistypedCharacters: mistypedCharactersRef.current,
       timeUsed,
       previousBest,
@@ -1261,10 +1538,14 @@ export const useTypingTest = () => {
       challengeCompletedToday: false,
       challengeFailed: false,
       challengeStreak: dailyChallenge?.challengeStreak || 0,
+      typedText,
+      promptText: paragraph,
+      typedCharacterCount: typedText.length,
+      hasTextFaded: mode === TYPING_MODES.CHALLENGE_ARENA ? challengeHasTextFaded : false,
       backspaceUsed: mode === TYPING_MODES.CHALLENGE_ARENA ? arenaBackspaceUsedRef.current : false,
       holdSeconds: mode === TYPING_MODES.CHALLENGE_ARENA ? arenaHoldSecondsRef.current : 0,
       maxHoldWpm: mode === TYPING_MODES.CHALLENGE_ARENA ? arenaMaxHoldWpmRef.current : 0,
-      promptHiddenUsed: mode === TYPING_MODES.CHALLENGE_ARENA ? challengePromptHidden : false
+      promptHiddenUsed: mode === TYPING_MODES.CHALLENGE_ARENA ? challengePromptHidden || challengeHasTextFaded : false
     };
 
     try {
@@ -1295,6 +1576,7 @@ export const useTypingTest = () => {
       if (challengeOutcome.state) {
         setDailyChallenge(challengeOutcome.state);
       }
+      setChallengeAttemptsToday(getChallengeAttemptsToday(Date.now()));
       setDailyChallengeHistory(getDailyChallengeRecentHistory());
       if (challengeOutcome.completed && !challengeOutcome.alreadyCompleted && isSoundEnabled) {
         playMilestoneSound();
@@ -1394,11 +1676,16 @@ export const useTypingTest = () => {
     dailyGoalProgress,
     dailyChallenge,
     dailyChallengeHistory,
+    challengeAttemptsToday,
     challengeConfig: dailyChallenge?.challenge || null,
     challengeProgress,
     challengeCompleted: Boolean(dailyChallenge?.challengeCompleted),
     challengeFailed,
+    challengeWarningMessage,
     challengePromptHidden,
+    challengeHasTextFaded,
+    fadedWords,
+    challengeLocked: isArenaChallengeLocked,
     startTest,
     pauseTest,
     toggleActive,

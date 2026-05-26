@@ -137,7 +137,7 @@ function ResultScreen({
             aria-label="Retry challenge"
             className={`flex-1 rounded-full bg-gradient-to-r from-purple-600 to-blue-500 px-6 py-3 text-base font-semibold text-white shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 hover:from-purple-700 hover:to-blue-600 md:py-4 md:text-lg`}
           >
-            Retry Challenge
+            {result.challengeCompletedToday ? "Already earned badge today" : "Retry Challenge"}
           </button>
           <button
             type="button"
