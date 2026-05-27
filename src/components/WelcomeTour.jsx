@@ -38,7 +38,7 @@ function WelcomeTour({ isOpen, stepIndex, steps, highlightRect, onNext, onSkip }
 
   const step = safeSteps[stepIndex] || safeSteps[0] || {
     title: "Welcome to GoType",
-    description: "Use the guided tour to learn the current typing layout."
+    description: "Use the guided tour to learn the current typing layout, including Classic Core, Challenge Arena, and the right sidebar tools."
   };
 
   return (

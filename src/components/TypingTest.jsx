@@ -102,6 +102,7 @@ function TypingTest({ theme, onToggleTheme }) {
   const [accuracyState, setAccuracyState] = useState(null);
   const typingSurfaceRef = useRef(null);
   const hiddenInputRef = useRef(null);
+  const rightSidebarRef = useRef(null);
   const [isTypingAreaFocused, setIsTypingAreaFocused] = useState(false);
   const [isWelcomeTourOpen, setIsWelcomeTourOpen] = useState(() => !getHasSeenTour());
   const [isArenaBannerCollapsed, setIsArenaBannerCollapsed] = useState(() => getArenaBannerCollapsed());
@@ -183,27 +184,33 @@ function TypingTest({ theme, onToggleTheme }) {
     () => [
       {
         target: "modeBar",
-        title: "Pick a test mode",
+        title: "Choose your route",
         description:
-          "This Core bar lets you switch Time, Words, and Goal settings, then restart the run. Use the top selector above to enter Classic Core, Quotes, Custom, or Numbers."
+          "Use the top selector to jump between Classic Core, Quotes, Custom, and Numbers. Classic Core opens the Time, Words, and Goal controls below, while Challenge Arena lives in the sidebar."
       },
       {
         target: "typingPanel",
         title: "Type in the panel",
         description:
-          "Click the prompt to start typing. The current word stays anchored while the text can grow during long sessions."
+          "Click the prompt to start typing. The current word stays anchored, and the text can grow smoothly during longer runs."
+      },
+      {
+        target: "rightSidebar",
+        title: "Open Challenge Arena",
+        description:
+          "The right sidebar holds streaks, daily goals, and the Challenge Arena card on desktop. On mobile, tap the floating button to open the same tools in a drawer."
       },
       {
         target: "statsBar",
         title: "Watch live progress",
         description:
-          "WPM, accuracy, remaining time, and completed words update live above the typing area."
+          "WPM, accuracy, remaining time, and completed words update live above the typing area so you can see every run at a glance."
       },
       {
         target: "headerControls",
         title: "Use the top-right tools",
         description:
-          "Sound, theme, leaderboard, and settings live here. The right sidebar and mobile drawer show best WPM, streak, and daily goals."
+          "Sound, theme, leaderboard, badges, and settings live here. These tools stay in sync with the right sidebar and Arena flow."
       }
     ],
     []
@@ -213,6 +220,7 @@ function TypingTest({ theme, onToggleTheme }) {
     () => ({
       modeBar: modeBarRef,
       typingPanel: typingPanelRef,
+      rightSidebar: rightSidebarRef,
       statsBar: statsBarRef,
       headerControls: headerControlsRef
     }),
@@ -1043,7 +1051,7 @@ function TypingTest({ theme, onToggleTheme }) {
 
           {/* Right Sidebar */}
           {!isFinished ? (
-            <aside className="hidden lg:block w-full max-w-[260px]">
+            <aside ref={rightSidebarRef} className="hidden lg:block w-full max-w-[260px]">
               <div className="sticky top-24">
                 <RightSidebar
                   bestWpm={bestWpm}
