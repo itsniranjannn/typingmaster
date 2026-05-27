@@ -34,7 +34,7 @@ function Footer({ isDark = true }) {
 
               <div className="flex flex-wrap gap-2">
                 <a
-                  href="/legal.html"
+                  href="/legal"
                   className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-medium transition ${isDark ? "bg-cyan-400/10 text-cyan-200 hover:bg-cyan-400/15" : "bg-sky-100 text-sky-700 hover:bg-sky-200"}`}
                 >
                   <ShieldCheck size={15} />
@@ -57,15 +57,15 @@ function Footer({ isDark = true }) {
                 Legal
               </div>
               <div className="mt-4 space-y-2 text-sm">
-                <a href="/legal.html#privacy" className={`flex items-center justify-between rounded-2xl px-4 py-3 transition ${isDark ? "bg-slate-900/70 text-slate-200 hover:bg-slate-900" : "bg-white text-slate-700 hover:bg-slate-100"}`}>
+                <a href="/legal#privacy" className={`flex items-center justify-between rounded-2xl px-4 py-3 transition ${isDark ? "bg-slate-900/70 text-slate-200 hover:bg-slate-900" : "bg-white text-slate-700 hover:bg-slate-100"}`}>
                   <span>Privacy</span>
                   <ChevronRight size={15} />
                 </a>
-                <a href="/legal.html#terms" className={`flex items-center justify-between rounded-2xl px-4 py-3 transition ${isDark ? "bg-slate-900/70 text-slate-200 hover:bg-slate-900" : "bg-white text-slate-700 hover:bg-slate-100"}`}>
+                <a href="/legal#terms" className={`flex items-center justify-between rounded-2xl px-4 py-3 transition ${isDark ? "bg-slate-900/70 text-slate-200 hover:bg-slate-900" : "bg-white text-slate-700 hover:bg-slate-100"}`}>
                   <span>Terms</span>
                   <ChevronRight size={15} />
                 </a>
-                <a href="/legal.html#contact" className={`flex items-center justify-between rounded-2xl px-4 py-3 transition ${isDark ? "bg-slate-900/70 text-slate-200 hover:bg-slate-900" : "bg-white text-slate-700 hover:bg-slate-100"}`}>
+                <a href="/legal#contact" className={`flex items-center justify-between rounded-2xl px-4 py-3 transition ${isDark ? "bg-slate-900/70 text-slate-200 hover:bg-slate-900" : "bg-white text-slate-700 hover:bg-slate-100"}`}>
                   <span>Contact</span>
                   <ChevronRight size={15} />
                 </a>

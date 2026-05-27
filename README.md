@@ -1,14 +1,24 @@
 # GoType
 
-GoType is a modern typing practice app built with React and Vite. It includes multiple typing modes, live WPM and accuracy tracking, goal-based practice, custom text, leaderboard support, streak tracking, and a clean, focused typing experience.
+A modern typing practice app with multiple modes, challenges, badges, and real-time stats.
+
+GoType is built with React and Vite. It focuses on typing practice, WPM improvement, accuracy tracking, and a clean experience for fast, distraction-free sessions.
+
+## Keywords
+
+typing test, WPM, accuracy, typing practice, speed test, multiple modes, leaderboard, badges
 
 ## Features
 
-- Time, Words, Quote, Goal, and Custom modes
+- Time, Words, Quote, Goal, Custom, and Numbers modes
 - Real-time WPM, accuracy, and word progress
-- Dynamic text generation with quote fallback
-- Responsive, distraction-free UI
-- Local storage for results, leaderboard, and streaks
+- Dynamic prompt generation with fallback content
+- Challenge modes, badges, streaks, and daily goals
+- Responsive UI with local storage persistence
+
+## Live Site
+
+https://gotype-alpha.vercel.app/
 
 ## Development
 
@@ -23,7 +33,6 @@ npm run dev
 npm run build
 ```
 
-## Project Links
+## Repository
 
-- GitHub: https://github.com/itsniranjannn/typingmaster
-- Live app: https://gotype-alpha.vercel.app/
+GitHub: https://github.com/itsniranjannn/typingmaster

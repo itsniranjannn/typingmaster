@@ -4,9 +4,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GoType — Practice Typing & Improve WPM</title>
+  <title>GoType – Typing Practice & Speed Test</title>
   <meta name="description"
-    content="GoType is a modern typing practice app to improve your typing speed and accuracy. Real-time WPM, multiple modes, and performance tracking." />
+    content="GoType is a modern typing practice app for speed tests, WPM improvement, accuracy tracking, and multiple practice modes." />
   <meta name="theme-color" content="#0f172a" />
   <!-- JetBrains Mono for typing area -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,6 +17,7 @@
   <meta name="author" content="GoType" />
   <link rel="canonical" href="https://gotype-alpha.vercel.app/" />
   <meta name="robots" content="index, follow" />
+  <link rel="manifest" href="/manifest.json" />
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   <link rel="apple-touch-icon" href="/favicon.ico" />
 
@@ -24,14 +25,18 @@
   <meta property="og:title" content="GoType – Typing Practice App" />
   <meta property="og:description"
     content="GoType is a modern typing practice app with real-time WPM, accuracy tracking, and multiple modes. Start improving today!" />
-  <meta property="og:image" content="https://gotype-alpha.vercel.app/og-image.svg" />
+  <meta property="og:image" content="https://gotype-alpha.vercel.app/og-image.png" />
+  <meta property="og:image:type" content="image/png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="GoType social preview showing the app name and typing practice tagline" />
   <meta property="og:url" content="https://gotype-alpha.vercel.app/" />
   <meta property="og:type" content="website" />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="GoType – Typing Practice App" />
   <meta name="twitter:description"
     content="GoType is a modern typing practice app with real-time feedback and stats." />
-  <meta name="twitter:image" content="https://gotype-alpha.vercel.app/og-image.svg" />
+  <meta name="twitter:image" content="https://gotype-alpha.vercel.app/og-image.png" />
 
   <!-- Structured data (JSON-LD) -->
   <script type="application/ld+json">
@@ -43,10 +48,16 @@
         "url": "https://gotype-alpha.vercel.app",
         "applicationCategory": "EducationalApplication",
         "operatingSystem": "Web",
+        "screenshot": "https://gotype-alpha.vercel.app/og-image.png",
         "offers": {
           "@type": "Offer",
           "price": "0",
           "priceCurrency": "USD"
+        },
+        "author": {
+          "@type": "Organization",
+          "name": "GoType",
+          "url": "https://gotype-alpha.vercel.app"
         }
       }
     </script>
@@ -65,7 +76,7 @@
 </head>
 
 <body class="bg-slate-950">
-  <h1 style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">GoType — Typing Practice App
+  <h1 style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;">GoType – Typing Practice & Speed Test
   </h1>
   <div id="root"></div>
   <script type="module" src="/src/main.jsx"></script>
