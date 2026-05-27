@@ -1,10 +1,11 @@
 import { memo, useState } from "react";
 import { X } from "lucide-react";
-import { getSoundEnabled, setSoundEnabled, getSoundVolume, setSoundVolume, getPreferredTheme, setPreferredTheme } from "../utils/storage";
+import { getSoundEnabled, setSoundEnabled, getSoundVolume, setSoundVolume, getPreferredTheme, setPreferredTheme, getScrollMargin, setScrollMargin } from "../utils/storage";
 
 function SettingsModal({ isOpen, onClose, theme, onThemeChange }) {
   const [soundEnabled, setSoundEnabledLocal] = useState(getSoundEnabled());
   const [soundVolume, setSoundVolumeLocal] = useState(getSoundVolume());
+  const [scrollMargin, setScrollMarginLocal] = useState(getScrollMargin());
 
   const handleSoundToggle = () => {
     const newValue = !soundEnabled;
@@ -16,6 +17,12 @@ function SettingsModal({ isOpen, onClose, theme, onThemeChange }) {
     const vol = parseFloat(value);
     setSoundVolumeLocal(vol);
     setSoundVolume(vol);
+  };
+
+  const handleScrollMarginChange = (value) => {
+    const margin = parseInt(value, 10);
+    setScrollMarginLocal(margin);
+    setScrollMargin(margin);
   };
 
   const handleThemeToggle = () => {
@@ -82,6 +89,28 @@ function SettingsModal({ isOpen, onClose, theme, onThemeChange }) {
               <p className={`${isDark ? 'text-xs text-slate-400' : 'text-xs text-slate-600'}`}>{Math.round(soundVolume * 100)}%</p>
             </div>
           )}
+        </div>
+
+        {/* Typing Scroll */}
+        <div className={`space-y-4 border-b pb-6 ${isDark ? 'border-slate-700/50' : 'border-slate-200'}`}>
+          <h3 className={`text-lg font-semibold ${isDark ? 'text-white' : 'text-slate-900'}`}>Typing Scroll</h3>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-4">
+              <label className={`${isDark ? 'text-slate-200' : 'text-slate-700'}`}>Bottom margin</label>
+              <span className={`${isDark ? 'text-slate-400' : 'text-slate-500'} text-sm tabular-nums`}>{scrollMargin}px</span>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max="150"
+              step="1"
+              value={scrollMargin}
+              onChange={(e) => handleScrollMarginChange(e.target.value)}
+              className="w-full accent-blue-500"
+              aria-label="Typing scroll margin"
+            />
+            <p className={`${isDark ? 'text-xs text-slate-400' : 'text-xs text-slate-600'}`}>Keeps the active character above the bottom edge while typing.</p>
+          </div>
         </div>
 
         {/* Theme Settings */}

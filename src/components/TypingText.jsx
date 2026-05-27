@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { getScrollMargin } from "../utils/storage";
 
 const TOKEN_SPLIT_REGEX = /\S+|\s+/g;
 const SPACE_REGEX = /^\s+$/;
@@ -189,6 +190,7 @@ function TypingText({
   const isProgrammaticScrollRef = useRef(false);
   const manualScrollOverrideRef = useRef(false);
   const lastActiveIndexRef = useRef(-1);
+  const [scrollMargin, setScrollMargin] = useState(() => getScrollMargin());
   const [caret, setCaret] = useState({ left: 0, top: 0, height: 18, visible: false });
 
   const { segments, wordTokens } = useMemo(() => tokenizeParagraph(paragraph), [paragraph]);
@@ -241,21 +243,22 @@ function TypingText({
 
     const containerRect = container.getBoundingClientRect();
     const nodeRect = activeNode.getBoundingClientRect();
-    const topMargin = 8;
-    const bottomMargin = 100;
-    const isVisible = nodeRect.top >= containerRect.top + topMargin && nodeRect.bottom <= containerRect.bottom - topMargin;
-    const isNearBottom = nodeRect.bottom > containerRect.bottom - bottomMargin;
+    const bottomMargin = Math.min(Math.max(Number(scrollMargin) || 50, 0), 150);
+    const isFullyVisible = nodeRect.top >= containerRect.top && nodeRect.bottom <= containerRect.bottom;
+    const isAboveBottomMargin = nodeRect.bottom <= containerRect.bottom - bottomMargin;
 
-    if (isVisible && !isNearBottom) return;
+    if (isFullyVisible && isAboveBottomMargin) return;
+
+    const currentScrollTop = container.scrollTop;
+    const nodeBottomInContainer = nodeRect.bottom - containerRect.top + currentScrollTop;
+    const targetScrollTop = nodeBottomInContainer - container.clientHeight + bottomMargin;
+    const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+    const newScrollTop = Math.min(Math.max(targetScrollTop, 0), maxScrollTop);
+
+    if (Math.abs(newScrollTop - currentScrollTop) < 1) return;
 
     isProgrammaticScrollRef.current = true;
-    try {
-      activeNode.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
-    } catch {
-      const targetTop = Math.max(0, activeNode.offsetTop - container.clientHeight * 0.38);
-      const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
-      container.scrollTop = Math.min(targetTop, maxScrollTop);
-    }
+    container.scrollTo({ top: newScrollTop, behavior: "smooth" });
 
     if (scrollRafRef.current) {
       window.cancelAnimationFrame(scrollRafRef.current);
@@ -264,7 +267,16 @@ function TypingText({
       isProgrammaticScrollRef.current = false;
       scrollRafRef.current = 0;
     });
-  }, [activeIndex, currentWordIndex, fadedWords, getCurrentWordNode, challengePromptHidden, hideContent, wordTokens]);
+  }, [activeIndex, currentWordIndex, fadedWords, getCurrentWordNode, challengePromptHidden, hideContent, scrollMargin, wordTokens]);
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setScrollMargin(getScrollMargin());
+    };
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, []);
 
   useEffect(() => {
     const handleContainerScroll = () => {
@@ -329,6 +341,7 @@ function TypingText({
     const previousHeight = appendScrollHeightRef.current || container.scrollHeight;
     const currentHeight = container.scrollHeight;
     const delta = currentHeight - previousHeight;
+    const bottomMargin = Math.min(Math.max(Number(scrollMargin) || 50, 0), 150);
 
     if (appendScrollHeightRef.current === 0) {
       appendScrollHeightRef.current = currentHeight;
@@ -337,7 +350,7 @@ function TypingText({
 
     if (delta > 0) {
       const bottomGapBefore = previousHeight - (container.scrollTop + container.clientHeight);
-      const shouldKeepBottomAnchored = bottomGapBefore <= 100;
+      const shouldKeepBottomAnchored = bottomGapBefore <= bottomMargin;
 
       if (shouldKeepBottomAnchored) {
         const maxScrollTop = Math.max(0, currentHeight - container.clientHeight);
@@ -346,7 +359,7 @@ function TypingText({
     }
 
     appendScrollHeightRef.current = currentHeight;
-  }, [paragraph.length, scrollSyncTick]);
+  }, [paragraph.length, scrollMargin, scrollSyncTick]);
 
   useEffect(() => {
     const container = containerRef.current;

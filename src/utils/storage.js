@@ -12,6 +12,7 @@ const STORAGE_KEYS = {
   TIME_LIMIT_SECONDS: "typingMaster.timeLimitSeconds",
   SOUND: "typingMaster.soundEnabled",
   SOUND_VOLUME: "typingMaster.soundVolume",
+  SCROLL_MARGIN: "typingMaster.scrollMargin",
   HAS_SEEN_TOUR: "typingMaster.hasSeenTour"
 };
 
@@ -34,6 +35,7 @@ const ARENA_KEYS = {
 };
 
 const DEFAULT_TIME_LIMIT_SECONDS = 25;
+const DEFAULT_SCROLL_MARGIN_PX = 50;
 
 const safeRead = (key, fallbackValue) => {
   try {
@@ -99,6 +101,11 @@ const sanitizeBoolean = (value, fallbackValue = true) =>
 const sanitizeVolume = (value) => {
   if (!isFiniteNumber(value)) return 0.5;
   return Math.min(Math.max(value, 0), 1);
+};
+
+const sanitizeScrollMargin = (value) => {
+  if (!isFiniteNumber(value)) return DEFAULT_SCROLL_MARGIN_PX;
+  return Math.min(Math.max(Math.round(value), 0), 150);
 };
 
 const sanitizeDateKey = (value) => (typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null);
@@ -546,6 +553,9 @@ export const setSoundEnabled = (enabled) => safeWrite(STORAGE_KEYS.SOUND, saniti
 export const getSoundVolume = () => sanitizeVolume(safeRead(STORAGE_KEYS.SOUND_VOLUME, 0.5));
 export const setSoundVolume = (volume) => safeWrite(STORAGE_KEYS.SOUND_VOLUME, sanitizeVolume(volume));
 
+export const getScrollMargin = () => sanitizeScrollMargin(safeRead(STORAGE_KEYS.SCROLL_MARGIN, DEFAULT_SCROLL_MARGIN_PX));
+export const setScrollMargin = (margin) => safeWrite(STORAGE_KEYS.SCROLL_MARGIN, sanitizeScrollMargin(margin));
+
 export const getHasSeenTour = () => sanitizeBoolean(safeRead(STORAGE_KEYS.HAS_SEEN_TOUR, false), false);
 export const setHasSeenTour = (seen) => safeWrite(STORAGE_KEYS.HAS_SEEN_TOUR, sanitizeBoolean(seen, false));
 
@@ -601,6 +611,9 @@ export const saveSettings = (settings) => {
   if (Object.prototype.hasOwnProperty.call(payload, "soundVolume")) {
     setSoundVolume(payload.soundVolume);
   }
+  if (Object.prototype.hasOwnProperty.call(payload, "scrollMargin")) {
+    setScrollMargin(payload.scrollMargin);
+  }
   if (Object.prototype.hasOwnProperty.call(payload, "hasSeenTour")) {
     setHasSeenTour(payload.hasSeenTour);
   }
@@ -613,6 +626,7 @@ export const loadSettings = () => ({
   timeLimitSeconds: getPreferredTimeLimitSeconds(),
   soundEnabled: getSoundEnabled(),
   soundVolume: getSoundVolume(),
+  scrollMargin: getScrollMargin(),
   hasSeenTour: getHasSeenTour()
 });
 
