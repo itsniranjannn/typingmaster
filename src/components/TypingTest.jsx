@@ -74,6 +74,7 @@ function TypingTest({ theme, onToggleTheme }) {
     challengePromptHidden,
     challengeHasTextFaded,
     fadedWords,
+    scrollSyncTick,
     startTest,
     pauseTest,
     toggleActive,
@@ -971,6 +972,8 @@ function TypingTest({ theme, onToggleTheme }) {
                     focused={isTypingAreaFocused}
                     hideContent={false}
                     fadedWords={fadedWords}
+                    challengePromptHidden={challengePromptHidden}
+                    scrollSyncTick={scrollSyncTick}
                     onPointerDown={focusTypingArea}
                     onKeyDown={handleInlineKeyDown}
                     onFocus={syncTypingFocusState}

@@ -128,6 +128,7 @@ export const useTypingTest = () => {
   const [challengeFailed, setChallengeFailed] = useState(false);
   const [challengeWarningMessage, setChallengeWarningMessage] = useState("");
   const [liveWpm, setLiveWpm] = useState(0);
+  const [scrollSyncTick, setScrollSyncTick] = useState(0);
   const [finalResult, setFinalResult] = useState(null);
   const [engineSnapshot, setEngineSnapshot] = useState({
     correctCharacters: 0,
@@ -1364,6 +1365,7 @@ export const useTypingTest = () => {
     const nextParagraph = `${paragraph} ${generateEndlessChunk(12, 20)}`.trim();
     targetWordsRef.current = getWordList(nextParagraph);
     setParagraph(nextParagraph);
+    setScrollSyncTick((value) => value + 1);
     commitSnapshot();
     lastAppendedElapsedRef.current = elapsedSeconds;
     lastAppendedCorrectCharsRef.current = engineSnapshot.correctCharacters;
@@ -1701,6 +1703,7 @@ export const useTypingTest = () => {
     challengeHasTextFaded,
     fadedWords,
     challengeLocked: isArenaChallengeLocked,
+    scrollSyncTick,
     startTest,
     pauseTest,
     toggleActive,

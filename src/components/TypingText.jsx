@@ -168,11 +168,14 @@ function TypingText({
   activeIndex = -1,
   currentWordIndex = 0,
   className = "",
+  style,
   isDark = true,
   fontScale = 1,
   focused = false,
   hideContent = false,
   fadedWords = [],
+  challengePromptHidden = false,
+  scrollSyncTick = 0,
   onPointerDown,
   onKeyDown,
   onFocus,
@@ -182,7 +185,10 @@ function TypingText({
   const characterRefs = useRef([]);
   const wordRefs = useRef([]);
   const appendScrollHeightRef = useRef(0);
-  const lastScrollTargetRef = useRef("");
+  const scrollRafRef = useRef(0);
+  const isProgrammaticScrollRef = useRef(false);
+  const manualScrollOverrideRef = useRef(false);
+  const lastActiveIndexRef = useRef(-1);
   const [caret, setCaret] = useState({ left: 0, top: 0, height: 18, visible: false });
 
   const { segments, wordTokens } = useMemo(() => tokenizeParagraph(paragraph), [paragraph]);
@@ -223,21 +229,67 @@ function TypingText({
     return wordRefs.current[currentWordIndex] || characterRefs.current[firstIndex] || characterRefs.current[activeIndex] || null;
   }, [activeIndex, currentWordIndex, wordTokens]);
 
-  useEffect(() => {
-    const handleResize = () => {};
-    const handleContainerScroll = () => {};
+  const scrollToActiveCharacter = useCallback(() => {
+    const container = containerRef.current;
+    if (!container || activeIndex < 0 || hideContent || challengePromptHidden) return;
 
-    window.addEventListener("resize", handleResize);
+    const currentWordToken = wordTokens[currentWordIndex] || null;
+    if (currentWordToken && Array.isArray(fadedWords) && fadedWords.includes(currentWordToken.wordIndex)) return;
+
+    const activeNode = characterRefs.current[activeIndex] || wordRefs.current[currentWordIndex] || getCurrentWordNode();
+    if (!activeNode) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const nodeRect = activeNode.getBoundingClientRect();
+    const topMargin = 8;
+    const bottomMargin = 100;
+    const isVisible = nodeRect.top >= containerRect.top + topMargin && nodeRect.bottom <= containerRect.bottom - topMargin;
+    const isNearBottom = nodeRect.bottom > containerRect.bottom - bottomMargin;
+
+    if (isVisible && !isNearBottom) return;
+
+    isProgrammaticScrollRef.current = true;
+    try {
+      activeNode.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "nearest" });
+    } catch {
+      const targetTop = Math.max(0, activeNode.offsetTop - container.clientHeight * 0.38);
+      const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
+      container.scrollTop = Math.min(targetTop, maxScrollTop);
+    }
+
+    if (scrollRafRef.current) {
+      window.cancelAnimationFrame(scrollRafRef.current);
+    }
+    scrollRafRef.current = window.requestAnimationFrame(() => {
+      isProgrammaticScrollRef.current = false;
+      scrollRafRef.current = 0;
+    });
+  }, [activeIndex, currentWordIndex, fadedWords, getCurrentWordNode, challengePromptHidden, hideContent, wordTokens]);
+
+  useEffect(() => {
+    const handleContainerScroll = () => {
+      const containerNode = containerRef.current;
+      if (!containerNode || isProgrammaticScrollRef.current) return;
+
+      const distanceFromBottom = containerNode.scrollHeight - (containerNode.scrollTop + containerNode.clientHeight);
+      if (distanceFromBottom > 140) {
+        manualScrollOverrideRef.current = true;
+      }
+    };
+
     const containerNode = containerRef.current;
-    containerNode?.addEventListener("scroll", handleContainerScroll);
+    containerNode?.addEventListener("scroll", handleContainerScroll, { passive: true });
 
     if (containerNode) {
       appendScrollHeightRef.current = containerNode.scrollHeight;
     }
 
     return () => {
-      window.removeEventListener("resize", handleResize);
       containerNode?.removeEventListener("scroll", handleContainerScroll);
+      if (scrollRafRef.current) {
+        window.cancelAnimationFrame(scrollRafRef.current);
+        scrollRafRef.current = 0;
+      }
     };
   }, []);
 
@@ -247,37 +299,32 @@ function TypingText({
       return;
     }
 
-    const scrollTargetKey = `${currentWordIndex}:${activeIndex}`;
-    if (lastScrollTargetRef.current === scrollTargetKey) {
+    if (lastActiveIndexRef.current !== activeIndex) {
+      manualScrollOverrideRef.current = false;
+    }
+    lastActiveIndexRef.current = activeIndex;
+
+    if (manualScrollOverrideRef.current) {
       return;
     }
-    lastScrollTargetRef.current = scrollTargetKey;
 
-    const currentWordNode = getCurrentWordNode();
-    if (!currentWordNode) return;
-
-    const currentTop = currentWordNode.offsetTop;
-    const currentHeight = currentWordNode.offsetHeight || 0;
-    const currentBottom = currentTop + currentHeight;
-    const visibleTop = container.scrollTop;
-    const visibleBottom = visibleTop + container.clientHeight;
-    const bottomPadding = 48;
-
-    const needsScrollDown = currentBottom > visibleBottom - bottomPadding;
-    if (!needsScrollDown) return;
-
-    try {
-      currentWordNode.scrollIntoView({ block: "nearest", inline: "nearest" });
-    } catch (error) {
-      const targetTop = Math.max(0, currentTop - container.clientHeight * 0.36 + currentHeight / 2);
-      const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
-      container.scrollTop = Math.min(targetTop, maxScrollTop);
+    if (scrollRafRef.current) {
+      window.cancelAnimationFrame(scrollRafRef.current);
     }
-  }, [activeIndex, currentWordIndex, getCurrentWordNode]);
+
+    scrollRafRef.current = window.requestAnimationFrame(() => {
+      scrollToActiveCharacter();
+    });
+  }, [activeIndex, currentWordIndex, paragraph, fadedWords, challengePromptHidden, scrollSyncTick, scrollToActiveCharacter]);
 
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+
+    if (hideContent || challengePromptHidden || manualScrollOverrideRef.current) {
+      appendScrollHeightRef.current = container.scrollHeight;
+      return;
+    }
 
     const previousHeight = appendScrollHeightRef.current || container.scrollHeight;
     const currentHeight = container.scrollHeight;
@@ -290,7 +337,7 @@ function TypingText({
 
     if (delta > 0) {
       const bottomGapBefore = previousHeight - (container.scrollTop + container.clientHeight);
-      const shouldKeepBottomAnchored = bottomGapBefore <= 80;
+      const shouldKeepBottomAnchored = bottomGapBefore <= 100;
 
       if (shouldKeepBottomAnchored) {
         const maxScrollTop = Math.max(0, currentHeight - container.clientHeight);
@@ -299,7 +346,7 @@ function TypingText({
     }
 
     appendScrollHeightRef.current = currentHeight;
-  }, [paragraph.length]);
+  }, [paragraph.length, scrollSyncTick]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -341,13 +388,15 @@ function TypingText({
     <div
       ref={containerRef}
       style={{
+        ...style,
         "--typing-scale": fontScale,
         lineHeight: 1.4,
         fontFamily: "'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace",
         textAlignLast: 'justify',
         WebkitTextAlignLast: 'justify',
         textJustify: 'inter-word',
-        WebkitTextJustify: 'inter-word'
+        WebkitTextJustify: 'inter-word',
+        scrollBehavior: "smooth"
       }}
       className={`typing-area relative mx-auto min-h-[140px] max-h-[55vh] w-full max-w-[76rem] rounded-2xl p-4 sm:p-6 font-mono text-[calc(1.2rem*var(--typing-scale))] sm:text-[calc(1.6rem*var(--typing-scale))] md:text-[calc(1.8rem*var(--typing-scale))] leading-[1.5] tracking-[0.01em] cursor-text outline-none overflow-x-hidden overflow-y-auto overscroll-contain whitespace-pre-wrap ${
         focused ? (isDark ? "ring-1 ring-cyan-300/40 shadow-[0_0_0_1px_rgba(103,232,249,0.12),inset_0_0_55px_rgba(34,211,238,0.08)]" : "ring-1 ring-cyan-500/35 shadow-[0_0_0_1px_rgba(14,165,233,0.08),inset_0_0_55px_rgba(14,165,233,0.06)]") : ""
