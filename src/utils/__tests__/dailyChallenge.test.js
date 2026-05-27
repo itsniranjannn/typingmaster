@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { completeChallenge, failDailyChallenge, getDailyChallengeAttemptState, getChallengeTemplate, getChallengeTemplates, getDailyChallenge, getDailyChallengeHistoryEntries } from "../dailyChallenge";
+import { buildChallengePrompt, completeChallenge, failDailyChallenge, getDailyChallengeAttemptState, getChallengeTemplate, getChallengeTemplates, getDailyChallenge, getDailyChallengeHistoryEntries } from "../dailyChallenge";
 import { loadBadges } from "../storage";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -32,6 +32,32 @@ describe("daily challenge helpers", () => {
   it("gives every challenge template a validator", () => {
     for (const template of getChallengeTemplates()) {
       expect(template.validateCompletion).toBeTypeOf("function");
+    }
+  });
+
+  it("builds a non-empty, family-appropriate prompt for every template", () => {
+    for (const template of getChallengeTemplates()) {
+      const prompt = buildChallengePrompt(template, `test-seed:${template.templateId}`);
+      expect(prompt).toEqual(expect.any(String));
+      expect(prompt.trim().length).toBeGreaterThan(0);
+
+      if (template.promptType === "quote") {
+        expect(prompt.split(/\s+/).length).toBeGreaterThanOrEqual(35);
+      }
+
+      if (template.promptType === "numbers") {
+        expect(/\d/.test(prompt)).toBe(true);
+        expect(/[A-Za-z]/.test(prompt)).toBe(true);
+      }
+
+      if (template.promptType === "memory") {
+        expect(prompt.split(/\s+/).length).toBeGreaterThanOrEqual(40);
+      }
+
+      const targetWords = Number(template.rules?.wordCount || template.rules?.minTypedWords || 0) || 0;
+      if (targetWords > 0) {
+        expect(prompt.split(/\s+/).filter(Boolean).length).toBe(targetWords);
+      }
     }
   });
 

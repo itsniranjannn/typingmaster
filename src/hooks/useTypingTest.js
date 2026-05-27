@@ -531,7 +531,11 @@ export const useTypingTest = () => {
 
       setParagraph(updatedParagraph);
       setTypedText("");
-      setTimeLeft(nextMode === TYPING_MODES.TIME || nextMode === TYPING_MODES.GOAL ? nextTimeLimitSeconds : TEST_DURATION_SECONDS);
+      const shouldUseConfiguredTimer =
+        nextMode === TYPING_MODES.TIME ||
+        nextMode === TYPING_MODES.GOAL ||
+        nextMode === TYPING_MODES.CHALLENGE_ARENA;
+      setTimeLeft(shouldUseConfiguredTimer ? nextTimeLimitSeconds : TEST_DURATION_SECONDS);
       setElapsedSeconds(0);
       elapsedSecondsRef.current = 0;
       testStartTimestampRef.current = null;
@@ -1566,16 +1570,17 @@ export const useTypingTest = () => {
     let challengeOutcome = null;
     let usedDirectFailurePath = false;
     try {
-      const arenaObjectivesMet =
-        mode === TYPING_MODES.CHALLENGE_ARENA
-          ? getChallengeObjectiveStatus(dailyChallenge?.challenge, result)
-          : true;
-
-      if (mode === TYPING_MODES.CHALLENGE_ARENA && !arenaObjectivesMet) {
-        usedDirectFailurePath = true;
-        challengeOutcome = { state: dailyChallenge, history: getDailyChallengeRecentHistory(), completed: false, badgeAwarded: null };
+      if (mode === TYPING_MODES.CHALLENGE_ARENA) {
+        const arenaObjectivesMet = getChallengeObjectiveStatus(dailyChallenge?.challenge, result);
+        if (!arenaObjectivesMet) {
+          usedDirectFailurePath = true;
+          challengeOutcome = { state: dailyChallenge, history: getDailyChallengeRecentHistory(), completed: false, badgeAwarded: null };
+        } else {
+          challengeOutcome = completeChallenge(result, Date.now());
+        }
       } else {
-        challengeOutcome = completeChallenge(result, Date.now());
+        // Not an arena run — do not evaluate daily challenge completion
+        challengeOutcome = { state: dailyChallenge, history: getDailyChallengeRecentHistory(), completed: false, badgeAwarded: null };
       }
 
       if (challengeOutcome.state) {

@@ -906,7 +906,7 @@ function TypingTest({ theme, onToggleTheme }) {
                   </motion.span>
                   <div className={`text-[10px] uppercase tracking-[0.18em] ${secondaryText} mt-1 font-medium`}>ACC</div>
                 </motion.div>
-                {mode === TYPING_MODES.TIME && (
+                {(mode === TYPING_MODES.TIME || (isArenaMode && challengeProgress?.timeLimitSeconds)) && (
                   <>
                     <div className={`hidden h-10 w-px ${isDark ? "bg-gray-700/70" : "bg-slate-200"} sm:block`} />
                     <motion.div className="min-w-[78px] text-center" whileHover={{ scale: 1.02 }}>

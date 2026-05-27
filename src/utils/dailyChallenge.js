@@ -1,5 +1,5 @@
 import { GOAL_VARIANTS, TYPING_MODES } from "../constants/typingModes";
-import { generateChallengeParagraph, generateMemoryChallengeParagraph } from "./paragraphGenerator";
+import { generateChallengeParagraph, generateMemoryChallengeParagraph, generateMixedNumbersParagraph, getFirstNWords } from "./paragraphGenerator";
 import {
   appendDailyChallengeHistoryEntry,
   getChallengeAttemptsToday,
@@ -40,15 +40,6 @@ const QUOTE_FRAGMENTS = [
   "The keyboard rewards patience more than panic",
   "A small clean habit is stronger than a noisy sprint",
   "Consistency turns effort into momentum"
-];
-
-const NUMBER_FRAGMENTS = [
-  "4 8 15 16 23 42",
-  "7 12 19 28 31 45",
-  "5 11 18 24 36 48",
-  "9 14 22 27 33 41",
-  "3 6 10 17 25 39",
-  "2 13 21 34 55 89"
 ];
 
 const BADGE_FAMILIES = [
@@ -260,15 +251,6 @@ const buildQuote = (seed, quoteCount = 2) => {
   return `${sentence.charAt(0).toUpperCase()}${sentence.slice(1)}.`;
 };
 
-const buildNumbers = (seed, chunks = 3) => {
-  const random = createRandom(seed);
-  const parts = [];
-  for (let index = 0; index < chunks; index += 1) {
-    parts.push(pick(NUMBER_FRAGMENTS, random));
-  }
-  return normalizeWhitespace(parts.join(" "));
-};
-
 const makeBadgeCatalog = () => {
   const catalog = [];
 
@@ -424,17 +406,41 @@ const CHALLENGE_TEMPLATES = buildTemplates();
 const getChallengeTemplateById = (templateId) => CHALLENGE_TEMPLATES.find((template) => template.templateId === templateId) || null;
 const getBadgeById = (badgeId) => BADGE_LOOKUP.get(badgeId) || null;
 
-const buildPromptFromTemplate = (template, seed) => {
+export const buildChallengePrompt = (template, seed) => {
+  const targetWords = Number(template?.rules?.wordCount || template?.rules?.minTypedWords || 0) || 0;
+
+  if (template.promptType === "quote") {
+    const random = createRandom(`${seed}:quote`);
+    const fragments = [];
+    let wordCount = 0;
+
+    while (wordCount < 45) {
+      const fragment = pick(QUOTE_FRAGMENTS, random);
+      fragments.push(fragment);
+      wordCount += fragment.split(/\s+/).length;
+      if (fragments.length > QUOTE_FRAGMENTS.length * 2) break;
+    }
+
+    const quote = normalizeWhitespace(fragments.join(" "));
+    const normalizedQuote = `${quote.charAt(0).toUpperCase()}${quote.slice(1)}.`;
+    return targetWords > 0 ? getFirstNWords(normalizedQuote, targetWords) : normalizedQuote;
+  }
+
   if (template.promptType === "numbers") {
-    return normalizeWhitespace(`${buildNumbers(seed, 2)} ${generateChallengeParagraph(10, 12)}`);
+    return generateMixedNumbersParagraph(90, 130);
   }
 
   if (template.family === "memory") {
-    return generateMemoryChallengeParagraph();
+    const memoryPrompt = generateMemoryChallengeParagraph();
+    return targetWords > 0 ? getFirstNWords(memoryPrompt, targetWords) : memoryPrompt;
   }
 
-  return generateChallengeParagraph(40, 50);
+  const paragraphPrompt = generateChallengeParagraph(40, 50);
+  return targetWords > 0 ? getFirstNWords(paragraphPrompt, targetWords) : paragraphPrompt;
 };
+
+const getPromptWordCount = (prompt) =>
+  typeof prompt === "string" ? prompt.trim().split(/\s+/).filter(Boolean).length : 0;
 
 const buildChallengeInstance = (template, dateKey, timestampMs) => {
   const badge = getBadgeById(template.badgeId);
@@ -455,7 +461,7 @@ const buildChallengeInstance = (template, dateKey, timestampMs) => {
     badgeIconName: badge?.iconName || "Trophy",
     reward: badge?.name || "Badge",
     promptType: template.promptType,
-    prompt: buildPromptFromTemplate(template, `${dateKey}:${template.templateId}`),
+    prompt: buildChallengePrompt(template, `${dateKey}:${template.templateId}`),
     rules: template.rules,
     config: template.config,
     challengeCompleted: false,
@@ -562,6 +568,22 @@ export const ensureDailyChallenge = (timestampMs = Date.now()) => {
   const dateKey = utcDateKey(timestampMs);
   const storedState = getDailyChallengeState();
   if (storedState && storedState.date === dateKey && storedState.challenge) {
+    const expectedWordCount = Number(storedState.challenge?.rules?.wordCount || storedState.challenge?.rules?.minTypedWords || 0) || 0;
+    if (expectedWordCount > 0) {
+      const actualWordCount = getPromptWordCount(storedState.challenge.prompt);
+      if (actualWordCount !== expectedWordCount) {
+        const refreshedChallenge = {
+          ...storedState.challenge,
+          prompt: buildChallengePrompt(storedState.challenge, `${dateKey}:${storedState.challenge.templateId || storedState.challenge.id || "challenge"}`)
+        };
+        const refreshedState = {
+          ...storedState,
+          challenge: refreshedChallenge
+        };
+        setDailyChallengeState(refreshedState);
+        return refreshedState;
+      }
+    }
     return storedState;
   }
 

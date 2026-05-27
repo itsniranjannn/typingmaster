@@ -270,6 +270,25 @@ const sanitizeDailyChallengeState = (value) => {
   };
 };
 
+const stripChallengeFieldsForNonArenaResult = (result) => {
+  if (!result || result.mode === "challenge_arena") return result;
+
+  return {
+    ...result,
+    challengeId: null,
+    challengeTitle: null,
+    challengeReward: null,
+    challengeBadgeId: null,
+    challengeBadgeName: null,
+    challengeBadgeIconName: null,
+    challengeEarnedCount: 0,
+    challengeCompleted: false,
+    challengeCompletedToday: false,
+    challengeFailed: false,
+    challengeStreak: 0
+  };
+};
+
 const sanitizeBadge = (value) => {
   if (!value || typeof value !== "object") return null;
 
@@ -290,7 +309,7 @@ const sanitizeBadge = (value) => {
 const sanitizeResult = (result) => {
   if (!result || typeof result !== "object") return null;
 
-  return {
+  const sanitized = {
     id: sanitizeNumber(result.id, Date.now()),
     mode: sanitizeMode(result.mode),
     wordCount:
@@ -324,6 +343,8 @@ const sanitizeResult = (result) => {
     challengeFailed: typeof result.challengeFailed === "boolean" ? result.challengeFailed : false,
     challengeStreak: sanitizeNumber(result.challengeStreak, 0)
   };
+
+  return stripChallengeFieldsForNonArenaResult(sanitized);
 };
 
 const getLeaderboardCandidates = (results) =>
@@ -391,7 +412,15 @@ export const getLastResults = () => {
   const stored = safeRead(STORAGE_KEYS.RESULTS, null);
   const fallbackStored = stored === null ? safeRead(STORAGE_KEYS.RESULTS_LEGACY, []) : stored;
   if (!Array.isArray(fallbackStored)) return [];
-  return fallbackStored.map(sanitizeResult).filter(Boolean);
+  const sanitizedResults = fallbackStored.map(sanitizeResult).filter(Boolean);
+  if (stored !== null) {
+    const storedJson = JSON.stringify(fallbackStored);
+    const sanitizedJson = JSON.stringify(sanitizedResults);
+    if (storedJson !== sanitizedJson) {
+      safeWrite(STORAGE_KEYS.RESULTS, sanitizedResults);
+    }
+  }
+  return sanitizedResults;
 };
 export const addResult = (result) => {
   const currentResults = getLastResults();

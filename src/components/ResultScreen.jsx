@@ -1,4 +1,4 @@
-import { memo, useMemo } from "react";
+import { memo, useMemo, useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Award,
@@ -13,7 +13,7 @@ import {
   Zap,
   Lock
 } from "lucide-react";
-import { getLastResults } from "../utils/storage";
+import { loadResults } from "../utils/storage";
 
 const ICONS = {
   Award,
@@ -27,6 +27,14 @@ const ICONS = {
   Trophy,
   Zap
 };
+
+const MODE_FILTERS = [
+  { key: "all", label: "All" },
+  { key: "time", label: "Time" },
+  { key: "words", label: "Words" },
+  { key: "goal", label: "Goal" },
+  { key: "challenge_arena", label: "Arena" }
+];
 
 const buildSmoothPath = (points, valueKey) => {
   if (!Array.isArray(points) || points.length === 0) return "";
@@ -66,23 +74,45 @@ function ResultScreen({
   if (!result) return null;
 
   const trendSeries = useMemo(() => {
-    const history = getLastResults().slice(0, 8).reverse();
+    const raw = Array.isArray(loadResults()) ? loadResults() : [];
+    const history = raw.slice(0, 12).reverse();
     if (!history.length) return [];
     return history.map((entry) => ({
       id: entry.id,
       wpm: Math.max(0, Number(entry.wpm) || 0),
       accuracy: Math.max(0, Math.min(100, Number(entry.accuracy) || 0)),
-      mode: entry.mode || "time"
+      mode: entry.mode || "time",
+      date: entry.id
     }));
   }, [result?.id]);
 
+  const [modeFilter, setModeFilter] = useState("all");
+  const [showAccuracy, setShowAccuracy] = useState(true);
+  const svgRef = useRef(null);
+  const panelRef = useRef(null);
+  const [tooltip, setTooltip] = useState({ visible: false, left: 0, top: 0, point: null });
+  const [isMobile, setIsMobile] = useState(false);
+
+  const filteredSeries = useMemo(() => {
+    if (!trendSeries.length) return [];
+    if (modeFilter === "all") return trendSeries;
+    return trendSeries.filter((r) => r.mode === modeFilter);
+  }, [trendSeries, modeFilter]);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 640);
+    onResize();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   const trendMeta = useMemo(() => {
-    if (!trendSeries.length) return null;
+    if (!filteredSeries.length) return null;
 
-    const maxWpm = Math.max(1, ...trendSeries.map((entry) => entry.wpm));
-    const pointStep = trendSeries.length > 1 ? 100 / (trendSeries.length - 1) : 100;
+    const maxWpm = Math.max(1, ...filteredSeries.map((entry) => entry.wpm));
+    const pointStep = filteredSeries.length > 1 ? 100 / (filteredSeries.length - 1) : 100;
 
-    const wpmPoints = trendSeries
+    const wpmPoints = filteredSeries
       .map((entry, index) => {
         const x = Number((index * pointStep).toFixed(2));
         const y = Number((100 - (entry.wpm / maxWpm) * 100).toFixed(2));
@@ -90,7 +120,7 @@ function ResultScreen({
       })
       .join(" ");
 
-    const accuracyPoints = trendSeries
+    const accuracyPoints = filteredSeries
       .map((entry, index) => {
         const x = Number((index * pointStep).toFixed(2));
         const y = Number((100 - entry.accuracy).toFixed(2));
@@ -98,26 +128,26 @@ function ResultScreen({
       })
       .join(" ");
 
-    const points = trendSeries.map((entry, index) => ({
+    const points = filteredSeries.map((entry, index) => ({
       ...entry,
       x: Number((index * pointStep).toFixed(2)),
-      wpmY: Number((100 - (entry.wpm / maxWpm) * 100).toFixed(2)),
+      wpmY: Number((100 - (entry.wpm / (maxWpm + 10)) * 100).toFixed(2)),
       accuracyY: Number((100 - entry.accuracy).toFixed(2))
     }));
 
     const wpmPath = buildSmoothPath(points, "wpmY");
     const accuracyPath = buildSmoothPath(points, "accuracyY");
 
-    const wpmArea = trendSeries.length > 1
+    const wpmArea = filteredSeries.length > 1
       ? `${wpmPath} L 100 100 L 0 100 Z`
       : `${wpmPath} L 0 100 Z`;
 
-    const accuracyArea = trendSeries.length > 1
+    const accuracyArea = filteredSeries.length > 1
       ? `${accuracyPath} L 100 100 L 0 100 Z`
       : `${accuracyPath} L 0 100 Z`;
 
-    const latest = trendSeries[trendSeries.length - 1];
-    const previous = trendSeries[trendSeries.length - 2];
+    const latest = filteredSeries[filteredSeries.length - 1];
+    const previous = filteredSeries[filteredSeries.length - 2];
     const deltaWpm = previous ? latest.wpm - previous.wpm : 0;
 
     return {
@@ -128,11 +158,33 @@ function ResultScreen({
       accuracyPath,
       accuracyArea,
       points,
-      maxWpm,
+      maxWpm: Math.max(10, Math.ceil(maxWpm / 10) * 10),
       latest,
       deltaWpm
     };
-  }, [trendSeries]);
+  }, [filteredSeries]);
+
+  const showAccEffective = showAccuracy && !isMobile;
+
+  const handlePointEnter = (point, index, e) => {
+    if (!svgRef.current || !panelRef.current) return;
+    const svgRect = svgRef.current.getBoundingClientRect();
+    const panelRect = panelRef.current.getBoundingClientRect();
+    const px = svgRect.left + (point.x / 100) * svgRect.width;
+    const py = svgRect.top + (point.wpmY / 100) * svgRect.height;
+    setTooltip({ visible: true, left: px - panelRect.left, top: py - panelRect.top, point, index });
+  };
+
+  const handlePointMove = (point, e) => {
+    if (!svgRef.current || !panelRef.current) return;
+    const svgRect = svgRef.current.getBoundingClientRect();
+    const panelRect = panelRef.current.getBoundingClientRect();
+    const px = svgRect.left + (point.x / 100) * svgRect.width;
+    const py = svgRect.top + (point.wpmY / 100) * svgRect.height;
+    setTooltip((t) => ({ ...t, left: px - panelRect.left, top: py - panelRect.top }));
+  };
+
+  const handlePointLeave = () => setTooltip({ visible: false, left: 0, top: 0, point: null });
 
   const bgClass = isDark ? "bg-slate-800/30 border-slate-700/50" : "bg-slate-50 border-slate-200";
   const textClass = isDark ? "text-white" : "text-slate-900";
@@ -141,25 +193,39 @@ function ResultScreen({
   const goalFailure = result.goalVariant === "reach" && result.goalSuccess === false;
   const challengeFailure = result.challengeFailed && !result.challengeCompleted;
   const badgeMultiplier = Math.max(1, Number(result.challengeEarnedCount) || 1);
-  const BadgeIcon = result.challengeCompleted ? (ICONS[result.challengeBadgeIconName] || Trophy) : Lock;
-  const showArenaResult = arenaMode || result.challengeCompleted || challengeFailure;
+  const BadgeIcon = (result.mode === "challenge_arena" && result.challengeCompleted) ? (ICONS[result.challengeBadgeIconName] || Trophy) : Lock;
+  // Only show arena/challenge UI when the run is actually a challenge (or the caller explicitly set arenaMode)
+  const showArenaResult = arenaMode || result.mode === "challenge_arena";
 
   const trendPanel = trendMeta ? (
-    <div className={`relative overflow-hidden rounded-2xl border p-4 ${cardClass}`}>
+    <div ref={panelRef} className={`relative overflow-hidden rounded-2xl border p-4 ${cardClass}`}>
       <div className={`pointer-events-none absolute inset-0 opacity-70 ${isDark ? "bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.10),transparent_36%),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(180deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:auto,24px_24px,24px_24px]" : "bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.12),transparent_34%),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(180deg,rgba(148,163,184,0.08)_1px,transparent_1px)] bg-[size:auto,24px_24px,24px_24px]"}`} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Recent Performance</p>
-          <p className={`text-xs ${secondaryText}`}>Across your last {trendSeries.length} runs (all modes)</p>
+          <p className={`text-xs ${secondaryText}`}>Across your last {trendSeries.length} runs ({modeFilter === "all" ? "all modes" : MODE_FILTERS.find(m => m.key===modeFilter)?.label})</p>
         </div>
-        <div className={`rounded-full px-3 py-1 text-xs font-semibold ${trendMeta.deltaWpm >= 0 ? (isDark ? "bg-emerald-500/10 text-emerald-200" : "bg-emerald-100 text-emerald-700") : (isDark ? "bg-rose-500/10 text-rose-200" : "bg-rose-100 text-rose-700")}`}>
-          {trendMeta.deltaWpm >= 0 ? "+" : ""}{trendMeta.deltaWpm} WPM vs prev
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2 rounded-full bg-transparent p-1">
+            {MODE_FILTERS.map((m) => (
+              <button key={m.key} onClick={() => setModeFilter(m.key)} className={`rounded-full px-3 py-1 text-xs font-semibold ${modeFilter === m.key ? (isDark ? "bg-slate-700 text-white" : "bg-slate-200 text-slate-900") : (isDark ? "text-slate-400" : "text-slate-600")}`}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <label className={`text-xs ${secondaryText}`}>Show accuracy</label>
+            <input type="checkbox" checked={showAccuracy} onChange={() => setShowAccuracy(s => !s)} className="h-4 w-4" />
+          </div>
+          <div className={`rounded-full px-3 py-1 text-xs font-semibold ${trendMeta.deltaWpm >= 0 ? (isDark ? "bg-emerald-500/10 text-emerald-200" : "bg-emerald-100 text-emerald-700") : (isDark ? "bg-rose-500/10 text-rose-200" : "bg-rose-100 text-rose-700")}`}>
+            {trendMeta.deltaWpm >= 0 ? "+" : ""}{trendMeta.deltaWpm} WPM vs prev
+          </div>
         </div>
       </div>
 
       <div className="relative mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_170px]">
         <div className={`rounded-xl border p-3 ${isDark ? "border-slate-700/50 bg-slate-950/55" : "border-slate-200 bg-white/75"}`}>
-          <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="h-32 w-full overflow-visible">
+          <svg ref={svgRef} viewBox="0 0 100 100" preserveAspectRatio="none" className="h-32 w-full overflow-visible">
             <defs>
               <linearGradient id="wpmLine" x1="0" x2="1" y1="0" y2="0">
                 <stop offset="0%" stopColor="#22d3ee" />
@@ -183,16 +249,41 @@ function ResultScreen({
             </defs>
             <rect x="0" y="0" width="100" height="100" fill="url(#trendGrid)" opacity="0.55" />
             <path d={trendMeta.wpmArea} fill="url(#wpmAreaFill)" />
-            <path d={trendMeta.accuracyArea} fill="url(#accAreaFill)" />
+            {showAccuracy ? <path d={trendMeta.accuracyArea} fill="url(#accAreaFill)" /> : null}
             <path d={trendMeta.wpmPath} fill="none" stroke="url(#wpmLine)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
-            <path d={trendMeta.accuracyPath} fill="none" stroke="url(#accLine)" strokeWidth="1.5" strokeDasharray="2.5 2.5" strokeLinecap="round" strokeLinejoin="round" />
-            {trendMeta.points.map((point, index) => (
-              <g key={`${point.id}-${index}`}>
-                <circle cx={point.x} cy={point.wpmY} r="1.5" fill="#38bdf8" />
-                <circle cx={point.x} cy={point.accuracyY} r="1.1" fill="#f472b6" opacity="0.95" />
-              </g>
-            ))}
+            {showAccuracy ? <path d={trendMeta.accuracyPath} fill="none" stroke="url(#accLine)" strokeWidth="1.5" strokeDasharray="2.5 2.5" strokeLinecap="round" strokeLinejoin="round" /> : null}
+            {trendMeta.points.map((point, index) => {
+              const rWpm = isMobile ? 1 : 1.5;
+              const rAcc = isMobile ? 0.8 : 1.1;
+              return (
+                <g key={`${point.id}-${index}`}>
+                  <circle
+                    cx={point.x}
+                    cy={point.wpmY}
+                    r={rWpm}
+                    fill="#38bdf8"
+                    onMouseEnter={(e) => handlePointEnter(point, index, e)}
+                    onMouseMove={(e) => handlePointMove(point, e)}
+                    onMouseLeave={handlePointLeave}
+                    onTouchStart={(e) => { e.preventDefault(); handlePointEnter(point, index, e); }}
+                  />
+                  {showAccEffective ? (
+                    <circle cx={point.x} cy={point.accuracyY} r={rAcc} fill="#f472b6" opacity="0.95" onMouseEnter={(e) => handlePointEnter(point, index, e)} onMouseMove={(e) => handlePointMove(point, e)} onMouseLeave={handlePointLeave} onTouchStart={(e) => { e.preventDefault(); handlePointEnter(point, index, e); }} />
+                  ) : null}
+                </g>
+              );
+            })}
           </svg>
+          {tooltip.visible && tooltip.point ? (
+            <div style={{ left: tooltip.left, top: tooltip.top }} className="pointer-events-none absolute -translate-x-1/2 -translate-y-full z-10">
+              <div className={`rounded-md border px-3 py-2 text-xs ${isDark ? "bg-slate-900/90 border-slate-700 text-slate-100" : "bg-white border-slate-200 text-slate-900"}`}>
+                <div className="font-semibold">{tooltip.point.wpm} WPM</div>
+                <div className="text-[11px] mt-0.5">{tooltip.point.accuracy.toFixed(1)}% accuracy</div>
+                <div className="text-[11px] mt-0.5 opacity-80">{tooltip.point.mode.replace('_',' ')}</div>
+                <div className="text-[11px] mt-0.5 opacity-60">{tooltip.point.date}</div>
+              </div>
+            </div>
+          ) : null}
           <div className={`mt-1 flex items-center gap-4 text-[11px] ${secondaryText}`}>
             <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-cyan-400" /> WPM</span>
             <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-violet-400" /> Accuracy</span>
@@ -350,7 +441,7 @@ function ResultScreen({
               ? "🎉 You beat your personal best!"
               : "Great effort!"}
         </p>
-        {result.challengeCompleted ? (
+        {( (arenaMode || result.mode === "challenge_arena") && result.challengeCompleted) ? (
           <motion.div initial={{ opacity: 0, y: 12, scale: 0.92 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.25 }} className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold ${isDark ? "border-emerald-400/30 bg-emerald-500/10 text-emerald-200" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
             <span aria-hidden="true">🏆</span>
             <span>Challenge completed!</span>
