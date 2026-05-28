@@ -1,530 +1,736 @@
-# GoType Project Manual
+# GoType Project Details
 
-## Overview
+GoType is a modern competitive typing practice app with its own arena-driven challenge system, badge progression, live performance tracking, and a polished dark/light interface. It is built as a fast React + Vite experience that focuses on smooth typing, persistent progress, and clear feedback for both casual practice and high-pressure challenge runs.
 
-GoType is a React + Vite typing practice app built around a single-page test surface, persistent settings, live typing metrics, history, leaderboard tracking, and a polished dark/light UI.
+This document is a full project reference for the current codebase. It explains the product, the architecture, the runtime flow, the current folder structure, the major implementation details, the SEO and deployment setup, and the latest round of improvements.
 
-The current app supports:
+## Project Overview
 
-- Time mode with configurable time limits.
-- Words mode with 25, 50, and 100 word tests.
-- Quote mode with a local quote pool and remote fallback.
-- Custom mode with pasted user text.
-- Goal mode with Sustain and Reach variants.
-- Numbers mode for mixed numeric typing practice.
-- Live WPM, accuracy, streaks, daily goals, sound feedback, history, leaderboard, and onboarding.
+GoType is designed around a single, responsive typing surface that supports several test families:
 
-## Current System Snapshot
+- Classic Core typing with Time, Words, and Goal modes.
+- Quote mode for punctuation and rhythm practice.
+- Custom mode for user-pasted text.
+- Numbers mode for mixed numeric typing drills.
+- Challenge Arena for daily locked challenges, memory fades, and badge rewards.
 
-- The app bootstraps from [index.html](index.html) into [src/main.jsx](src/main.jsx).
-- [src/App.jsx](src/App.jsx) owns the theme and wraps the main typing experience plus the footer.
-- [src/components/TypingTest.jsx](src/components/TypingTest.jsx) is the orchestration layer for the typing session and top-level UI.
-- [src/hooks/useTypingTest.js](src/hooks/useTypingTest.js) owns the core state machine, timers, scoring, appending logic, and persistence hooks.
-- [src/components/TypingText.jsx](src/components/TypingText.jsx) renders the prompt, caret, and scroll behavior.
-- Results are written to `localStorage` through [src/utils/storage.js](src/utils/storage.js).
+The experience is built to feel competitive and immediate:
 
-## Current Changes
+- Live WPM, accuracy, word progress, and time remaining update continuously.
+- Best WPM is stored per mode so progress is tracked separately for each test family.
+- Challenge Arena introduces rules such as no-backspace, target WPM, sustain windows, and memory fades.
+- Badges provide a long-term progression layer with repeated earn counts and visual rewards.
+- The UI uses persistent settings, smooth scrolling, and motion design to keep the typing flow uninterrupted.
 
-The typing engine and rendering pipeline were recently tightened for stability and future scaling:
+## Tech Stack
 
-- Paragraph tokenization is memoized so the prompt is not re-split on every render.
-- Appended chunks extend the existing prompt instead of rebuilding the active token stream.
-- Token and word identity now use stable generated ids instead of dynamic index-only keys.
-- The active cursor position is driven by the engine cursor ref, not only by `typedText.length`.
-- The append path is deduplicated so fast typing cannot insert the same endless chunk twice.
-- The typing surface only rerenders affected tokens, which reduces full-paragraph churn on each keystroke.
-- The custom Time input now keeps a clearable string buffer before committing a valid second value.
+The current project stack is:
 
-## Architecture
+- React 18 for the UI.
+- Vite for development, bundling, and production builds.
+- Tailwind CSS for layout, theming, and component styling.
+- Framer Motion for page transitions, animated controls, and result/overlay motion.
+- Lucide React for the icon system used across the app.
+- canvas-confetti for celebratory animations on strong results and challenge completion.
+- Vitest for unit testing.
+- jsdom and Testing Library for browser-like test execution.
+- vite-plugin-sitemap for generating sitemap output during build.
+
+Not currently used:
+
+- Recharts is not installed in the current package list. The result performance view is implemented with the app’s own UI and animation code rather than a charting library.
+
+Built-in browser/platform APIs used heavily in the codebase:
+
+- localStorage for persistence.
+- AudioContext for sound playback.
+- requestAnimationFrame for scroll synchronization.
+- Resize/scroll event listeners for layout-aware overlays and scroll behavior.
+
+## End-to-End User Flow
+
+The app experience from launch to completion is:
+
+1. The browser loads [index.html](index.html), which mounts the React app through [src/main.jsx](src/main.jsx).
+2. [src/App.jsx](src/App.jsx) reads the saved theme and applies the app shell.
+3. [src/components/TypingTest.jsx](src/components/TypingTest.jsx) renders the typing workspace, top selector, stats, sidebars, dialogs, and Arena overlays.
+4. [src/hooks/useTypingTest.js](src/hooks/useTypingTest.js) creates the prompt, runs the timer, captures input, and computes live performance.
+5. The user selects a mode, types into the prompt, and sees live feedback in the stats row and sidebar.
+6. In Challenge Arena, the app may fade memory words, enforce no-backspace rules, lock after failed attempts, and award badges on completion.
+7. When the run ends, [src/components/ResultScreen.jsx](src/components/ResultScreen.jsx) shows the outcome, bests, and recent performance chart.
+8. History, leaderboard, badge gallery, settings, and onboarding remain accessible from the surrounding UI.
+
+## Architecture & Data Flow
+
+The app is intentionally split into a presentation layer and a state/engine layer.
 
 ```mermaid
 flowchart TD
-   A[index.html] --> B[src/main.jsx]
-   B --> C[src/App.jsx]
-   C --> D[src/components/TypingTest.jsx]
-   D --> E[src/hooks/useTypingTest.js]
-   D --> F[src/components/TypingText.jsx]
-   D --> G[src/components/TextSelector.jsx]
-   D --> H[src/components/SettingsModal.jsx]
-   D --> I[src/components/LeaderboardModal.jsx]
-   D --> J[src/components/ResultScreen.jsx]
-   D --> K[src/components/RightSidebar.jsx]
-   D --> L[src/components/HistoryInsights.jsx]
-   E --> M[src/utils/storage.js]
-   E --> N[src/utils/paragraphGenerator.js]
-   E --> O[src/data/quotes.js]
-   E --> P[src/utils/typingStats.js]
-   E --> Q[src/hooks/useTypingSounds.js]
-   O --> R[src/data/quotesLarge.js]
+  A[index.html] --> B[src/main.jsx]
+  B --> C[src/App.jsx]
+  C --> D[src/components/TypingTest.jsx]
+  D --> E[src/hooks/useTypingTest.js]
+  D --> F[src/components/TypingText.jsx]
+  D --> G[src/components/TextSelector.jsx]
+  D --> H[src/components/SettingsModal.jsx]
+  D --> I[src/components/LeaderboardModal.jsx]
+  D --> J[src/components/ResultScreen.jsx]
+  D --> K[src/components/RightSidebar.jsx]
+  D --> L[src/components/HistoryInsights.jsx]
+  D --> M[src/components/ChallengeArenaBanner.jsx]
+  E --> N[src/utils/storage.js]
+  E --> O[src/utils/paragraphGenerator.js]
+  E --> P[src/utils/dailyChallenge.js]
+  E --> Q[src/utils/typingStats.js]
+  E --> R[src/hooks/useTypingSounds.js]
+  P --> S[src/data/quotes.js]
+  O --> T[src/data/paragraphs.js]
+  O --> U[src/data/quotesLarge.js]
 ```
 
-## Runtime Flow
-
-1. `index.html` provides the root mount node for the Vite app.
-2. `src/main.jsx` renders `App`.
-3. `App.jsx` loads the preferred theme from storage and sets the theme on the document element.
-4. `TypingTest.jsx` mounts the main typing screen, top mode bar, stats, modal state, and keyboard handlers.
-5. `useTypingTest.js` generates the text prompt, starts timers, receives keystrokes, computes stats, and appends extra text in long sessions.
-6. `TypingText.jsx` renders each word and character, highlights correctness, anchors the caret, and manages scroll visibility.
-7. When the test ends, `useTypingTest.js` saves the result, updates the leaderboard, updates streak and daily goal state, and exposes `finalResult`.
-8. `ResultScreen.jsx` displays the completed run.
-9. `HistoryInsights.jsx`, `LeaderboardModal.jsx`, `SettingsModal.jsx`, and `SidebarModal.jsx` expose supporting UI.
-
-## Main Workflows
-
-### 1. Boot and Theme Setup
-
-- `src/main.jsx` is the primary entry point.
-- `src/App.jsx` loads the preferred theme from [src/utils/storage.js](src/utils/storage.js) and persists it back whenever the theme changes.
-- `App.jsx` also sets the `data-theme` attribute and `dark` / `light` classes on the root document element.
-
-### 2. Typing Session Initialization
-
-- `useTypingTest.js` reads the saved mode, goal variant, and custom time limit.
-- It generates the initial paragraph for the selected mode.
-- It resets timers, progress refs, WPM state, streak state, and leaderboard-related state when the mode or text changes.
-
-### 3. Keystroke Handling
-
-- `TypingTest.jsx` captures keyboard input through `handleInlineKeyDown` and forwards it to `handleTyping`.
-- The hook tracks correct and incorrect characters, word boundaries, and the current word index using refs.
-- The hook then derives `characterStates`, `accuracy`, `liveWpm`, and `wordProgress` for the UI.
-
-### 4. Prompt Rendering and Scroll Behavior
-
-- `TypingText.jsx` uses stable refs for word and character nodes.
-- It only follows the active word when needed.
-- It preserves manual scroll position unless the active word moves out of view.
-- For long TIME / custom-time sessions, appended text is added through the engine and the typing area keeps the bottom visible.
-
-### 5. Time Mode and WPM Calculation
-
-- Time mode defaults to the configured preferred seconds value and can be edited directly in the top bar.
-- The timer counts down from the selected limit and finishes the test at zero.
-- Live WPM uses correct characters divided by actual elapsed time, not just the raw text length.
-- Final WPM is recomputed from the actual time used when the test ends so the result matches the visible live pace.
-- Goal mode reuses the same timing model, but Sustain and Reach add their own finish conditions.
-- When Time mode extends past the default prompt length, the engine appends additional text and keeps the run continuous.
+### Engine responsibilities
 
-### 6. Completion and Persistence
-
-- When a test finishes, `useTypingTest.js` calculates the final WPM from actual elapsed time.
-- It stores the result, updates best WPM per mode, refreshes leaderboard data, and increments streak/daily goal counters.
-- `ResultScreen.jsx` then renders the end-state summary.
+[src/hooks/useTypingTest.js](src/hooks/useTypingTest.js) is the central controller. It:
 
-## File and Folder Inventory
+- Loads persisted settings and mode state.
+- Generates the active prompt based on the selected test type.
+- Tracks typed text, correctness, cursor position, elapsed time, WPM, and accuracy.
+- Handles mode transitions, restarts, and text regeneration.
+- Applies challenge rules for Arena runs.
+- Appends more content for longer endless sessions.
+- Produces the final result object and persists it into storage.
 
-### Root Files
+### UI responsibilities
 
-| Path                                     | Purpose                                      |
-| ---------------------------------------- | -------------------------------------------- |
-| [index.html](index.html)                 | Vite HTML shell and root mount point.        |
-| [package.json](package.json)             | Scripts, dependencies, and project metadata. |
-| [package-lock.json](package-lock.json)   | Locked npm dependency tree when committed.   |
-| [vite.config.js](vite.config.js)         | Vite build configuration.                    |
-| [tailwind.config.js](tailwind.config.js) | Tailwind theme and content scanning config.  |
-| [postcss.config.js](postcss.config.js)   | PostCSS pipeline config.                     |
-| [PROJECT_DETAILS.md](PROJECT_DETAILS.md) | This project manual.                         |
+[src/components/TypingTest.jsx](src/components/TypingTest.jsx) is the page-level orchestrator. It:
 
-Generated folders such as `dist/` and `node_modules/` are build/runtime artifacts and are not part of the source system.
+- Connects the hook output to the visible interface.
+- Renders the header, top selector, stats row, main typing area, right sidebar, and mobile sidebar drawer.
+- Owns modal state for settings, leaderboard, badge gallery, and onboarding.
+- Controls keyboard shortcuts and focus behavior.
+- Shows Challenge Arena banners and overlays.
 
-### `src/`
+[src/components/TypingText.jsx](src/components/TypingText.jsx) is the prompt renderer. It:
 
-| Path                           | Role                                                                        |
-| ------------------------------ | --------------------------------------------------------------------------- |
-| [src/main.jsx](src/main.jsx)   | Main React entry point for the typing app.                                  |
-| [src/legal.jsx](src/legal.jsx) | Separate entry point for the legal/policy page.                             |
-| [src/App.jsx](src/App.jsx)     | App shell, theme state, and footer wiring.                                  |
-| [src/index.css](src/index.css) | Global design tokens, typography, animation, scrollbar, and utility styles. |
+- Tokenizes and renders each word and character.
+- Highlights correctness and the active cursor position.
+- Keeps the visible typing area anchored while supporting manual scrolling.
+- Applies custom scroll behavior with a user-configurable bottom margin.
 
-### `src/components/`
+## Core Features
 
-| Path                                                                       | Role                                                                                                   |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| [src/components/AppLogo.jsx](src/components/AppLogo.jsx)                   | Animated brand mark and app title.                                                                     |
-| [src/components/Footer.jsx](src/components/Footer.jsx)                     | Polished footer with policy, contact, and branding links.                                              |
-| [src/components/GoalModeSettings.jsx](src/components/GoalModeSettings.jsx) | Goal-mode WPM control panel.                                                                           |
-| [src/components/HistoryInsights.jsx](src/components/HistoryInsights.jsx)   | Recent results, mistake heatmap, and CSV export.                                                       |
-| [src/components/LeaderboardModal.jsx](src/components/LeaderboardModal.jsx) | Modal leaderboard with mode and Goal variant filtering.                                                |
-| [src/components/LegalPage.jsx](src/components/LegalPage.jsx)               | Standalone policy page combining privacy, terms, and contact.                                          |
-| [src/components/ModeSwitcher.jsx](src/components/ModeSwitcher.jsx)         | Legacy or alternate mode selector kept in the tree. Current top-bar controls live in `TypingTest.jsx`. |
-| [src/components/ResultScreen.jsx](src/components/ResultScreen.jsx)         | Final test summary and restart action.                                                                 |
-| [src/components/RightSidebar.jsx](src/components/RightSidebar.jsx)         | Best WPM, pro tip, live WPM, streak, and daily goal cards.                                             |
-| [src/components/SettingsModal.jsx](src/components/SettingsModal.jsx)       | Settings dialog for sound, theme, and data reset.                                                      |
-| [src/components/SidebarModal.jsx](src/components/SidebarModal.jsx)         | Mobile stats drawer wrapper for the sidebar content.                                                   |
-| [src/components/SoundControls.jsx](src/components/SoundControls.jsx)       | Header sound toggle and volume slider.                                                                 |
-| [src/components/Stats.jsx](src/components/Stats.jsx)                       | Reusable WPM and accuracy stat cards.                                                                  |
-| [src/components/TextSelector.jsx](src/components/TextSelector.jsx)         | Top mode selector for Time, Words, Goal, Quote, Custom, and Numbers.                                   |
-| [src/components/TypingTest.jsx](src/components/TypingTest.jsx)             | Main orchestration layer for the typing workspace.                                                     |
-| [src/components/TypingText.jsx](src/components/TypingText.jsx)             | Prompt renderer, caret anchor, and scroll control.                                                     |
-| [src/components/WelcomeTour.jsx](src/components/WelcomeTour.jsx)           | First-run onboarding tour overlay.                                                                     |
+### Classic Core mode
 
-### `src/constants/`
+Classic Core is the app’s main practice lane. It currently includes:
 
-| Path                                                         | Role                                                       |
-| ------------------------------------------------------------ | ---------------------------------------------------------- |
-| [src/constants/typingModes.js](src/constants/typingModes.js) | Mode IDs, goal variants, default timings, and tip strings. |
+- Time mode with configurable test duration.
+- Words mode with preset word counts and editable custom counts.
+- Goal mode with Sustain and Reach variants.
 
-### `src/data/`
+Details:
 
-| Path                                               | Role                                                          |
-| -------------------------------------------------- | ------------------------------------------------------------- |
-| [src/data/paragraphs.js](src/data/paragraphs.js)   | Paragraph corpus and helper logic for random text generation. |
-| [src/data/quotes.js](src/data/quotes.js)           | Quote source and remote quote fallback logic.                 |
-| [src/data/quotesLarge.js](src/data/quotesLarge.js) | Large local quote bank used by `quotes.js`.                   |
+- Time mode supports the common presets and custom input.
+- Words mode offers preset counts and a custom numeric field.
+- Goal Sustain focuses on holding the target WPM for a window of time.
+- Goal Reach focuses on completing the full prompt while meeting the target.
+- Best WPM is stored separately for each mode family and variant.
 
-### `src/hooks/`
+### Quote, Custom, and Numbers modes
 
-| Path                                                         | Role                                                                |
-| ------------------------------------------------------------ | ------------------------------------------------------------------- |
-| [src/hooks/useTypingSounds.js](src/hooks/useTypingSounds.js) | Web Audio based key and milestone sound playback.                   |
-| [src/hooks/useTypingTest.js](src/hooks/useTypingTest.js)     | Core typing engine, timers, scoring, persistence, and append logic. |
+- Quote mode types preset quote content and emphasizes rhythm, punctuation, and consistency.
+- Custom mode accepts pasted user text and lets the user practice any passage.
+- Numbers mode generates mixed numeric text for number-heavy practice.
 
-### `src/utils/`
+### Challenge Arena
 
-| Path                                                               | Role                                                                                        |
-| ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------- |
-| [src/utils/storage.js](src/utils/storage.js)                       | localStorage keys, sanitization, settings, leaderboard, streak, and daily goal persistence. |
-| [src/utils/typingStats.js](src/utils/typingStats.js)               | WPM, accuracy, and mistake aggregation helpers.                                             |
-| [src/utils/paragraphGenerator.js](src/utils/paragraphGenerator.js) | Random paragraph generation, number paragraphs, and endless chunks for long sessions.       |
+Challenge Arena is the competitive layer of GoType. It is driven by daily challenge templates and can include different rule families:
 
-### `src/utils/__tests__/`
+- Endurance challenges.
+- No-backspace control challenges.
+- Speed spike challenges with sustain windows.
+- Perfectionist challenges.
+- Numbers challenges.
+- Memory challenges.
 
-| Path                                                                               | Role                                           |
-| ---------------------------------------------------------------------------------- | ---------------------------------------------- |
-| [src/utils/**tests**/storage.test.js](src/utils/__tests__/storage.test.js)         | Storage sanitization and persistence coverage. |
-| [src/utils/**tests**/typingStats.test.js](src/utils/__tests__/typingStats.test.js) | WPM and accuracy calculation coverage.         |
+Key Arena behavior:
 
-## Detailed Module Notes
+- Daily challenge templates are generated from a seeded challenge catalog.
+- The app uses a reuse window to avoid repeating the same challenge too soon.
+- Arena runs can require minimum WPM, minimum accuracy, specific time limits, sustain thresholds, or no-backspace constraints.
+- Memory challenge runs can hide the prompt after a delay and then progressively fade words.
+- Failed Arena runs are limited by a three-attempt daily cap.
+- Once the attempt limit is reached, the lock overlay blocks the run until the next day.
 
-### `src/App.jsx`
+### Badge system
 
-- Owns the theme state for the app.
-- Persists the selected theme through storage.
-- Sets the root document theme classes and renders `TypingTest` plus `Footer`.
+GoType has a real progression system built around badges.
 
-### `src/main.jsx`
+- There are multiple badge families and five tiers per family, plus milestone badges.
+- Badge records are stored in localStorage and sanitized before use.
+- Badge icons use Lucide icon names rather than custom bitmap art.
+- Badge earn counts are tracked, so repeated completions can show multipliers such as x2, x3, and higher.
+- The Badge Gallery shows earned and locked badges in a browsable collection.
+- Challenge cards and arena completion flows surface the reward name and count.
 
-- Mounts the React app into the root DOM node.
-- This is the primary browser entry point for the typing experience.
+### Real-time performance tracking
 
-### `src/legal.jsx`
+The app continuously updates:
 
-- Mounts the standalone legal/policy page.
-- Uses the same theme storage and global CSS as the main app.
+- Live WPM.
+- Accuracy.
+- Remaining time.
+- Completed word count.
+- Current word progress.
 
-### `src/index.css`
+The result screen also includes a recent performance visualization. It is currently implemented with the project’s own UI and animation code, not with Recharts.
 
-- Defines theme tokens for dark and light modes.
-- Provides app-wide typography and animation helpers.
-- Styles cards, buttons, stats, typing surface, confetti, and custom scrollbars.
-- Disables scroll anchoring on the typing area so appended text does not fight the scroll logic.
+### Auto-scroll with configurable bottom margin
 
-### `src/constants/typingModes.js`
+The typing surface keeps the active word visible without feeling jumpy.
 
-- Defines the supported mode IDs: Time, Words, Quote, Custom, Goal, and Numbers.
-- Stores default timings, WPM defaults, goal variants, and pro-tip text.
+- The scroll system uses a custom scroll calculation rather than a simple `scrollIntoView` call.
+- The default bottom margin is 50px.
+- The margin is user-adjustable in Settings.
+- The scrolling logic respects manual user scrolling instead of constantly forcing the viewport.
+- When the prompt grows during long sessions, the scroll system resynchronizes using a scroll tick from the typing hook.
 
-### `src/data/paragraphs.js`
+### Sound system
 
-- Provides a reusable paragraph corpus and word pool.
-- It acts as source content for random typing text generation.
+The app includes browser-based sound feedback:
 
-### `src/data/quotes.js` and `src/data/quotesLarge.js`
+- Keypress sounds.
+- Error sounds.
+- Milestone or celebration sounds.
+- Sound volume control.
+- Mute/unmute persistence.
 
-- `quotesLarge.js` contains the large local quote bank.
-- `quotes.js` normalizes quotes, picks from local data, and can fetch a remote quote with fallback behavior.
+The audio system is handled through Web Audio and storage-backed settings.
 
-### `src/hooks/useTypingSounds.js`
+### Theme persistence
 
-- Lazily creates and reuses the browser `AudioContext`.
-- Plays short key tones, error tones, and milestone chimes.
-- Persists the sound volume through storage.
+- The app supports dark and light themes.
+- Theme preference persists across sessions.
+- The root app shell applies the selected theme to the document.
 
-### `src/hooks/useTypingTest.js`
+### History & Insights
 
-This is the engine of the app.
+The History & Insights area provides:
 
-Responsibilities:
-
-- Load saved mode, goal variant, and time limit.
-- Generate the initial prompt for the selected mode.
-- Maintain typing refs for correct characters, incorrect characters, word boundaries, and current word state.
-- Track timers, elapsed seconds, time left, and WPM.
-- Append extra text in long Time or long Sustain sessions.
-- Detect completion rules for each mode.
-- Save results, update best WPM per mode, update leaderboard, update streaks, and update daily goals.
-
-Important data flow:
-
-- `typedText` is the user-facing text input state.
-- `paragraph` is the current prompt text.
-- `activeIndex` is derived from the engine cursor ref so caret position stays correct after backspace, paste, and append.
-- `currentWordIndexRef` tracks the current word without forcing unnecessary rerenders.
-- `engineSnapshot` exposes the state needed by the UI.
-
-WPM details:
-
-- `rawWpm` uses correct characters and actual elapsed seconds for Time and Goal modes.
-- `finalWpm` is recomputed at completion from the actual time used instead of trusting a stale live value.
-- Best WPM per mode is stored by mode key, including Time, Words, Quote, Custom, Goal Sustain, Goal Reach, and Numbers.
-
-Append behavior:
-
-- When Time mode or Sustain Goal mode is running past the default length, the hook appends a chunk from `generateEndlessChunk()`.
-- Append triggers are guarded by elapsed time, correct character count, and near-end proximity.
-- This keeps the text stream going without restarting the session.
-
-### `src/utils/paragraphGenerator.js`
-
-- Builds random paragraphs from a large word bank.
-- Creates mixed number paragraphs for Numbers mode.
-- Generates endless chunks for long sessions.
-- Tracks recently used paragraphs to reduce repetition.
-
-### `src/utils/storage.js`
-
-- Centralizes all `localStorage` keys.
-- Sanitizes settings, results, WPM values, goal variants, and leaderboard data.
-- Stores best WPM per mode in a structured map.
-- Stores streaks, daily goal progress, theme, sound state, and onboarding state.
-- Provides leaderboard helpers for syncing and filtering valid results.
-
-Result shape handled by storage:
-
-- `id`
-- `mode`
-- `wordCount`
-- `goalVariant`
-- `timeLimitSeconds`
-- `modeKey`
-- `wpm`
-- `accuracy`
-- `correctCharacters`
-- `incorrectCharacters`
-- `mistypedCharacters`
-- `timeUsed`
-- `previousBest`
-- `improvedBest`
-- `goalSuccess`
-
-### `src/utils/typingStats.js`
-
-- Calculates WPM from correct characters and elapsed seconds.
-- Calculates accuracy from correct versus total typed characters.
-- Aggregates the most common mistakes from the most recent results.
-
-## Component Responsibilities in the UI
-
-### `src/components/TypingTest.jsx`
-
-This is the main page-level container.
-
-It handles:
-
-- The top bar with app logo, sound, theme, leaderboard, and settings.
-- The mode selector bar.
-- Keyboard shortcuts and focus management.
-- The main typing surface and hidden input bridge.
-- The stats cards, sidebar, leaderboard modal, settings modal, and result screen.
-- Goal success banners and restart behavior.
-
-It connects the hook output to the UI and is the main place where user actions become engine calls.
-
-### `src/components/TypingText.jsx`
-
-- Renders each word and each character with correctness coloring.
-- Uses refs for words and characters so the active word can be located without DOM queries.
-- Anchors the caret to the current word.
-- Controls scroll visibility so the active word stays visible while manual scrolling still works.
-
-### `src/components/TextSelector.jsx`
-
-- Provides the top mode dropdown.
-- Switches between Time, Words, Goal Sustain, Goal Reach, Quote, Custom, and Numbers.
-- Shows the custom text input when Custom mode is selected.
-
-### `src/components/Stats.jsx`
-
-- Renders compact WPM and accuracy cards.
-- Intended for reusable stat presentation.
-
-### `src/components/RightSidebar.jsx`
-
-- Shows best WPM, rotating pro tips, live WPM, streak, and daily goal progress.
-- Keeps the stats view useful without interrupting typing.
-
-### `src/components/HistoryInsights.jsx`
-
-- Expands to show recent results and a mistake heatmap.
-- Can export recent results as CSV.
-
-### `src/components/LeaderboardModal.jsx`
-
-- Loads leaderboard and recent results from storage.
-- Filters by mode and Goal variant.
-- Shows only 90%+ accuracy results.
-- Sorts by WPM, then accuracy, and displays top entries.
-
-### `src/components/ResultScreen.jsx`
-
-- Shows the final WPM, accuracy, time used, correct and incorrect characters, and personal best.
-- Uses result metadata to show Goal failure messaging when needed.
-
-### `src/components/SettingsModal.jsx`
-
-- Lets the user toggle sound, volume, and theme.
-- Provides a destructive reset for all stored typing data.
-
-### `src/components/SoundControls.jsx`
-
-- Header-level sound toggle with inline volume slider.
-- Wraps the sound settings in a compact control.
-
-### `src/components/SidebarModal.jsx`
-
-- Mobile drawer wrapper around the right sidebar content.
-- Keeps the stat cards usable on narrow screens.
-
-### `src/components/WelcomeTour.jsx`
-
-- Walks first-time users through the interface.
-- Positions a tooltip near the highlighted UI region.
-
-### `src/components/GoalModeSettings.jsx`
-
-- Reusable Goal-mode WPM control panel.
-- Supports the goal-specific tuning flow used by the app.
-
-### `src/components/AppLogo.jsx`
-
-- Animated brand mark for the header and footer.
-- Keeps the product identity consistent across the app.
-
-### `src/components/Footer.jsx`
-
-- Provides the polished footer and policy links.
-- Ties the main app to the legal/policy page and contact information.
-
-### `src/components/LegalPage.jsx`
-
-- Full standalone policy page.
-- Combines privacy, terms, and contact sections into one screen.
-
-### `src/components/ModeSwitcher.jsx`
-
-- Legacy or alternate mode switcher kept in the tree.
-- The current top-bar mode selection lives in `TypingTest.jsx` and `TextSelector.jsx`.
-
-## Persistence and Storage Structure
-
-### Settings
-
-Stored in `localStorage`:
-
-- Theme
-- Mode
-- Goal variant
-- Custom time limit
-- Sound enabled
-- Sound volume
-- Onboarding seen flag
-
-### Results
-
-- Recent results are stored in `typing_results`.
-- Legacy results keys are migrated if found.
-- Only the most recent 10 results are retained in the main results list.
+- Recent result history.
+- Mistake heatmap style summaries.
+- CSV export for local result data.
 
 ### Leaderboard
 
-- Leaderboard results are stored separately in `typing_leaderboard`.
-- Only high-accuracy runs are eligible.
-- Goal Reach failures do not enter the leaderboard.
+The leaderboard modal supports:
 
-### Best WPM by Mode
+- Filtering by mode.
+- Filtering by Goal variant.
+- Sorting by WPM and accuracy.
+- High-accuracy result curation.
 
-- Best WPM is tracked per mode key:
-  - `time`
-  - `words25`
-  - `words35`
-  - `words50`
-  - `words100`
-  - `goalSustain`
-  - `goalReach`
-  - `quote`
-  - `custom`
-  - `numbers`
+Only qualifying scores are shown, and Goal Reach behaves more strictly because it requires the full completion rules to be satisfied.
 
-### Streak and Daily Goal
+### Streak and daily goal tracker
 
-- Streak data tracks consecutive active days.
-- Daily goal progress is incremented after completed tests.
+The sidebar tracks:
 
-## Testing and Validation
+- Daily goal progress.
+- Streak information.
+- Recent challenge history.
+- Current best WPM.
 
-### Unit Tests
+### Keyboard shortcuts
 
-- [src/utils/**tests**/storage.test.js](src/utils/__tests__/storage.test.js) covers storage persistence and sanitization.
-- [src/utils/**tests**/typingStats.test.js](src/utils/__tests__/typingStats.test.js) covers WPM and accuracy math.
+The current codebase wires these keyboard shortcuts:
 
-### Commands
+- Ctrl+Shift+R or Cmd+Shift+R to restart.
+- Ctrl+Shift+S or Cmd+Shift+S to toggle sound.
+
+Important note:
+
+- Escape is not globally wired in the current implementation. Modal surfaces are closed through their explicit controls and overlay actions.
+
+### Welcome tour
+
+The first-run onboarding tour highlights the current layout:
+
+- The top selector for Classic Core, Quotes, Custom, and Numbers.
+- The typing panel.
+- The Challenge Arena and daily tools in the right sidebar.
+- The live stats row.
+- The top-right controls.
+
+The tour is designed to orient a new user quickly without showing outdated layout terms.
+
+## Key Implementation Details
+
+### Per-word fading in Memory Test
+
+Memory-style Arena challenges hide the prompt after `hideAfterSeconds` and then fade words over time.
+
+How it works:
+
+- [src/hooks/useTypingTest.js](src/hooks/useTypingTest.js) creates timers for the current memory challenge.
+- A delay is derived from the challenge rules, usually 3 seconds in the current templates.
+- Once the idle delay elapses, the next unfaded word is marked as faded.
+- Additional timers continue fading later words while the user remains idle.
+- The hook keeps `challengePromptHidden` and `challengeHasTextFaded` flags so completion validation can tell whether the user actually solved a fading-memory run.
+
+Result validation uses these flags, so Arena Memory completion is only valid if the prompt was hidden/faded and the challenge was finished under the required rules.
+
+### Scroll margin behavior
+
+Auto-scroll is handled by a custom, margin-aware function:
+
+- The visible target is measured using refs rather than a DOM query each time.
+- The scroll function aims to keep the current word comfortably above the bottom edge.
+- The margin is stored in localStorage under the scroll margin setting key.
+- The Settings modal exposes the control as a slider.
+- The scroll system uses `requestAnimationFrame`-style scheduling to reduce layout thrash.
+
+### Badge storage and updates
+
+Badge records are persisted as a sanitized array.
+
+- Each stored badge keeps a `badgeId`, display name, icon name, and `earnedCount`.
+- `updateBadgeCount` increments the badge’s count when the same badge is earned again.
+- Challenge completion flows can attach badge metadata such as the badge name and icon name to the result.
+- The badge gallery reads from the persisted badge list and shows the current multiplier state.
+
+The app therefore supports both one-time milestone badges and repeatable challenge badges with visible earned counts.
+
+### Daily challenge selection and repeat avoidance
+
+Daily challenge generation lives in [src/utils/dailyChallenge.js](src/utils/dailyChallenge.js).
+
+- Challenge templates are built from a family-and-tier catalog.
+- Challenge selection uses a seeded random generator.
+- The seed is derived from the date and challenge identity so the same day produces stable results.
+- A reuse window prevents the same challenge from resurfacing too quickly.
+- The catalog includes multiple families, including memory, numbers, endurance, control, spike, and precision.
+
+This keeps daily Arena content feeling fresh without becoming random noise.
+
+### Lock overlay and attempt limit
+
+Arena attempts are capped.
+
+- The app tracks attempts used today.
+- Failed attempts eventually trigger a locked state.
+- A lock overlay blocks interaction when the user has exhausted the daily limit.
+- The overlay encourages the user to exit back to Classic Core.
+- The overlay also prevents typing focus so the user cannot continue the blocked challenge.
+
+### SEO implementation
+
+SEO is handled across HTML shells, static assets, and build output.
+
+Current SEO pieces include:
+
+- [index.html](index.html) with GoType branding, Open Graph tags, Twitter card tags, structured data, and `robots` indexing.
+- [legal.html](legal.html), [privacy.html](privacy.html), [terms.html](terms.html), and [contact.html](contact.html) with page-specific titles and descriptions.
+- [public/robots.txt](public/robots.txt) that points to the sitemap.
+- [public/manifest.json](public/manifest.json) for installable web-app metadata.
+- A social preview image at [public/og-image.png](public/og-image.png).
+- A sitemap generated during the build.
+- A post-build cleanup script that sanitizes the sitemap output.
+- Vercel routing rules to preserve the clean URL variants and the legacy `.html` links.
+
+## Folder Structure
+
+The current `src/` tree is:
+
+```text
+src/
+├─ App.jsx
+├─ index.css
+├─ main.jsx
+├─ legal.jsx
+├─ components/
+│  ├─ AppLogo.jsx
+│  ├─ BadgeGalleryModal.jsx
+│  ├─ ChallengeArenaBanner.jsx
+│  ├─ ChallengeCard.jsx
+│  ├─ Footer.jsx
+│  ├─ GoalModeSettings.jsx
+│  ├─ HistoryInsights.jsx
+│  ├─ LeaderboardModal.jsx
+│  ├─ LegalPage.jsx
+│  ├─ ModeSwitcher.jsx
+│  ├─ ResultScreen.jsx
+│  ├─ RightSidebar.jsx
+│  ├─ SettingsModal.jsx
+│  ├─ SidebarModal.jsx
+│  ├─ SoundControls.jsx
+│  ├─ Stats.jsx
+│  ├─ TextSelector.jsx
+│  ├─ TypingTest.jsx
+│  ├─ TypingText.jsx
+│  └─ WelcomeTour.jsx
+├─ constants/
+│  └─ typingModes.js
+├─ data/
+│  ├─ paragraphs.js
+│  ├─ quotes.js
+│  └─ quotesLarge.js
+├─ hooks/
+│  ├─ useTypingSounds.js
+│  └─ useTypingTest.js
+└─ utils/
+   ├─ dailyChallenge.js
+   ├─ paragraphGenerator.js
+   ├─ storage.js
+   ├─ typingStats.js
+   └─ __tests__/
+      ├─ dailyChallenge.test.js
+      ├─ storage.test.js
+      └─ typingStats.test.js
+```
+
+## File Responsibilities
+
+### Root app files
+
+#### [src/main.jsx](src/main.jsx)
+
+- Mounts the React application into the Vite root node.
+- Serves as the browser entry point for the typing app.
+
+#### [src/App.jsx](src/App.jsx)
+
+- Owns the top-level theme state.
+- Applies the current theme to the document.
+- Renders the main typing experience and the footer.
+
+#### [src/legal.jsx](src/legal.jsx)
+
+- Separate entry point for the legal/policy page.
+- Shares the same theme and styling system as the main app.
+
+#### [src/index.css](src/index.css)
+
+- Global theme tokens.
+- Typography, spacing, card, button, scrollbar, and animation utilities.
+- Typing surface and scroll behavior helpers.
+
+### Components
+
+#### [src/components/TypingTest.jsx](src/components/TypingTest.jsx)
+
+- Main orchestration layer for the app.
+- Header controls, top selector, stats, main typing panel, sidebar, modals, Arena overlays, and onboarding.
+- Bridges keyboard input, focus state, and engine state to the UI.
+
+#### [src/components/TypingText.jsx](src/components/TypingText.jsx)
+
+- Renders each word and character.
+- Draws the active cursor state and correctness coloring.
+- Handles custom scroll anchoring and manual-scroll respect.
+
+#### [src/components/TextSelector.jsx](src/components/TextSelector.jsx)
+
+- The top mode selector.
+- Switches between Classic Core, Quotes, Custom, and Numbers.
+- Exposes the custom-text editor when Custom mode is active.
+
+#### [src/components/ChallengeArenaBanner.jsx](src/components/ChallengeArenaBanner.jsx)
+
+- Shows the active Arena challenge summary.
+- Surfaces the objective, badge reward, rules, and attempt state.
+
+#### [src/components/ChallengeCard.jsx](src/components/ChallengeCard.jsx)
+
+- The challenge card used in the sidebar.
+- Shows the current challenge, reward, earned multiplier, and arena entry/retry actions.
+
+#### [src/components/RightSidebar.jsx](src/components/RightSidebar.jsx)
+
+- Desktop stats and progress column.
+- Hosts best WPM, live WPM, streaks, daily goals, and challenge entry controls.
+
+#### [src/components/SidebarModal.jsx](src/components/SidebarModal.jsx)
+
+- Mobile drawer wrapper for the right sidebar content.
+- Keeps the sidebar available on small screens.
+
+#### [src/components/SettingsModal.jsx](src/components/SettingsModal.jsx)
+
+- Sound, theme, and typing scroll settings.
+- Includes the user-adjustable bottom scroll margin control.
+
+#### [src/components/LeaderboardModal.jsx](src/components/LeaderboardModal.jsx)
+
+- Leaderboard and recent result browser.
+- Filters by mode and Goal variant.
+- Shows only high-accuracy results.
+
+#### [src/components/HistoryInsights.jsx](src/components/HistoryInsights.jsx)
+
+- Recent result history.
+- Mistake heatmap summary.
+- CSV export action.
+
+#### [src/components/ResultScreen.jsx](src/components/ResultScreen.jsx)
+
+- Final result summary.
+- Best WPM comparison.
+- Challenge-Arena-specific success/failure states.
+- Recent performance visualization.
+
+#### [src/components/BadgeGalleryModal.jsx](src/components/BadgeGalleryModal.jsx)
+
+- Full badge browser.
+- Shows earned, locked, and repeated badge states.
+
+#### [src/components/Footer.jsx](src/components/Footer.jsx)
+
+- Footer navigation and policy links.
+- Connects the main app to legal and contact pages.
+
+#### [src/components/LegalPage.jsx](src/components/LegalPage.jsx)
+
+- Single page rendering for policy and contact information.
+
+#### [src/components/SoundControls.jsx](src/components/SoundControls.jsx)
+
+- Compact sound toggle and volume control in the header.
+
+#### [src/components/GoalModeSettings.jsx](src/components/GoalModeSettings.jsx)
+
+- Reusable Goal mode target setup controls.
+
+#### [src/components/Stats.jsx](src/components/Stats.jsx)
+
+- Reusable stat cards for WPM and accuracy presentation.
+
+#### [src/components/AppLogo.jsx](src/components/AppLogo.jsx)
+
+- Brand mark and app identity component.
+
+#### [src/components/WelcomeTour.jsx](src/components/WelcomeTour.jsx)
+
+- First-run guided tour overlay.
+- Highlights the active region and displays step-by-step onboarding copy.
+
+#### [src/components/ModeSwitcher.jsx](src/components/ModeSwitcher.jsx)
+
+- Legacy or alternate mode-switching component kept in the tree.
+- The primary current selector is [src/components/TextSelector.jsx](src/components/TextSelector.jsx).
+
+### Hooks
+
+#### [src/hooks/useTypingTest.js](src/hooks/useTypingTest.js)
+
+This is the core engine.
+
+It handles:
+
+- Prompt generation.
+- Timer start/stop and elapsed time tracking.
+- Correct and incorrect character tracking.
+- Word progress and caret position.
+- Accuracy and WPM calculations.
+- Arena challenge validation.
+- Memory fade timers.
+- Endless text append logic.
+- Result creation and storage updates.
+
+Important engine patterns:
+
+- Memoized prompt/token data reduces repeated split/map work.
+- Refs hold rapidly changing counters so the UI does not rerender on every keystroke.
+- Append logic extends the existing prompt for long sessions rather than resetting the run.
+- A scroll sync tick is emitted when appended content needs the typing surface to recenter.
+
+#### [src/hooks/useTypingSounds.js](src/hooks/useTypingSounds.js)
+
+- Manages the audio context and sound playback.
+- Plays typing feedback and milestone effects.
+- Persists sound settings.
+
+### Constants and data
+
+#### [src/constants/typingModes.js](src/constants/typingModes.js)
+
+- Central mode IDs and default settings.
+- Goal variant values.
+- Default durations and labels used across the app.
+
+#### [src/data/paragraphs.js](src/data/paragraphs.js)
+
+- Paragraph source material for ordinary typing practice.
+- Also feeds generated endless content.
+
+#### [src/data/quotes.js](src/data/quotes.js)
+
+- Quote loader and fallback logic.
+- Uses the local large quote bank and can fall back gracefully when remote content is unavailable.
+
+#### [src/data/quotesLarge.js](src/data/quotesLarge.js)
+
+- Large local quote bank for quote mode.
+
+### Utilities
+
+#### [src/utils/storage.js](src/utils/storage.js)
+
+- Centralized localStorage access and sanitization.
+- Theme, sound, scroll margin, onboarding, results, leaderboard, badges, streaks, and daily goal persistence.
+- Badge save/update helpers.
+
+#### [src/utils/paragraphGenerator.js](src/utils/paragraphGenerator.js)
+
+- Random paragraph generation.
+- Numbers-mode text generation.
+- Endless chunk generation for longer typing sessions.
+
+#### [src/utils/dailyChallenge.js](src/utils/dailyChallenge.js)
+
+- Builds and validates daily Challenge Arena content.
+- Chooses seeded daily challenges and keeps history to avoid repeats.
+- Defines challenge families, rule sets, and badge metadata.
+
+#### [src/utils/typingStats.js](src/utils/typingStats.js)
+
+- WPM and accuracy math.
+- Mistake aggregation helpers.
+
+#### [src/utils/**tests**/dailyChallenge.test.js](src/utils/__tests__/dailyChallenge.test.js)
+
+- Challenge generation and validation tests.
+
+#### [src/utils/**tests**/storage.test.js](src/utils/__tests__/storage.test.js)
+
+- Persistence and sanitization tests.
+
+#### [src/utils/**tests**/typingStats.test.js](src/utils/__tests__/typingStats.test.js)
+
+- Accuracy and WPM calculation tests.
+
+## Persistence Model
+
+The app stores user state in localStorage.
+
+### Common categories
+
+- Theme.
+- Sound enabled and volume.
+- Scroll margin.
+- Onboarding seen flag.
+- Mode and goal preferences.
+- Best WPM by mode.
+- Recent results.
+- Leaderboard entries.
+- Badge collection.
+- Streak and daily goal information.
+- Daily Arena attempt state.
+
+### Badge records
+
+Badge storage entries are normalized and usually include:
+
+- `badgeId`
+- `name`
+- `iconName`
+- `earnedCount`
+- Optional challenge metadata such as earn time or family information
+
+### Result records
+
+Saved result objects include fields such as:
+
+- Mode key.
+- Word count or time limit.
+- Goal variant.
+- WPM.
+- Accuracy.
+- Correct and incorrect character counts.
+- Time used.
+- Challenge flags such as completion, failure, text-fade usage, and prompt-hidden usage.
+
+## Setup and Development
+
+### Install
+
+```bash
+npm install
+```
+
+### Development server
 
 ```bash
 npm run dev
+```
+
+### Production build
+
+```bash
 npm run build
-npm run preview
+```
+
+The build currently runs:
+
+```bash
+vite build && node scripts/fix-sitemap.mjs
+```
+
+### Tests
+
+```bash
 npm run test
 ```
 
-### Validation Notes
+### Preview
 
-- The project uses Vitest in jsdom mode.
-- The typing engine and storage helpers have already been validated with tests.
-- The app is structured so the typing surface can be inspected and scrolled without remounting the whole page.
-
-## Generated and Non-Source Artifacts
-
-- `dist/` is build output and should not be edited by hand.
-- `node_modules/` is dependency output.
-- Temporary backup or scratch files should not be committed.
-
-## Practical Development Workflow
-
-1. Update shared constants in [src/constants/typingModes.js](src/constants/typingModes.js) when adding or changing modes.
-2. Update generation logic in [src/utils/paragraphGenerator.js](src/utils/paragraphGenerator.js) when prompt creation changes.
-3. Update persistence rules in [src/utils/storage.js](src/utils/storage.js) when result or settings data changes.
-4. Update the engine in [src/hooks/useTypingTest.js](src/hooks/useTypingTest.js) for timing, scoring, completion, or append behavior.
-5. Update the renderer in [src/components/TypingText.jsx](src/components/TypingText.jsx) when caret, highlighting, or scroll behavior changes.
-6. Update [src/components/TypingTest.jsx](src/components/TypingTest.jsx) when the page layout, modals, shortcuts, or header controls change.
-7. Update tests in [src/utils/**tests**/](src/utils/__tests__/) when storage or stats behavior changes.
-
-## Design Notes
-
-- The UI is intentionally styled to feel closer to Monkeytype than to a generic form-based typing app.
-- Most interaction-heavy pieces are wrapped in `memo` to reduce unnecessary rerenders.
-- Refs are used heavily in the engine and prompt renderer to keep typing smooth.
-- Scroll anchoring is disabled in the typing surface so appended text can stay visible without browser interference.
-
-## Current Source Tree Summary
-
-```text
-GoType/
-├─ index.html
-├─ package.json
-├─ package-lock.json
-├─ postcss.config.js
-├─ PROJECT_DETAILS.md
-├─ tailwind.config.js
-├─ vite.config.js
-└─ src/
-    ├─ App.jsx
-    ├─ index.css
-    ├─ main.jsx
-    ├─ legal.jsx
-    ├─ components/
-    ├─ constants/
-    ├─ data/
-    ├─ hooks/
-    └─ utils/
+```bash
+npm run preview
 ```
+
+## Deployment
+
+The project is prepared for Vercel deployment.
+
+- [vercel.json](vercel.json) handles clean routes and legacy `.html` compatibility.
+- The sitemap is generated during the build and then sanitized by [scripts/fix-sitemap.mjs](scripts/fix-sitemap.mjs).
+- The static pages and the main typing app are both included in the Vite build inputs.
+
+Public SEO assets include:
+
+- [public/robots.txt](public/robots.txt)
+- [public/manifest.json](public/manifest.json)
+- [public/og-image.png](public/og-image.png)
+
+## Testing and Validation
+
+Current automated coverage focuses on the utility layer:
+
+- Challenge generation and validation.
+- Storage sanitization and persistence.
+- Typing statistics math.
+
+The project uses Vitest in jsdom mode, which makes it suitable for browser-like UI and utility tests without a real browser runtime.
+
+## Recent Changes / Changelog
+
+The most recent major improvements are:
+
+- Challenge Arena was hardened with daily unique templates, rule validation, badge rewards, and attempt locking.
+- Memory-test behavior was expanded to support per-word fading after an idle delay.
+- Auto-scroll was rewritten to use a configurable bottom margin, manual-scroll respect, and append-aware resynchronization.
+- The result screen gained a more engaging recent-performance visualization.
+- SEO was upgraded with proper titles, descriptions, canonical structure, manifest support, structured data, robots.txt, and sitemap generation.
+- Static policy pages were aligned with the app’s clean routing setup for deployment.
+- The welcome tour was updated to reflect the current layout, including the Arena sidebar and modern top controls.
+
+## Notes for Future Work
+
+- Recharts is not currently part of the dependency tree; if a future chart library is introduced, this document should be updated.
+- Escape key handling is not globally wired at the moment and would need a small pass if you want modal dismissal from the keyboard everywhere.
+- If the badge catalogue grows, the storage helpers and gallery layout should be reviewed for pagination or grouping.
+
+## Short Version
+
+If you need the one-sentence description:
+
+GoType is a modern React typing app with Classic Core modes, Quote/Custom/Numbers practice, daily Challenge Arena runs, badge progression, live stats, history and leaderboard tracking, SEO-ready pages, and a Vercel-friendly deployment setup.
