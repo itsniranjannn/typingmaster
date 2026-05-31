@@ -1,0 +1,34 @@
+{
+  "events": [
+    { "type": "input", "t": 0 },
+    { "type": "input", "t": 50 },
+    { "type": "input", "t": 90 },
+    { "type": "input", "t": 400 },
+    { "type": "input", "t": 450 },
+    { "type": "correction", "t": 500, "payload": { "index": 10 } },
+    { "type": "input", "t": 800 }
+  ]
+  ,
+  "name": "burst-speed",
+  "mode": "time",
+  "wordCount": null,
+  "paragraph": "fast typers produce bursts of high wpm and short pauses",
+  "targetWords": ["fast","typers","produce","bursts","of","high","wpm","and","short","pauses"],
+  "correctCharacters": 220,
+  "incorrectCharacters": 5,
+  "completedWords": 40,
+  "currentWord": "pauses",
+  "currentWordIndex": 9,
+  "currentIndex": 180,
+  "typedText": "fast typers produce bursts of high wpm and short pauses",
+  "timeUsed": 45,
+  "previousBest": 150,
+  "challenge": null,
+  "replaySession": {
+    "id": "r-burst",
+    "meta": {"source":"unit-fixture"},
+    "events": [{"type":"start","ts":0}],
+    "flushedBatches": [],
+    "metrics": {"eventCount":1}
+  }
+}

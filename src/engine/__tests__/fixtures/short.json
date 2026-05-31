@@ -1,0 +1,33 @@
+{
+  "events": [
+    { "type": "input", "t": 0 },
+    { "type": "input", "t": 200 },
+    { "type": "checkpoint", "t": 400, "payload": { "label": "cp1" } },
+    { "type": "correction", "t": 600, "payload": { "index": 5, "before": "teh", "after": "the" } },
+    { "type": "pause", "t": 1000, "payload": { "duration": 1200 } },
+    { "type": "input", "t": 2200 }
+  ]
+  ,
+  "name": "short",
+  "mode": "words",
+  "wordCount": 25,
+  "paragraph": "the quick brown fox jumps over the lazy dog",
+  "targetWords": ["the","quick","brown","fox","jumps","over","the","lazy","dog"],
+  "correctCharacters": 34,
+  "incorrectCharacters": 1,
+  "completedWords": 6,
+  "currentWord": "lazy",
+  "currentWordIndex": 7,
+  "currentIndex": 30,
+  "typedText": "the quick brown fox jumps over the",
+  "timeUsed": 18,
+  "previousBest": 55,
+  "challenge": null,
+  "replaySession": {
+    "id": "r-short",
+    "meta": {"source":"unit-fixture"},
+    "events": [{"type":"start","ts":0},{"type":"key","key":"t","ts":10}],
+    "flushedBatches": [],
+    "metrics": {"eventCount":2}
+  }
+}

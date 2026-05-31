@@ -1,0 +1,24 @@
+{
+  "name": "correction-heavy",
+  "mode": "words",
+  "wordCount": 30,
+  "paragraph": "typing tests often include mistakes and corrections to stress the system",
+  "targetWords": ["typing","tests","often","include","mistakes","and","corrections","to","stress","the","system"],
+  "correctCharacters": 60,
+  "incorrectCharacters": 25,
+  "completedWords": 9,
+  "currentWord": "stress",
+  "currentWordIndex": 8,
+  "currentIndex": 72,
+  "typedText": "typing tests often include mistake corrections to",
+  "timeUsed": 55,
+  "previousBest": 48,
+  "challenge": null,
+  "replaySession": {
+    "id": "r-corr",
+    "meta": {"source":"unit-fixture"},
+    "events": [{"type":"start","ts":0},{"type":"key","key":"t","ts":5},{"type":"correction","ts":20}],
+    "flushedBatches": [],
+    "metrics": {"eventCount":3}
+  }
+}

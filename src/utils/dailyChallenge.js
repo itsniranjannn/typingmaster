@@ -13,6 +13,11 @@ import {
   updateBadgeCount,
   updateDailyChallengeHistoryEntry
 } from "./storage";
+import {
+  getArenaChallengeProgress as getArenaChallengeProgressEngine,
+  getChallengeObjectiveStatus as getChallengeObjectiveStatusEngine,
+  validateChallengeCompletion as validateChallengeCompletionEngine
+} from "../engine/challengeEngine";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const REUSE_WINDOW_MS = 30 * DAY_MS;
@@ -97,103 +102,8 @@ const getChallengeFamily = (challenge) => {
   return "";
 };
 
-const validateBaseChallengeRules = (challenge, result) => {
-  const rules = challenge.rules || {};
-  const wpm = Math.max(0, Number(result.wpm) || 0);
-  const accuracy = Math.max(0, Number(result.accuracy) || 0);
-  const timeUsed = Math.max(0, Number(result.timeUsed) || 0);
-  const incorrectCharacters = Math.max(0, Number(result.incorrectCharacters) || 0);
-  const typedWordCount = getTypedWordCount(result);
-  const minWpm = typeof rules.targetWpm === "number" ? rules.targetWpm : rules.minWpm;
-  const minAccuracy = typeof rules.targetAccuracy === "number" ? rules.targetAccuracy : rules.minAccuracy;
-
-  if (rules.noBackspace && result.backspaceUsed) return false;
-  if (typeof rules.allowedMistakes === "number" && incorrectCharacters > rules.allowedMistakes) return false;
-  if (typeof minWpm === "number" && wpm < minWpm) return false;
-  if (typeof minAccuracy === "number" && accuracy < minAccuracy) return false;
-  if (typeof rules.timeLimitSeconds === "number" && timeUsed > rules.timeLimitSeconds) return false;
-  if (typeof rules.minTypedWords === "number" && typedWordCount < rules.minTypedWords) return false;
-  return true;
-};
-
-const validateEnduranceChallenge = (challenge, result) => {
-  const rules = challenge.rules || {};
-  if (!validateBaseChallengeRules(challenge, result)) return false;
-  if (typeof rules.wordCount === "number" && getTypedWordCount(result) < rules.wordCount) return false;
-  return true;
-};
-
-const validateControlChallenge = (challenge, result) => {
-  const rules = challenge.rules || {};
-  if (!validateBaseChallengeRules(challenge, result)) return false;
-  if (!rules.noBackspace || result.backspaceUsed) return false;
-  if (typeof rules.wordCount === "number" && getTypedWordCount(result) < rules.wordCount) return false;
-  return true;
-};
-
-const validateSpikeChallenge = (challenge, result) => {
-  const rules = challenge.rules || {};
-  if (!validateBaseChallengeRules(challenge, result)) return false;
-  const targetWpm = Math.max(0, Number(rules.targetWpm || rules.minWpm) || 0);
-  const holdSeconds = Math.max(0, Number(result.holdSeconds) || 0);
-  const maxHoldWpm = Math.max(0, Number(result.maxHoldWpm) || 0);
-  if (!targetWpm) return false;
-  if (holdSeconds < (rules.sustainSeconds || 0)) return false;
-  if (maxHoldWpm < targetWpm) return false;
-  return true;
-};
-
-const validatePrecisionChallenge = (challenge, result) => {
-  const rules = challenge.rules || {};
-  if (!validateBaseChallengeRules(challenge, result)) return false;
-  if (typeof rules.wordCount === "number" && getTypedWordCount(result) < rules.wordCount) return false;
-  return true;
-};
-
-const validateNumbersChallenge = (challenge, result) => {
-  const rules = challenge.rules || {};
-  if (!validateBaseChallengeRules(challenge, result)) return false;
-  const typedCharacterCount = Math.max(0, Number(result.typedCharacterCount ?? result.typedText?.length ?? 0) || 0);
-  if (typeof rules.charTarget === "number" && typedCharacterCount < rules.charTarget) return false;
-  return true;
-};
-
-const validateMemoryChallenge = (challenge, result) => {
-  const rules = challenge.rules || {};
-  if (!validateBaseChallengeRules(challenge, result)) return false;
-  if (!rules.hideAfterSeconds || !result.hasTextFaded || !result.promptHiddenUsed) return false;
-
-  const typedWords = getTypedWordCount(result);
-  const requiredWords = typeof rules.wordCount === "number" ? rules.wordCount : typedWords;
-  if (typedWords < requiredWords) return false;
-
-  const challengeText = normalizeChallengeText(result.promptText || challenge.prompt);
-  const typedText = normalizeChallengeText(result.typedText);
-  if (!challengeText || !typedText) return false;
-
-  const wordsMatch = challengeText.split(" ").length === typedText.split(" ").length;
-  if (!wordsMatch) return false;
-
-  return true;
-};
-
 const validateChallengeCompletion = (challenge, result) => {
-  if (!challenge || !result) return false;
-
-  const family = getChallengeFamily(challenge);
-  const validators = {
-    endurance: validateEnduranceChallenge,
-    control: validateControlChallenge,
-    spike: validateSpikeChallenge,
-    precision: validatePrecisionChallenge,
-    numbers: validateNumbersChallenge,
-    memory: validateMemoryChallenge
-  };
-
-  const validator = validators[family];
-  if (!validator) return false;
-
-  return validator(challenge, result);
+  return validateChallengeCompletionEngine(challenge, result);
 };
 
 const hashSeed = (seed) => {
@@ -431,8 +341,21 @@ export const buildChallengePrompt = (template, seed) => {
   }
 
   if (template.family === "memory") {
+    // Prefer seeded generation when a seed is provided for deterministic prompts in tests
+    if (seed) {
+      const memoryPrompt = buildParagraph(`${seed}:memory`, targetWords || 45, 2);
+      return targetWords > 0 ? getFirstNWords(memoryPrompt, targetWords) : memoryPrompt;
+    }
+
     const memoryPrompt = generateMemoryChallengeParagraph();
     return targetWords > 0 ? getFirstNWords(memoryPrompt, targetWords) : memoryPrompt;
+  }
+
+  // For paragraph challenges prefer seeded generation when a seed is provided so tests
+  // and exports remain deterministic. Fall back to legacy random generator otherwise.
+  if (seed) {
+    const paragraphPrompt = buildParagraph(`${seed}:paragraph`, Math.round((40 + 50) / 2), 2);
+    return targetWords > 0 ? getFirstNWords(paragraphPrompt, targetWords) : paragraphPrompt;
   }
 
   const paragraphPrompt = generateChallengeParagraph(40, 50);
@@ -605,39 +528,12 @@ export const getDailyChallengeRecentHistory = (limit = 6) => getDailyChallengeCo
 export const getChallengeHistoryForGallery = () => getDailyChallengeHistoryEntries();
 
 export const getArenaChallengeProgress = (state, stats = {}) => {
-  if (!state?.challenge) return null;
-  const rules = state.challenge.rules || {};
-  const wordTarget = Number(rules.wordCount || rules.minTypedWords || 0) || 0;
-  const charTarget = Number(rules.charTarget || 0) || 0;
-  const progress = {
-    wpm: Math.max(0, Number(stats.wpm) || 0),
-    accuracy: Math.max(0, Number(stats.accuracy) || 0),
-    elapsedSeconds: Math.max(0, Number(stats.elapsedSeconds) || 0),
-    timeLimitSeconds: rules.timeLimitSeconds || null,
-    holdSeconds: Math.max(0, Number(stats.holdSeconds) || 0),
-    requiredHoldSeconds: rules.sustainSeconds || null,
-    completedWords: Math.max(0, Number(stats.completedWords) || 0),
-    typedCharacterCount: Math.max(0, Number(stats.typedCharacterCount) || 0),
-    requiredWordCount: wordTarget || null,
-    requiredCharTarget: charTarget || null,
-    mistakes: Math.max(0, Number(stats.incorrectCharacters) || 0),
-    allowedMistakes: rules.allowedMistakes || 0,
-    backspaceUsed: Boolean(stats.backspaceUsed),
-    promptHidden: Boolean(stats.promptHidden)
-  };
-
-  if (rules.timeLimitSeconds) progress.timeProgress = Math.min(1, progress.elapsedSeconds / rules.timeLimitSeconds);
-  if (rules.targetWpm || rules.minWpm) progress.wpmProgress = Math.min(1, progress.wpm / (rules.targetWpm || rules.minWpm));
-  if (rules.minAccuracy) progress.accuracyProgress = Math.min(1, progress.accuracy / rules.minAccuracy);
-  if (rules.sustainSeconds) progress.holdProgress = Math.min(1, progress.holdSeconds / rules.sustainSeconds);
-  if (wordTarget) progress.wordProgress = Math.min(1, progress.completedWords / wordTarget);
-  if (charTarget) progress.charProgress = Math.min(1, progress.typedCharacterCount / charTarget);
-
-  return progress;
+  return getArenaChallengeProgressEngine(state, stats);
 };
 
 const meetsChallengeObjectives = (challenge, result, { requireHold = true } = {}) => {
-  return validateChallengeCompletion(challenge, result, { requireHold });
+  void requireHold;
+  return validateChallengeCompletionEngine(challenge, result);
 };
 
 const awardMilestoneBadges = () => {
@@ -767,4 +663,4 @@ export const getBadgeByChallengeId = (challengeId) => {
 };
 
 export const getDailyChallengeBadgeState = () => loadBadges();
-export const getChallengeObjectiveStatus = (challenge, result) => meetsChallengeObjectives(challenge, result, { requireHold: false });
+export const getChallengeObjectiveStatus = (challenge, result) => getChallengeObjectiveStatusEngine(challenge, result);

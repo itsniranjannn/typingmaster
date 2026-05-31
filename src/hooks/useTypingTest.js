@@ -1,15 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  TYPING_MODES,
-  TEST_DURATION_SECONDS,
-  DEFAULT_GOAL_WPM,
-  GOAL_VARIANTS,
-  CUSTOM_TIME_MIN_SECONDS,
-  CUSTOM_TIME_MAX_SECONDS,
-  UNIVERSAL_MODES
-} from "../constants/typingModes";
+import { TYPING_MODES, DEFAULT_GOAL_WPM, GOAL_VARIANTS, UNIVERSAL_MODES, TEST_DURATION_SECONDS } from "../constants/typingModes";
 import { getRandomQuote, fetchRandomQuote } from "../data/quotes";
-import { generateRandomParagraph, getFirstNWords, generateNumbersParagraph, generateEndlessChunk } from "../utils/paragraphGenerator";
+import { generateEndlessChunk } from "../utils/paragraphGenerator";
 import { useTypingSounds } from "./useTypingSounds";
 import { calculateAccuracy, calculateWpm } from "../utils/typingStats";
 import confetti from "canvas-confetti";
@@ -41,57 +33,20 @@ import {
   getDailyChallengeRecentHistory,
   getChallengeObjectiveStatus
 } from "../utils/dailyChallenge";
-
-const DEFAULT_WORD_COUNT = 25;
-const QUOTE_LOADING_PLACEHOLDER = "Loading quote...";
-const getWordList = (text) => text.split(" ").filter((word) => word.length > 0);
-const getGeneratedTextForMode = (mode, wordCount) => {
-  if (mode === TYPING_MODES.WORDS) {
-    const sourceMin = Math.max(wordCount + 10, 35);
-    const sourceMax = Math.max(wordCount + 25, sourceMin + 10);
-    return getFirstNWords(generateRandomParagraph(sourceMin, sourceMax), wordCount);
-  }
-
-  if (mode === TYPING_MODES.NUMBERS) return generateNumbersParagraph();
-
-  if (mode === TYPING_MODES.TIME) return generateRandomParagraph(30, 30);
-
-  if (mode === TYPING_MODES.QUOTE) return getRandomQuote();
-
-  return generateRandomParagraph();
-};
-
-const normalizeMode = (value) => {
-  const validModes = [TYPING_MODES.TIME, TYPING_MODES.WORDS, TYPING_MODES.QUOTE, TYPING_MODES.CUSTOM, TYPING_MODES.GOAL, TYPING_MODES.NUMBERS, TYPING_MODES.CHALLENGE_ARENA];
-  return validModes.includes(value) ? value : TYPING_MODES.TIME;
-};
-
-const normalizeGoalVariant = (value) => (value === GOAL_VARIANTS.REACH ? GOAL_VARIANTS.REACH : GOAL_VARIANTS.SUSTAIN);
-
-const normalizeTimeLimitSeconds = (value) => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return TEST_DURATION_SECONDS;
-  return Math.min(Math.max(Math.round(parsed), CUSTOM_TIME_MIN_SECONDS), CUSTOM_TIME_MAX_SECONDS);
-};
-
-const getBestWpmModeKey = ({ mode, wordCount, goalVariant, timeLimitSeconds }) => {
-  if (mode === TYPING_MODES.WORDS) {
-    const count = Number.isFinite(Number(wordCount)) ? Number(wordCount) : DEFAULT_WORD_COUNT;
-    return `words${count}`;
-  }
-
-  if (mode === TYPING_MODES.GOAL) {
-    return goalVariant === GOAL_VARIANTS.REACH ? "goalReach" : "goalSustain";
-  }
-
-  if (mode === TYPING_MODES.QUOTE) return "quote";
-  if (mode === TYPING_MODES.CUSTOM) return "custom";
-  if (mode === TYPING_MODES.NUMBERS) return "numbers";
-  if (mode === TYPING_MODES.CHALLENGE_ARENA) return "challengeArena";
-  if (mode === TYPING_MODES.TIME) return timeLimitSeconds > TEST_DURATION_SECONDS ? "time" : "time";
-
-  return "time";
-};
+import {
+  DEFAULT_WORD_COUNT,
+  QUOTE_LOADING_PLACEHOLDER,
+  getBestWpmModeKey,
+  getGeneratedTextForMode,
+  getWordList,
+  normalizeGoalVariant,
+  normalizeMode,
+  normalizeTimeLimitSeconds,
+  serializeTypingResult
+} from "../engine/sessionEngine";
+import * as replayEngine from "../engine/replayEngine";
+import * as telemetryEngine from "../engine/telemetryEngine";
+import * as runtimeSnapshotEngine from "../engine/runtimeSnapshotEngine";
 
 export const useTypingTest = () => {
   const initialMode = normalizeMode(getPreferredMode());
@@ -141,6 +96,10 @@ export const useTypingTest = () => {
   });
 
   const hasSavedResultRef = useRef(false);
+  // Replay/session recording ref (transient, non-rendering)
+  const replaySessionRef = useRef(replayEngine.createSession({ mode: initialMode }));
+  const telemetryEnabled = String(import.meta?.env?.VITE_ENABLE_TELEMETRY ?? "").toLowerCase() === "true";
+  const telemetrySessionRef = useRef(telemetryEngine.createTelemetrySession({ enabled: telemetryEnabled }));
   const isTestFinishedRef = useRef(false);
   const goalAchievedSecondsRef = useRef(0);
   const timerRef = useRef(null);
@@ -225,30 +184,28 @@ export const useTypingTest = () => {
   }, [arenaRules.sustainSeconds, arenaRules.timeLimitSeconds, challengeFailed, engineSnapshot.isWordLimitReached, goalVariant, isArenaMode, mode, paragraph.length, timeLeft, typedText.length]);
 
   const commitSnapshot = useCallback(() => {
-    const totalWords = targetWordsRef.current.length;
-    const finalWordIndex = Math.max(totalWords - 1, 0);
-    const currentWordIndex = Math.min(currentWordIndexRef.current, finalWordIndex);
-    const currentTargetWord = targetWordsRef.current[currentWordIndexRef.current] || "";
-    const isCurrentWordCorrect = currentTargetWord.startsWith(currentWordRef.current);
-    const isLastWordComplete =
-      currentWordIndexRef.current >= finalWordIndex &&
-      currentWordRef.current === (targetWordsRef.current[finalWordIndex] || "");
-    const isAtTextEnd = paragraph.length > 0 && currentIndexRef.current >= paragraph.length;
-    const completedWords = isLastWordComplete
-      ? totalWords
-      : Math.min(completedWordsRef.current, totalWords);
-    const isWordLimitReached =
-      totalWords === 0 || completedWords >= totalWords || isLastWordComplete || isAtTextEnd;
-
-    setEngineSnapshot({
+    const snapshot = runtimeSnapshotEngine.computeEngineSnapshot({
+      targetWords: targetWordsRef.current,
+      paragraph,
       correctCharacters: correctCharsRef.current,
       incorrectCharacters: incorrectCharsRef.current,
-      completedWords,
-      currentWordIndex,
-      isCurrentWordCorrect,
-      totalWords,
-      isWordLimitReached
+      completedWords: completedWordsRef.current,
+      currentWord: currentWordRef.current,
+      currentWordIndex: currentWordIndexRef.current,
+      currentIndex: currentIndexRef.current
     });
+
+    setEngineSnapshot(snapshot);
+
+    if (telemetryEnabled) {
+      try {
+        telemetryEngine.recordCommit(telemetrySessionRef.current, {
+          ts: performance.now(),
+          replayBufferSize: replaySessionRef.current?.events?.length || 0
+        });
+        telemetryEngine.recordRenderMarker(telemetrySessionRef.current, "commitSnapshot", { ts: performance.now() });
+      } catch (error) {}
+    }
   }, [paragraph.length]);
 
   const clearLoadingDelay = useCallback(() => {
@@ -668,6 +625,12 @@ export const useTypingTest = () => {
 
     setIsActive(false);
     commitSnapshot();
+    // record end marker (best-effort, non-blocking)
+    try {
+      const session = replaySessionRef.current;
+      if (session) replayEngine.markEnd(session, performance.now());
+      telemetryEngine.markSessionEnd(telemetrySessionRef.current, performance.now());
+    } catch (e) {}
     if (mode !== TYPING_MODES.GOAL) {
       setTimeLeft(0);
     }
@@ -784,6 +747,12 @@ export const useTypingTest = () => {
   const startTest = useCallback(() => {
     if (!hasStarted) setHasStarted(true);
     if (!isActive) setIsActive(true);
+    // record start marker (best-effort, non-blocking)
+    try {
+      const session = replaySessionRef.current;
+      if (session) replayEngine.markStart(session, performance.now());
+      telemetryEngine.markSessionStart(telemetrySessionRef.current, performance.now());
+    } catch (e) {}
   }, [hasStarted, isActive]);
 
   const pauseTest = useCallback(() => {
@@ -861,7 +830,7 @@ export const useTypingTest = () => {
 
   const handleTyping = useCallback(
     (value, options = {}) => {
-      const { skipEngine = false, forceRecalc = false, composing } = options;
+      const { skipEngine = false, forceRecalc = false, composing, inputTimestamp } = options;
       if (typeof composing === "boolean") {
         setIsComposing(composing);
       }
@@ -873,17 +842,29 @@ export const useTypingTest = () => {
       }
 
       const nextValue = value.slice(0, paragraph.length);
+      const keyTimestamp = Number.isFinite(Number(inputTimestamp)) ? Number(inputTimestamp) : null;
       if (!hasStarted && nextValue.length > 0) {
         setHasStarted(true);
         setIsActive(true);
         if (!testStartTimestampRef.current) {
           testStartTimestampRef.current = Date.now();
         }
+        if (telemetryEnabled) {
+          try {
+            telemetryEngine.markSessionStart(telemetrySessionRef.current, performance.now());
+          } catch (error) {}
+        }
       }
 
       if (skipEngine) {
         setTypedText(nextValue);
         return;
+      }
+
+      if (telemetryEnabled && keyTimestamp !== null) {
+        try {
+          telemetryEngine.recordInputLatency(telemetrySessionRef.current, Math.max(0, performance.now() - keyTimestamp), performance.now());
+        } catch (error) {}
       }
 
       if (forceRecalc) {
@@ -932,6 +913,21 @@ export const useTypingTest = () => {
           mistypedCharactersRef.current.push(newChar);
           playIncorrectKeyForWord(currentWordIndexRef.current);
         }
+
+        // Record key event (best-effort, ref-based, lightweight)
+        try {
+          const session = replaySessionRef.current;
+          if (session) {
+            replayEngine.recordKey(session, {
+              key: newChar,
+              correct: isCorrectCharacter,
+              wordIndex: currentWordIndexRef.current,
+              charIndex: Math.max(0, currentIndexRef.current - 1),
+              backspace: false,
+              ts: performance.now()
+            });
+          }
+        } catch (e) {}
 
         if (newChar === " ") {
           const targetWord = targetWordsRef.current[currentWordIndexRef.current] || "";
@@ -1024,6 +1020,21 @@ export const useTypingTest = () => {
         } else {
           currentWordRef.current = currentWordRef.current.slice(0, -1);
         }
+
+        // Record backspace event (best-effort)
+        try {
+          const session = replaySessionRef.current;
+          if (session) {
+            replayEngine.recordKey(session, {
+              key: removedChar,
+              correct: removedChar === targetChar,
+              wordIndex: currentWordIndexRef.current,
+              charIndex: Math.max(0, removedIndex),
+              backspace: true,
+              ts: performance.now()
+            });
+          }
+        } catch (e) {}
       }
 
       commitSnapshot();
@@ -1336,6 +1347,42 @@ export const useTypingTest = () => {
   }, [displayWpm, hasStarted, isFinished, rawWpm]);
 
   useEffect(() => {
+    if (!telemetryEnabled) return undefined;
+
+    let rafId = 0;
+    let lastFrameTs = performance.now();
+
+    const sampleFrame = (ts) => {
+      telemetryEngine.recordFrameObservation(telemetrySessionRef.current, {
+        ts,
+        frameDeltaMs: Math.max(0, ts - lastFrameTs)
+      });
+      lastFrameTs = ts;
+      rafId = window.requestAnimationFrame(sampleFrame);
+    };
+
+    rafId = window.requestAnimationFrame(sampleFrame);
+
+    const heapTimer = window.setInterval(() => {
+      const memory = performance?.memory;
+      if (!memory) return;
+      telemetryEngine.recordHeapSnapshot(telemetrySessionRef.current, {
+        ts: performance.now(),
+        usedHeapSize: memory.usedJSHeapSize,
+        totalHeapSize: memory.totalJSHeapSize,
+        jsHeapLimit: memory.jsHeapSizeLimit
+      });
+    }, 5000);
+
+    return () => {
+      if (rafId) {
+        window.cancelAnimationFrame(rafId);
+      }
+      window.clearInterval(heapTimer);
+    };
+  }, [telemetryEnabled]);
+
+  useEffect(() => {
     latestLiveWpmRef.current = liveWpm;
   }, [liveWpm]);
 
@@ -1468,6 +1515,51 @@ export const useTypingTest = () => {
     return Math.min(currentIndexRef.current, paragraph.length);
   }, [isFinished, paragraph.length, typedText.length]);
 
+  // Compact, memoized selector for UI components to consume only primitive/stat fields.
+  // This reduces prop churn while keeping authoritative state and timing logic unchanged.
+  const uiStats = useMemo(() => ({
+    liveWpm,
+    rawWpm,
+    displayWpm,
+    accuracy,
+    timeLeft,
+    elapsedSeconds: getElapsedSeconds(),
+    completedWords: engineSnapshot.completedWords,
+    totalWords: engineSnapshot.totalWords || totalWords,
+    currentWordIndex: engineSnapshot.currentWordIndex,
+    activeIndex,
+    isActive,
+    isFinished,
+    bestWpm
+  }), [
+    liveWpm,
+    rawWpm,
+    displayWpm,
+    accuracy,
+    timeLeft,
+    elapsedSeconds,
+    engineSnapshot.completedWords,
+    engineSnapshot.totalWords,
+    engineSnapshot.currentWordIndex,
+    activeIndex,
+    isActive,
+    isFinished,
+    bestWpm,
+    totalWords
+  ]);
+
+  useEffect(() => {
+    if (!telemetryEnabled) return undefined;
+    try {
+      telemetryEngine.recordCommit(telemetrySessionRef.current, {
+        ts: performance.now(),
+        replayBufferSize: replaySessionRef.current?.events?.length || 0
+      });
+      telemetryEngine.recordRenderMarker(telemetrySessionRef.current, "uiStats-effect", { ts: performance.now() });
+    } catch (error) {}
+    return undefined;
+  }, [telemetryEnabled, uiStats.liveWpm, uiStats.accuracy, uiStats.timeLeft, uiStats.completedWords, uiStats.currentWordIndex, uiStats.isActive, uiStats.isFinished]);
+
   useEffect(() => {
     if (!hasStarted || isTestFinishedRef.current || !paragraph) return;
 
@@ -1518,44 +1610,46 @@ export const useTypingTest = () => {
       setBestWpmByMode(nextBestMap);
     }
 
-    const result = {
-      id: Date.now(),
+    const result = serializeTypingResult({
+      now: Date.now(),
       mode,
-      wordCount: mode === TYPING_MODES.WORDS ? wordCount : null,
-      goalVariant: mode === TYPING_MODES.GOAL ? goalVariant : null,
-      timeLimitSeconds: mode === TYPING_MODES.TIME || mode === TYPING_MODES.GOAL ? timeLimitSeconds : null,
-      modeKey: currentBestKey,
+      wordCount,
+      goalVariant,
+      timeLimitSeconds,
       wpm: finalWpm,
       accuracy,
       correctCharacters: engineSnapshot.correctCharacters,
       incorrectCharacters: engineSnapshot.incorrectCharacters,
       completedWords: engineSnapshot.completedWords,
-      typedWordCount: typedText.trim().length > 0 ? typedText.trim().split(/\s+/).filter(Boolean).length : 0,
+      typedText,
+      promptText: paragraph,
       mistypedCharacters: mistypedCharactersRef.current,
       timeUsed,
       previousBest,
-      improvedBest: finalWpm > previousBest,
       goalSuccess,
-      challengeId: dailyChallenge?.challenge?.id || null,
-      challengeTitle: dailyChallenge?.challenge?.title || null,
-      challengeReward: dailyChallenge?.challenge?.reward || null,
-      challengeBadgeId: dailyChallenge?.challenge?.badgeId || dailyChallenge?.challenge?.id || null,
-      challengeBadgeName: dailyChallenge?.challenge?.badgeName || dailyChallenge?.challenge?.reward || dailyChallenge?.challenge?.title || null,
-      challengeBadgeIconName: dailyChallenge?.challenge?.badgeIconName || "Trophy",
-      challengeEarnedCount: 0,
-      challengeCompleted: false,
-      challengeCompletedToday: false,
-      challengeFailed: false,
+      challenge: dailyChallenge?.challenge || null,
       challengeStreak: dailyChallenge?.challengeStreak || 0,
-      typedText,
-      promptText: paragraph,
-      typedCharacterCount: typedText.length,
       hasTextFaded: mode === TYPING_MODES.CHALLENGE_ARENA ? challengeHasTextFaded : false,
       backspaceUsed: mode === TYPING_MODES.CHALLENGE_ARENA ? arenaBackspaceUsedRef.current : false,
       holdSeconds: mode === TYPING_MODES.CHALLENGE_ARENA ? arenaHoldSecondsRef.current : 0,
       maxHoldWpm: mode === TYPING_MODES.CHALLENGE_ARENA ? arenaMaxHoldWpmRef.current : 0,
-      promptHiddenUsed: mode === TYPING_MODES.CHALLENGE_ARENA ? challengePromptHidden || challengeHasTextFaded : false
-    };
+      promptHiddenUsed: mode === TYPING_MODES.CHALLENGE_ARENA ? challengePromptHidden || challengeHasTextFaded : false,
+      typedWordCount: typedText.trim().length > 0 ? typedText.trim().split(/\s+/).filter(Boolean).length : 0
+    });
+
+    result.challengeSnapshot = dailyChallenge?.challenge ? { ...dailyChallenge.challenge } : null;
+
+    try {
+      result.replaySummary = replayEngine.exportReplaySession(replaySessionRef.current);
+    } catch {
+      result.replaySummary = null;
+    }
+
+    try {
+      result.telemetrySummary = telemetryEnabled ? telemetryEngine.exportTelemetrySession(telemetrySessionRef.current) : null;
+    } catch {
+      result.telemetrySummary = null;
+    }
 
     try {
       const progress = incrementDailyGoalProgress(Date.now());
@@ -1710,5 +1804,7 @@ export const useTypingTest = () => {
     streakInfo,
     startDailyChallenge,
     cancelDailyChallenge
+    ,
+    uiStats
   };
 };

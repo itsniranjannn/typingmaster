@@ -49,30 +49,35 @@ const getTokenState = (characterStates, start, end) => {
   return "default";
 };
 
+const tokenIncludesIndex = (token, index) => index >= token.start && index <= token.end;
+
 const areTokenPropsEqual = (previousProps, nextProps) => {
   const previousToken = previousProps.token;
   const nextToken = nextProps.token;
 
   if (previousProps.isDark !== nextProps.isDark) return false;
-  if (previousProps.fontScale !== nextProps.fontScale) return false;
   if (previousProps.focused !== nextProps.focused) return false;
   if (previousProps.hideContent !== nextProps.hideContent) return false;
-  
-  // Check fadedWords: not just length, but also if this specific word changed faded state
-  const previousFadedArray = previousProps.fadedWords || [];
-  const nextFadedArray = nextProps.fadedWords || [];
-  const previousWordFaded = previousFadedArray.includes(previousToken.wordIndex);
-  const nextWordFaded = nextFadedArray.includes(nextToken.wordIndex);
-  
+
+  const previousFadedSet = previousProps.fadedWordSet;
+  const nextFadedSet = nextProps.fadedWordSet;
+  const previousWordFaded = Boolean(previousFadedSet?.has(previousToken.wordIndex));
+  const nextWordFaded = Boolean(nextFadedSet?.has(nextToken.wordIndex));
+
   if (previousWordFaded !== nextWordFaded) return false;
-  
-  if (previousProps.currentWordIndex !== nextProps.currentWordIndex) return false;
-  if (previousProps.activeIndex !== nextProps.activeIndex) return false;
+
   if (previousToken.id !== nextToken.id) return false;
   if (previousToken.text !== nextToken.text) return false;
   if (previousToken.start !== nextToken.start || previousToken.end !== nextToken.end) return false;
   if (previousToken.isSpace !== nextToken.isSpace) return false;
   if (previousToken.wordIndex !== nextToken.wordIndex) return false;
+
+  if (previousProps.activeIndex !== nextProps.activeIndex) {
+    const activeChangedInToken =
+      tokenIncludesIndex(previousToken, previousProps.activeIndex) ||
+      tokenIncludesIndex(previousToken, nextProps.activeIndex);
+    if (activeChangedInToken) return false;
+  }
 
   for (let index = previousToken.start; index <= previousToken.end; index += 1) {
     if (previousProps.characterStates[index] !== nextProps.characterStates[index]) {
@@ -86,11 +91,10 @@ const areTokenPropsEqual = (previousProps, nextProps) => {
 const TypingToken = memo(function TypingToken({
   token,
   characterStates,
-  currentWordIndex,
   activeIndex,
   isDark,
   hideContent,
-  fadedWords,
+  fadedWordSet,
   registerWordRef,
   registerCharacterRef,
   registerCharacterRangeRef
@@ -107,7 +111,7 @@ const TypingToken = memo(function TypingToken({
         correct: "text-emerald-700",
         incorrect: "text-rose-700"
       };
-      const isFaded = Boolean(hideContent) || (typeof token.wordIndex === "number" && Array.isArray(fadedWords) && fadedWords.includes(token.wordIndex));
+      const isFaded = Boolean(hideContent) || (typeof token.wordIndex === "number" && fadedWordSet?.has(token.wordIndex));
       const fadeStyle = isFaded ? { visibility: 'hidden', opacity: 0 } : { visibility: 'visible', opacity: 1 };
 
   if (token.isSpace) {
@@ -194,22 +198,7 @@ function TypingText({
   const [caret, setCaret] = useState({ left: 0, top: 0, height: 18, visible: false });
 
   const { segments, wordTokens } = useMemo(() => tokenizeParagraph(paragraph), [paragraph]);
-
-  const stateClasses = useMemo(
-    () =>
-      isDark
-        ? {
-            default: "text-slate-200",
-            correct: "text-emerald-400",
-            incorrect: "text-rose-400"
-          }
-        : {
-            default: "text-slate-800",
-            correct: "text-emerald-700",
-            incorrect: "text-rose-700"
-          },
-    [isDark]
-  );
+  const fadedWordSet = useMemo(() => new Set(Array.isArray(fadedWords) ? fadedWords : []), [fadedWords]);
 
   const registerWordRef = useCallback((wordTokenIndex, node) => {
     wordRefs.current[wordTokenIndex] = node;
@@ -438,11 +427,10 @@ function TypingText({
               key={token.id}
               token={token}
               characterStates={characterStates}
-              currentWordIndex={currentWordIndex}
               activeIndex={activeIndex}
               isDark={isDark}
               hideContent={hideContent}
-              fadedWords={fadedWords}
+              fadedWordSet={fadedWordSet}
               registerWordRef={registerWordRef}
               registerCharacterRef={registerCharacterRef}
               registerCharacterRangeRef={registerCharacterRangeRef}

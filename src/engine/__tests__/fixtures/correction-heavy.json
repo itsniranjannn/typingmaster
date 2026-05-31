@@ -1,0 +1,9 @@
+{
+  "events": [
+    { "type": "input", "t": 0 },
+    { "type": "correction", "t": 100, "payload": { "index": 1 } },
+    { "type": "correction", "t": 250, "payload": { "index": 2 } },
+    { "type": "correction", "t": 350, "payload": { "index": 3 } },
+    { "type": "input", "t": 700 }
+  ]
+}

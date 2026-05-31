@@ -1,0 +1,13 @@
+{
+  "events": [
+    { "type": "input", "t": 0 },
+    { "type": "input", "t": 150 },
+    { "type": "input", "t": 310 },
+    { "type": "input", "t": 470 },
+    { "type": "input", "t": 630 },
+    { "type": "checkpoint", "t": 800, "payload": { "label": "mid" } },
+    { "type": "input", "t": 950 },
+    { "type": "pause", "t": 1200, "payload": { "duration": 2000 } },
+    { "type": "input", "t": 3200 }
+  ]
+}

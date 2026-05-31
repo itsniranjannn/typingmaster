@@ -16,6 +16,15 @@ const STORAGE_KEYS = {
   HAS_SEEN_TOUR: "typingMaster.hasSeenTour"
 };
 
+import {
+  buildNextBadgeRecord,
+  createDefaultBestWpmByMode as createDefaultBestWpmByModeEngine,
+  getLeaderboardCandidates as getLeaderboardCandidatesEngine,
+  sanitizeBestWpmByMode as sanitizeBestWpmByModeEngine,
+  sanitizeResult as sanitizeResultEngine,
+  stripChallengeFieldsForNonArenaResult as stripChallengeFieldsForNonArenaResultEngine
+} from "../engine/progressionEngine";
+
 const STREAK_KEYS = {
   STREAK: "typingMaster.streak"
 };
@@ -277,24 +286,7 @@ const sanitizeDailyChallengeState = (value) => {
   };
 };
 
-const stripChallengeFieldsForNonArenaResult = (result) => {
-  if (!result || result.mode === "challenge_arena") return result;
-
-  return {
-    ...result,
-    challengeId: null,
-    challengeTitle: null,
-    challengeReward: null,
-    challengeBadgeId: null,
-    challengeBadgeName: null,
-    challengeBadgeIconName: null,
-    challengeEarnedCount: 0,
-    challengeCompleted: false,
-    challengeCompletedToday: false,
-    challengeFailed: false,
-    challengeStreak: 0
-  };
-};
+const stripChallengeFieldsForNonArenaResult = (result) => stripChallengeFieldsForNonArenaResultEngine(result);
 
 const sanitizeBadge = (value) => {
   if (!value || typeof value !== "object") return null;
@@ -313,75 +305,13 @@ const sanitizeBadge = (value) => {
   };
 };
 
-const sanitizeResult = (result) => {
-  if (!result || typeof result !== "object") return null;
+const sanitizeResult = (result) => sanitizeResultEngine(result);
 
-  const sanitized = {
-    id: sanitizeNumber(result.id, Date.now()),
-    mode: sanitizeMode(result.mode),
-    wordCount:
-      typeof result.wordCount === "number" && Number.isFinite(result.wordCount) && result.wordCount > 0
-        ? result.wordCount
-        : null,
-    wpm: sanitizeNumber(result.wpm, 0),
-    accuracy: sanitizeAccuracy(result.accuracy),
-    correctCharacters: sanitizeNumber(result.correctCharacters, 0),
-    incorrectCharacters: sanitizeNumber(result.incorrectCharacters, 0),
-    mistypedCharacters: Array.isArray(result.mistypedCharacters)
-      ? result.mistypedCharacters
-          .filter((character) => typeof character === "string" && character.length === 1)
-          .slice(0, 5000)
-      : [],
-    timeUsed: sanitizeNumber(result.timeUsed, 0),
-    timeLimitSeconds: sanitizeTimeLimitSeconds(result.timeLimitSeconds || result.timeLimit || DEFAULT_TIME_LIMIT_SECONDS),
-    goalVariant: sanitizeGoalVariant(result.goalVariant),
-    goalSuccess: typeof result.goalSuccess === "boolean" ? result.goalSuccess : null,
-    modeKey: typeof result.modeKey === "string" ? result.modeKey : null,
-    previousBest: sanitizeNumber(result.previousBest, 0),
-    improvedBest: typeof result.improvedBest === "boolean" ? result.improvedBest : false,
-    challengeId: typeof result.challengeId === "string" ? result.challengeId : null,
-    challengeTitle: typeof result.challengeTitle === "string" ? result.challengeTitle : null,
-    challengeBadgeId: typeof result.challengeBadgeId === "string" ? result.challengeBadgeId : null,
-    challengeBadgeName: typeof result.challengeBadgeName === "string" ? result.challengeBadgeName : null,
-    challengeBadgeIconName: typeof result.challengeBadgeIconName === "string" ? result.challengeBadgeIconName : null,
-    challengeEarnedCount: sanitizeNumber(result.challengeEarnedCount, 0),
-    challengeCompleted: typeof result.challengeCompleted === "boolean" ? result.challengeCompleted : false,
-    challengeCompletedToday: typeof result.challengeCompletedToday === "boolean" ? result.challengeCompletedToday : false,
-    challengeFailed: typeof result.challengeFailed === "boolean" ? result.challengeFailed : false,
-    challengeStreak: sanitizeNumber(result.challengeStreak, 0)
-  };
+const getLeaderboardCandidates = (results) => getLeaderboardCandidatesEngine(results);
 
-  return stripChallengeFieldsForNonArenaResult(sanitized);
-};
+const createDefaultBestWpmByMode = () => createDefaultBestWpmByModeEngine();
 
-const getLeaderboardCandidates = (results) =>
-  results
-    .filter((result) => result.accuracy >= 90)
-    .sort((left, right) => right.wpm - left.wpm || right.accuracy - left.accuracy)
-    .slice(0, 10);
-
-const createDefaultBestWpmByMode = () => ({
-  time: 0,
-  words25: 0,
-  words35: 0,
-  words50: 0,
-  words100: 0,
-  goalSustain: 0,
-  goalReach: 0,
-  quote: 0,
-  custom: 0,
-  numbers: 0,
-  challengeArena: 0
-});
-
-const sanitizeBestWpmByMode = (value) => {
-  const defaults = createDefaultBestWpmByMode();
-  if (!value || typeof value !== "object") return defaults;
-  return Object.keys(defaults).reduce((accumulator, key) => {
-    accumulator[key] = sanitizeNumber(value[key], 0);
-    return accumulator;
-  }, {});
-};
+const sanitizeBestWpmByMode = (value) => sanitizeBestWpmByModeEngine(value);
 
 const getLegacyBestWpm = () => sanitizeNumber(safeRead(STORAGE_KEYS.BEST_WPM, 0), 0);
 
@@ -514,13 +444,7 @@ export const updateBadgeCount = (badgeId, badgeDefinition = {}, earnedAt = Date.
   const currentBadges = loadBadges();
   const badgeKey = badgeId.trim();
   const existing = currentBadges.find((item) => item.badgeId === badgeKey);
-  const nextBadge = {
-    badgeId: badgeKey,
-    name: typeof badgeDefinition.name === "string" ? badgeDefinition.name.trim() : existing?.name || badgeKey,
-    iconName: typeof badgeDefinition.iconName === "string" ? badgeDefinition.iconName.trim() : existing?.iconName || "Trophy",
-    earnedCount: (existing?.earnedCount || 0) + 1,
-    lastEarnedDate: typeof earnedAt === "number" && Number.isFinite(earnedAt) ? new Date(earnedAt).toISOString().slice(0, 10) : existing?.lastEarnedDate || null
-  };
+  const nextBadge = buildNextBadgeRecord(existing, badgeKey, badgeDefinition, earnedAt);
 
   const nextBadges = existing
     ? currentBadges.map((item) => (item.badgeId === badgeKey ? nextBadge : item))

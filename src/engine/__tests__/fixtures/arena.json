@@ -1,0 +1,31 @@
+{
+  "events": [
+    { "type": "input", "t": 0 },
+    { "type": "diverge", "t": 120, "payload": { "reason": "latency" } },
+    { "type": "input", "t": 300 },
+    { "type": "checkpoint", "t": 500, "payload": { "label": "arena" } }
+  ]
+  ,
+  "name": "arena-qualification",
+  "mode": "challenge_arena",
+  "wordCount": 50,
+  "paragraph": "arena mode simulates competition with objectives to reach",
+  "targetWords": ["arena","mode","simulates","competition","with","objectives","to","reach"],
+  "correctCharacters": 120,
+  "incorrectCharacters": 10,
+  "completedWords": 20,
+  "currentWord": "reach",
+  "currentWordIndex": 7,
+  "currentIndex": 95,
+  "typedText": "arena mode simulates competition with objectives to",
+  "timeUsed": 80,
+  "previousBest": 75,
+  "challenge": {"id":"arena-1","title":"Arena Trial","reward":"Badge","badgeId":"arena-1","badgeName":"Arena Trial","badgeIconName":"Trophy"},
+  "replaySession": {
+    "id": "r-arena",
+    "meta": {"source":"unit-fixture"},
+    "events": [{"type":"start","ts":0},{"type":"key","key":"a","ts":10}],
+    "flushedBatches": [],
+    "metrics": {"eventCount":2}
+  }
+}

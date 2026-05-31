@@ -14,6 +14,18 @@ import {
   Lock
 } from "lucide-react";
 import { loadResults } from "../utils/storage";
+import { summarizePlayerBehaviorHistory } from "../analysis/playerBehaviorAnalysis";
+import { analyzeChallengeBalancing } from "../analysis/challengeBalancing";
+import { analyzeMasteryTracking } from "../engagement/masteryTracking";
+import { summarizeRankedProgression } from "../engagement/rankedProgression";
+import { summarizeProgressionCarryover } from "../engagement/seasonSystem";
+import { summarizeRetentionAnalysis } from "../engagement/retentionAnalysis";
+import PerformanceInsights from "./PerformanceInsights";
+import RankProgressCard from "./RankProgressCard";
+import SeasonHub from "./SeasonHub";
+import MasteryOverview from "./MasteryOverview";
+import ReplayVisualizationPanel from "./ReplayVisualizationPanel";
+import SpectatorPanel from "./SpectatorPanel";
 
 const ICONS = {
   Award,
@@ -85,6 +97,60 @@ function ResultScreen({
       date: entry.id
     }));
   }, [result?.id]);
+
+  const recentSessions = useMemo(() => {
+    const raw = Array.isArray(loadResults()) ? loadResults() : [];
+    const normalized = raw.slice(0, 12).reverse();
+    if (result && !normalized.some((entry) => entry?.id === result.id)) {
+      normalized.push(result);
+    }
+    return normalized;
+  }, [result]);
+
+  const rankedSummary = useMemo(() => summarizeRankedProgression(recentSessions), [recentSessions]);
+  const masterySummary = useMemo(() => analyzeMasteryTracking(recentSessions), [recentSessions]);
+  const retentionSummary = useMemo(() => summarizeRetentionAnalysis(recentSessions), [recentSessions]);
+  const seasonalCarryover = useMemo(() => summarizeProgressionCarryover(recentSessions, null, { referenceTimestamp: result.id, seasonLengthDays: 28, anchorTimestamp: 0 }), [recentSessions, result.id]);
+  const seasonalSummary = useMemo(() => ({
+    seasonal: {
+      window: seasonalCarryover.currentSeason || seasonalCarryover.previousSeason || null,
+      milestones: seasonalCarryover.milestones,
+      carryover: seasonalCarryover,
+      rewardPacing: seasonalCarryover.pacing,
+      challengeGroups: result.challengeSnapshot ? [{ family: result.challengeSnapshot.family || result.challengeId || "challenge", count: 1, challenges: [result.challengeSnapshot] }] : []
+    }
+  }), [result.challengeId, result.challengeSnapshot, seasonalCarryover]);
+  const behaviorSummary = useMemo(() => summarizePlayerBehaviorHistory(recentSessions), [recentSessions]);
+  const challengeContext = useMemo(() => (
+    result?.challengeSnapshot
+      ? analyzeChallengeBalancing(result.challengeSnapshot, {
+          history: recentSessions,
+          behavior: behaviorSummary,
+          replay: result.replaySummary,
+          telemetry: result.telemetrySummary,
+          wpm: result.wpm,
+          accuracy: result.accuracy,
+          completedWords: result.completedWords,
+          timeUsed: result.timeUsed,
+          durationSeconds: result.timeUsed
+        })
+      : null
+  ), [behaviorSummary, recentSessions, result]);
+
+  const previousSession = recentSessions.length > 1 ? recentSessions[recentSessions.length - 2] : null;
+  const replaySummary = result.replaySummary || null;
+  const comparisonReplaySummary = previousSession?.replaySummary || null;
+  const ghostReplays = useMemo(() => recentSessions
+    .filter((entry) => entry?.id !== result.id && entry?.replaySummary && Array.isArray(entry.replaySummary.events))
+    .map((entry) => ({ ...entry.replaySummary, id: `ghost-${entry.id}` }))
+    .slice(-8), [recentSessions, result.id]);
+  const telemetrySummary = result.telemetrySummary || null;
+  const previousMastery = useMemo(() => analyzeMasteryTracking(previousSession ? recentSessions.slice(0, -1) : []), [previousSession, recentSessions]);
+  const masteryDelta = (masterySummary.overallMasteryScore ?? 0) - (previousMastery.overallMasteryScore ?? 0);
+  const momentumDelta = rankedSummary.momentum?.scoreSlope ?? 0;
+  const replayEventCount = replaySummary?.metrics?.eventCount ?? 0;
+  const replayPauseCount = replaySummary?.metrics?.pauseCount ?? 0;
+  const telemetryLatency = telemetrySummary?.averageInputLatencyMs ?? 0;
 
   const [modeFilter, setModeFilter] = useState("all");
   const [showAccuracy, setShowAccuracy] = useState(true);
@@ -360,6 +426,50 @@ function ResultScreen({
 
         {trendPanel}
 
+        <div className="relative grid gap-4 xl:grid-cols-2">
+          <PerformanceInsights history={recentSessions} isDark={isDark} />
+          <RankProgressCard summary={rankedSummary} isDark={isDark} />
+          <SeasonHub summary={seasonalSummary} isDark={isDark} />
+          <MasteryOverview summary={masterySummary} isDark={isDark} />
+        </div>
+
+        <div className={`relative grid gap-4 rounded-3xl border p-5 ${cardClass}`}>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Replay and Context</p>
+              <h3 className={`mt-1 text-lg font-semibold ${textClass}`}>Post-run summary</h3>
+            </div>
+            <p className={`text-xs ${secondaryText}`}>Computed after the session ends</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <ContextChip label="Replay Events" value={replayEventCount} tone="cyan" isDark={isDark} />
+            <ContextChip label="Replay Pauses" value={replayPauseCount} tone="amber" isDark={isDark} />
+            <ContextChip label="Input Latency" value={`${telemetryLatency.toFixed(1)} ms`} tone="emerald" isDark={isDark} />
+            <ContextChip label="Mastery Delta" value={`${masteryDelta >= 0 ? "+" : ""}${Math.round(masteryDelta * 100)}%`} tone="violet" isDark={isDark} />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <ContextChip label="Rank Momentum" value={momentumDelta.toFixed(2)} tone="cyan" isDark={isDark} />
+            <ContextChip label="Challenge Difficulty" value={challengeContext ? `${challengeContext.difficulty.toFixed(1)}/100` : "No challenge context"} tone="rose" isDark={isDark} />
+            <ContextChip label="Burnout Risk" value={`${Math.round((retentionSummary.burnout?.burnoutRisk ?? 0) * 100)}%`} tone="amber" isDark={isDark} />
+          </div>
+        </div>
+
+        {replaySummary ? (
+          <ReplayVisualizationPanel
+            replaySummary={replaySummary}
+            comparisonReplaySummary={comparisonReplaySummary}
+            isDark={isDark}
+          />
+        ) : null}
+
+        {replaySummary ? (
+          <SpectatorPanel
+            replaySummary={replaySummary}
+            ghostReplays={ghostReplays}
+            isDark={isDark}
+          />
+        ) : null}
+
         <div className={`relative grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6`}>
           <div className={`rounded-2xl border ${cardClass} p-6`}>
             <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Final WPM</p>
@@ -457,6 +567,22 @@ function ResultScreen({
 
       {trendPanel}
 
+      {replaySummary ? (
+        <ReplayVisualizationPanel
+          replaySummary={replaySummary}
+          comparisonReplaySummary={comparisonReplaySummary}
+          isDark={isDark}
+        />
+      ) : null}
+
+      {replaySummary ? (
+        <SpectatorPanel
+          replaySummary={replaySummary}
+          ghostReplays={ghostReplays}
+          isDark={isDark}
+        />
+      ) : null}
+
       <div className={`relative grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6`}>
         <div className={`rounded-2xl border ${cardClass} p-6`}>
           <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>WPM</p>
@@ -490,6 +616,23 @@ function ResultScreen({
         </button>
       </div>
     </section>
+  );
+}
+
+function ContextChip({ label, value, tone = "cyan", isDark = true }) {
+  const tones = {
+    cyan: isDark ? "border-cyan-400/20 bg-cyan-500/10 text-cyan-100" : "border-cyan-200 bg-cyan-50 text-cyan-700",
+    amber: isDark ? "border-amber-400/20 bg-amber-500/10 text-amber-100" : "border-amber-200 bg-amber-50 text-amber-700",
+    emerald: isDark ? "border-emerald-400/20 bg-emerald-500/10 text-emerald-100" : "border-emerald-200 bg-emerald-50 text-emerald-700",
+    violet: isDark ? "border-violet-400/20 bg-violet-500/10 text-violet-100" : "border-violet-200 bg-violet-50 text-violet-700",
+    rose: isDark ? "border-rose-400/20 bg-rose-500/10 text-rose-100" : "border-rose-200 bg-rose-50 text-rose-700"
+  };
+
+  return (
+    <div className={`rounded-2xl border px-4 py-3 ${tones[tone] || tones.cyan}`}>
+      <p className="text-[10px] font-semibold uppercase tracking-[0.15em] opacity-75">{label}</p>
+      <p className="mt-1 text-sm font-semibold leading-tight">{value}</p>
+    </div>
   );
 }
 
