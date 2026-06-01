@@ -81,7 +81,7 @@ function TypingTest({ theme, onToggleTheme }) {
     streakInfo,
     startDailyChallenge,
     cancelDailyChallenge
-  , uiStats } = useTypingTest();
+  } = useTypingTest();
 
   useEffect(() => {
     // Debug logging removed after fade mechanism verified
@@ -138,10 +138,6 @@ function TypingTest({ theme, onToggleTheme }) {
     const activeElement = document.activeElement;
     setIsTypingAreaFocused(Boolean(wrapper && activeElement && wrapper.contains(activeElement)));
   }, [mode]);
-
-  const handleTypingAreaBlur = useCallback(() => {
-    window.setTimeout(syncTypingFocusState, 0);
-  }, [syncTypingFocusState]);
 
   useEffect(() => {
     setTimeInput(String(timeLimitSeconds));
@@ -249,8 +245,6 @@ function TypingTest({ theme, onToggleTheme }) {
         return;
       }
 
-      const inputTimestamp = typeof event.timeStamp === "number" ? event.timeStamp : performance.now();
-
       const { key } = event;
       if (event.ctrlKey || event.metaKey || event.altKey) {
         return;
@@ -262,19 +256,19 @@ function TypingTest({ theme, onToggleTheme }) {
 
       if (key === "Backspace") {
         event.preventDefault();
-        handleTyping(typedText.slice(0, -1), { inputTimestamp });
+        handleTyping(typedText.slice(0, -1));
         return;
       }
 
       if (key === " ") {
         event.preventDefault();
-        handleTyping(`${typedText} `, { inputTimestamp });
+        handleTyping(`${typedText} `);
         return;
       }
 
       if (key.length === 1) {
         event.preventDefault();
-        handleTyping(`${typedText}${key}`, { inputTimestamp });
+        handleTyping(`${typedText}${key}`);
       }
     },
     [handleTyping, isFinished, typedText, isArenaOverlayVisible]
@@ -452,17 +446,6 @@ function TypingTest({ theme, onToggleTheme }) {
   useEffect(() => {
     focusTypingArea();
   }, [focusTrigger, focusTypingArea]);
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) return;
-      if (isFinished || isArenaOverlayVisible) return;
-      focusTypingArea();
-    };
-
-    window.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => window.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [focusTypingArea, isArenaOverlayVisible, isFinished]);
 
   const toggleSidebar = useCallback(() => setIsSidebarOpen((v) => !v), []);
 
@@ -909,26 +892,26 @@ function TypingTest({ theme, onToggleTheme }) {
               >
                 <motion.div className="min-w-[78px] text-center" whileHover={{ scale: 1.02 }}>
                   <motion.span
-                    key={uiStats.liveWpm}
+                    key={liveWpm}
                     initial={{ scale: 1.2, opacity: 0.5 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ duration: 0.2 }}
                     className="text-2xl sm:text-3xl font-semibold text-blue-400 tabular-nums font-mono"
                   >
-                    {uiStats.liveWpm}
+                    {liveWpm}
                   </motion.span>
                   <div className={`text-[10px] uppercase tracking-[0.18em] ${secondaryText} mt-1 font-medium`}>WPM</div>
                 </motion.div>
                 <div className={`hidden h-10 w-px ${isDark ? "bg-gray-700/70" : "bg-slate-200"} sm:block`} />
                 <motion.div className="min-w-[78px] text-center" whileHover={{ scale: 1.02 }}>
                   <motion.span
-                    key={uiStats.accuracy}
+                    key={accuracy}
                     initial={{ scale: 1.2, opacity: 0.5 }}
                     animate={{ scale: 1, opacity: 1 }}
                     transition={{ duration: 0.2 }}
                     className={`text-2xl sm:text-3xl font-semibold tabular-nums font-mono ${accuracyState === 'up' ? 'text-emerald-400' : accuracyState === 'down' ? 'text-rose-400' : 'text-emerald-400'}`}
                   >
-                    {uiStats.accuracy}%
+                    {accuracy}%
                   </motion.span>
                   <div className={`text-[10px] uppercase tracking-[0.18em] ${secondaryText} mt-1 font-medium`}>ACC</div>
                 </motion.div>
@@ -937,13 +920,13 @@ function TypingTest({ theme, onToggleTheme }) {
                     <div className={`hidden h-10 w-px ${isDark ? "bg-gray-700/70" : "bg-slate-200"} sm:block`} />
                     <motion.div className="min-w-[78px] text-center" whileHover={{ scale: 1.02 }}>
                       <motion.span
-                        key={uiStats.timeLeft}
+                        key={timeLeft}
                         initial={{ scale: 1.2, opacity: 0.5 }}
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ duration: 0.2 }}
                         className="text-2xl sm:text-3xl font-semibold text-amber-400 tabular-nums font-mono"
                       >
-                        {uiStats.timeLeft}
+                        {timeLeft}
                       </motion.span>
                       <div className={`text-[10px] uppercase tracking-[0.18em] ${secondaryText} mt-1 font-medium`}>LEFT</div>
                     </motion.div>
@@ -951,7 +934,7 @@ function TypingTest({ theme, onToggleTheme }) {
                 )}
                 <div className={`hidden h-10 w-px ${isDark ? "bg-gray-700/70" : "bg-slate-200"} sm:block`} />
                 <motion.div className="min-w-[96px] text-center" whileHover={{ scale: 1.02 }}>
-                  <div className="text-2xl sm:text-3xl font-semibold text-violet-400 tabular-nums font-mono">{uiStats.completedWords}/{Math.max(uiStats.totalWords, 0)}</div>
+                  <div className="text-2xl sm:text-3xl font-semibold text-violet-400 tabular-nums font-mono">{completedWords}/{Math.max(totalWords, 0)}</div>
                   <div className={`text-[10px] uppercase tracking-[0.18em] ${secondaryText} mt-1 font-medium`}>WORDS</div>
                 </motion.div>
               </motion.div>
@@ -985,7 +968,7 @@ function TypingTest({ theme, onToggleTheme }) {
                   ref={typingSurfaceRef}
                   className={`${isDark ? "text-slate-300 text-2xl" : "text-slate-700 text-2xl"} outline-none focus:outline-none`}
                   onFocusCapture={syncTypingFocusState}
-                  onBlurCapture={handleTypingAreaBlur}
+                  onBlurCapture={() => window.setTimeout(syncTypingFocusState, 0)}
                 >
                   <TypingText
                     paragraph={paragraph || customText}
@@ -1002,7 +985,7 @@ function TypingTest({ theme, onToggleTheme }) {
                     onPointerDown={focusTypingArea}
                     onKeyDown={handleInlineKeyDown}
                     onFocus={syncTypingFocusState}
-                    onBlur={handleTypingAreaBlur}
+                    onBlur={() => window.setTimeout(syncTypingFocusState, 0)}
                   />
 
                   <textarea
@@ -1073,7 +1056,7 @@ function TypingTest({ theme, onToggleTheme }) {
                 <RightSidebar
                   bestWpm={bestWpm}
                   bestWpmLabel={bestWpmLabel}
-                  liveWpm={uiStats.liveWpm}
+                  liveWpm={liveWpm}
                   resetKey={tipSeed}
                   isDark={isDark}
                   streakInfo={streakInfo}

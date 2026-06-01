@@ -56,9 +56,7 @@ describe("daily challenge helpers", () => {
 
       const targetWords = Number(template.rules?.wordCount || template.rules?.minTypedWords || 0) || 0;
       if (targetWords > 0) {
-        const actualWordCount = prompt.split(/\s+/).filter(Boolean).length;
-        expect(actualWordCount).toBeGreaterThanOrEqual(Math.max(1, targetWords - 2));
-        expect(actualWordCount).toBeLessThanOrEqual(targetWords + 2);
+        expect(prompt.split(/\s+/).filter(Boolean).length).toBe(targetWords);
       }
     }
   });
