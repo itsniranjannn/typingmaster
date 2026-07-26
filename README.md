@@ -1,13 +1,18 @@
 <div align="center">
 
-# ⌨️ GoType
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=220&section=header&text=GoType&fontSize=70&fontColor=ffffff&animation=fadeIn&fontAlignY=35&desc=Type%20fast.%20Track%20everything.%20Beat%20the%20Arena.&descAlignY=55&descSize=20" width="100%"/>
 
-### A Competitive Typing Practice App — React, Vite & Framer Motion
+<a href="https://readme-typing-svg.demolab.com">
+  <img src="https://readme-typing-svg.demolab.com?font=Fira+Code&weight=600&size=22&pause=1000&color=8B5CF6&center=true&vCenter=true&width=600&lines=Classic+Core+%C2%B7+Time+%7C+Words+%7C+Goal;Daily+Challenge+Arena+%F0%9F%8F%9F%EF%B8%8F;Badge+Progression+%F0%9F%8F%85;Live+WPM+%2B+Accuracy+Tracking+%F0%9F%93%8A" alt="Typing SVG" />
+</a>
+
+<br/><br/>
 
 <p>
   <img src="https://img.shields.io/badge/status-active-brightgreen?style=for-the-badge" alt="status" />
   <img src="https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="react" />
   <img src="https://img.shields.io/badge/Vite-powered-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="vite" />
+  <img src="https://img.shields.io/badge/Vercel-ready-000000?style=for-the-badge&logo=vercel&logoColor=white" alt="vercel" />
 </p>
 
 <p>
@@ -16,12 +21,19 @@
   <img src="https://img.shields.io/badge/TailwindCSS-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white" />
   <img src="https://img.shields.io/badge/Framer_Motion-black?style=flat-square&logo=framer&logoColor=white" />
   <img src="https://img.shields.io/badge/Vitest-6E9F18?style=flat-square&logo=vitest&logoColor=white" />
-  <img src="https://img.shields.io/badge/Vercel-000000?style=flat-square&logo=vercel&logoColor=white" />
+  <img src="https://img.shields.io/badge/Lucide-F56565?style=flat-square&logo=lucide&logoColor=white" />
 </p>
 
-Classic typing tests, quote & custom practice, daily **Challenge Arena** runs with badge progression, live stats, leaderboards, and an SEO-ready deploy setup.
+<h3>Classic typing tests, quote & custom practice, daily <b>Challenge Arena</b> runs with badge progression, live stats, leaderboards, and an SEO-ready deploy setup.</h3>
 
-[Live Demo](#) · [Report Bug](#) · [Request Feature](#)
+<p>
+  <a href="#-overview"><b>Overview</b></a> ·
+  <a href="#-screenshots"><b>Screenshots</b></a> ·
+  <a href="#-core-features"><b>Features</b></a> ·
+  <a href="#-challenge-arena"><b>Arena</b></a> ·
+  <a href="#-getting-started"><b>Get Started</b></a> ·
+  <a href="#-roadmap"><b>Roadmap</b></a>
+</p>
 
 </div>
 
@@ -31,57 +43,35 @@ Classic typing tests, quote & custom practice, daily **Challenge Arena** runs wi
 
 <br/>
 
-## 📌 Table of Contents
-
-- [Overview](#-overview)
-- [Screenshots](#-screenshots)
-- [Tech Stack](#-tech-stack)
-- [Core Features](#-core-features)
-- [Challenge Arena](#-challenge-arena)
-- [Badge System](#-badge-system)
-- [Architecture](#-architecture)
-- [User Flow](#-user-flow)
-- [Folder Structure](#-folder-structure)
-- [Persistence Model](#-persistence-model)
-- [Getting Started](#-getting-started)
-- [Testing](#-testing)
-- [Deployment & SEO](#-deployment--seo)
-- [Keyboard Shortcuts](#-keyboard-shortcuts)
-- [Changelog](#-changelog)
-- [Roadmap](#-roadmap)
-
-<br/>
-
 ## 🧭 Overview
 
-| | |
-|---|---|
-| 🟢 **Status** | Active, in development |
-| ⌨️ **Core modes** | Time, Words, Goal (Sustain/Reach), Quote, Custom, Numbers |
-| 🏟️ **Challenge Arena** | Daily locked challenges — endurance, no-backspace, speed spike, memory fade, and more |
-| 🏅 **Progression** | Multi-tier badge system with repeat-earn multipliers |
-| 📊 **Tracking** | Live WPM/accuracy, per-mode best scores, history, leaderboard |
-| 🧪 **Tests** | Vitest + jsdom covering challenge logic, storage, and typing stats |
-| 🚀 **Deploy** | Vercel-ready with sitemap generation and clean routing |
+<div align="center">
+
+| ⌨️ Modes | 🏟️ Arena | 🏅 Progression | 📊 Tracking | 🧪 Tests | 🚀 Deploy |
+|:---:|:---:|:---:|:---:|:---:|:---:|
+| Time · Words · Goal · Quote · Custom · Numbers | Daily locked challenges, seeded & rule-driven | Multi-tier badges, repeat-earn multipliers | Live WPM/accuracy, history, leaderboard | Vitest + jsdom | Vercel + auto sitemap |
+
+</div>
 
 <br/>
 
 ## 🖼️ Screenshots
 
-> Images live in `/screenshots` at the project root.
+<div align="center"><i>Images live in <code>/screenshots</code> at the project root.</i></div>
+<br/>
 
 <table>
   <tr>
-    <td width="50%"><img src="./screenshots/typing-test.png" /><p align="center"><sub>Typing Test — Classic Core</sub></p></td>
-    <td width="50%"><img src="./screenshots/challenge-arena.png" /><p align="center"><sub>Challenge Arena</sub></p></td>
+    <td width="50%"><img src="./screenshots/typing-test.png" /><p align="center"><sub><b>Typing Test</b> — Classic Core</sub></p></td>
+    <td width="50%"><img src="./screenshots/challenge-arena.png" /><p align="center"><sub><b>Challenge Arena</b></sub></p></td>
   </tr>
   <tr>
-    <td width="50%"><img src="./screenshots/result-screen.png" /><p align="center"><sub>Result Screen</sub></p></td>
-    <td width="50%"><img src="./screenshots/badge-gallery.png" /><p align="center"><sub>Badge Gallery</sub></p></td>
+    <td width="50%"><img src="./screenshots/result-screen.png" /><p align="center"><sub><b>Result Screen</b></sub></p></td>
+    <td width="50%"><img src="./screenshots/badge-gallery.png" /><p align="center"><sub><b>Badge Gallery</b></sub></p></td>
   </tr>
   <tr>
-    <td width="50%"><img src="./screenshots/leaderboard.png" /><p align="center"><sub>Leaderboard</sub></p></td>
-    <td width="50%"><img src="./screenshots/ex.png" /><p align="center"><sub>Theme</sub></p></td>
+    <td width="50%"><img src="./screenshots/leaderboard.png" /><p align="center"><sub><b>Leaderboard</b></sub></p></td>
+    <td width="50%"><img src="./screenshots/ex.png" /><p align="center"><sub><b>Dark / Light Theme</b></sub></p></td>
   </tr>
 </table>
 
@@ -89,132 +79,150 @@ Classic typing tests, quote & custom practice, daily **Challenge Arena** runs wi
 
 ## 🧰 Tech Stack
 
-<table>
-<tr>
-<td valign="top" width="50%">
+<div align="center">
 
 **Core**
-- React 18
-- Vite (dev, build, bundling)
-- Tailwind CSS
-- Framer Motion (transitions & motion)
-- Lucide React (icons)
-- canvas-confetti (celebration effects)
 
-</td>
-<td valign="top" width="50%">
+<img src="https://img.shields.io/badge/React_18-61DAFB?style=for-the-badge&logo=react&logoColor=black" />
+<img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white" />
+<img src="https://img.shields.io/badge/TailwindCSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white" />
+<img src="https://img.shields.io/badge/Framer_Motion-000000?style=for-the-badge&logo=framer&logoColor=white" />
+<img src="https://img.shields.io/badge/Lucide_React-F56565?style=for-the-badge&logo=lucide&logoColor=white" />
+<img src="https://img.shields.io/badge/canvas--confetti-FF6B6B?style=for-the-badge" />
 
 **Testing & Build**
-- Vitest
-- jsdom + Testing Library
-- vite-plugin-sitemap
-- Custom post-build sitemap sanitizer
 
-</td>
-</tr>
-</table>
+<img src="https://img.shields.io/badge/Vitest-6E9F18?style=for-the-badge&logo=vitest&logoColor=white" />
+<img src="https://img.shields.io/badge/jsdom-yellow?style=for-the-badge" />
+<img src="https://img.shields.io/badge/Testing_Library-E33332?style=for-the-badge&logo=testing-library&logoColor=white" />
+<img src="https://img.shields.io/badge/vite--plugin--sitemap-646CFF?style=for-the-badge" />
 
-**Browser/platform APIs used directly:** `localStorage` (persistence), `AudioContext` (sound), `requestAnimationFrame` (scroll sync), resize/scroll listeners (layout-aware overlays).
+**Platform APIs used directly**
 
-> Note: Recharts is **not** part of the current dependency tree — the result performance view is built with GoType's own UI and animation code.
+<img src="https://img.shields.io/badge/localStorage-gray?style=flat-square" />
+<img src="https://img.shields.io/badge/AudioContext-gray?style=flat-square" />
+<img src="https://img.shields.io/badge/requestAnimationFrame-gray?style=flat-square" />
+
+</div>
+
+> ℹ️ Recharts is **not** part of the current dependency tree — the result performance view is built with GoType's own UI and animation code.
 
 <br/>
 
 ## ✨ Core Features
 
-<details open>
-<summary><strong>⌨️ Classic Core</strong></summary>
+<table>
+<tr>
+<td width="50%" valign="top">
 
-- **Time** mode — configurable duration presets + custom input
-- **Words** mode — preset word counts + custom numeric field
-- **Goal** mode — *Sustain* (hold target WPM for a window) and *Reach* (complete the prompt while meeting target)
-- Best WPM tracked separately per mode + variant
+### ⌨️ Classic Core
+- **Time** — duration presets + custom input
+- **Words** — preset counts + custom numeric field
+- **Goal** — *Sustain* (hold target WPM) & *Reach* (complete while meeting target)
+- Best WPM tracked per mode + variant
 
-</details>
+</td>
+<td width="50%" valign="top">
 
-<details>
-<summary><strong>📝 Quote, Custom & Numbers</strong></summary>
+### 📝 Quote / Custom / Numbers
+- **Quote** — rhythm & punctuation from a large local bank
+- **Custom** — paste any text to practice
+- **Numbers** — mixed numeric drills
 
-- **Quote** — punctuation and rhythm practice from a large local quote bank
-- **Custom** — paste any text and practice it directly
-- **Numbers** — mixed numeric typing drills
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
 
-</details>
+### 📊 Live Performance Tracking
+- Continuous WPM, accuracy, time remaining, word progress
+- Recent-performance visualization on the result screen
+- History & Insights — mistake heatmap, CSV export
 
-<details>
-<summary><strong>📊 Live Performance Tracking</strong></summary>
+</td>
+<td width="50%" valign="top">
 
-- Continuously updating WPM, accuracy, time remaining, and word progress
-- Result screen with a recent-performance visualization
-- History & Insights: recent results, mistake heatmap summary, CSV export
+### 🖱️ Smart Auto-Scroll
+- Custom margin-aware scroll (not plain `scrollIntoView`)
+- Adjustable bottom margin (default 50px)
+- Respects manual scrolling
+- Resyncs automatically on long endless sessions
 
-</details>
+</td>
+</tr>
+<tr>
+<td width="50%" valign="top">
 
-<details>
-<summary><strong>🖱️ Auto-Scroll</strong></summary>
-
-- Custom margin-aware scroll calculation (not a plain `scrollIntoView`)
-- User-adjustable bottom margin (default 50px) via Settings
-- Respects manual scrolling instead of fighting the user
-- Resynchronizes automatically as long endless sessions grow
-
-</details>
-
-<details>
-<summary><strong>🔊 Sound & Theme</strong></summary>
-
-- Keypress, error, and milestone sounds via Web Audio
-- Volume control with persisted mute/unmute state
+### 🔊 Sound & Theme
+- Keypress / error / milestone sounds via Web Audio
+- Volume control, persisted mute state
 - Dark/light theme, persisted across sessions
 
-</details>
+</td>
+<td width="50%" valign="top">
 
-<details>
-<summary><strong>🏆 Leaderboard & Streaks</strong></summary>
+### 🏆 Leaderboard & Streaks
+- Filter by mode + Goal variant, sort by WPM/accuracy
+- High-accuracy curation (Goal Reach is stricter)
+- Sidebar streaks + daily goal progress
 
-- Filter by mode and Goal variant, sort by WPM/accuracy
-- High-accuracy result curation (Goal Reach enforces stricter completion rules)
-- Sidebar tracks streaks, daily goal progress, and current best WPM
-
-</details>
+</td>
+</tr>
+</table>
 
 <br/>
 
 ## 🏟️ Challenge Arena
 
-The competitive layer — daily, seeded, rule-driven challenges:
+<div align="center">
 
-| Challenge Family | Rule Focus |
+```
+        ┌─────────────────────────────────────────┐
+        │        🎯 DAILY SEEDED CHALLENGE          │
+        │     Same day → same challenge, always     │
+        └─────────────────────────────────────────┘
+                            │
+        ┌───────────────────┼───────────────────┐
+        ▼                   ▼                   ▼
+   🏃 Endurance      🚫 No-Backspace       ⚡ Speed Spike
+  Sustained runs      Zero-correction      Hit + sustain
+                        pressure            target WPM
+        │                   │                   │
+        ▼                   ▼                   ▼
+   🎯 Perfectionist    🔢 Numbers          🧠 Memory
+  High-accuracy       Numeric-heavy        Prompt hides,
+   completion            drills          then fades word-by-word
+```
+
+</div>
+
+| Rule | Behavior |
 |---|---|
-| **Endurance** | Sustained typing over longer runs |
-| **No-Backspace / Control** | Zero-correction accuracy pressure |
-| **Speed Spike** | Hit and sustain a target WPM window |
-| **Perfectionist** | High-accuracy completion |
-| **Numbers** | Numeric-heavy precision drills |
-| **Memory** | Prompt hides after a delay, then fades word-by-word |
-
-**How it works:**
-- Daily templates are generated from a seeded catalog — same day, same challenge, every time it's loaded
-- A reuse window prevents the same challenge resurfacing too soon
-- Runs can require minimum WPM, minimum accuracy, specific time limits, sustain thresholds, or no-backspace constraints
-- **Memory challenges** hide the prompt after `hideAfterSeconds` (~3s in current templates), then progressively fade unfaded words while the user is idle — completion is only valid if the prompt was actually hidden/faded during the run
-- **Attempt limit:** 3 failed attempts per day trigger a lock overlay that blocks further typing until the next day
+| **Reuse window** | Prevents the same challenge resurfacing too soon |
+| **Run constraints** | Minimum WPM, minimum accuracy, time limits, sustain thresholds, no-backspace |
+| **Memory fade** | Prompt hides after `hideAfterSeconds` (~3s), then fades unfaded words while idle — only counts as complete if hide/fade actually occurred |
+| **Attempt cap** | 3 failed attempts/day → 🔒 lock overlay blocks typing until the next day |
 
 <br/>
 
 ## 🏅 Badge System
 
-- Multiple badge **families**, each with **5 tiers**, plus standalone milestone badges
-- Badge records persist in `localStorage`, sanitized on load (`badgeId`, `name`, `iconName`, `earnedCount`, optional challenge metadata)
-- Repeated completions increment `earnedCount`, shown as multipliers (×2, ×3, …)
-- Icons are **Lucide icon names**, not custom bitmap art
-- Full browsable collection in the **Badge Gallery** (earned, locked, and repeated states)
+<div align="center">
+<img src="https://img.shields.io/badge/Families-multiple-8B5CF6?style=for-the-badge" />
+<img src="https://img.shields.io/badge/Tiers-5_per_family-EC4899?style=for-the-badge" />
+<img src="https://img.shields.io/badge/Multipliers-×2_×3_...-F59E0B?style=for-the-badge" />
+</div>
+
+- Persisted in `localStorage`, sanitized on load — `badgeId`, `name`, `iconName`, `earnedCount`, optional challenge metadata
+- Repeat completions increment `earnedCount`, displayed as multipliers
+- Icons are **Lucide icon names** — no custom bitmap art
+- Full browsable **Badge Gallery** (earned / locked / repeated states)
 
 <br/>
 
 ## 🏗️ Architecture
 
-The app is split into a presentation layer and a state/engine layer.
+<div align="center"><i>Presentation layer + state/engine layer, cleanly separated.</i></div>
 
 ```mermaid
 flowchart TD
@@ -240,24 +248,44 @@ flowchart TD
   O --> U[src/data/quotesLarge.js]
 ```
 
-**Engine** (`useTypingTest.js`) — the central controller: loads persisted settings, generates prompts, tracks typed text/correctness/cursor/time, computes WPM/accuracy, applies Arena rules, appends content for endless sessions, and persists results.
+<table>
+<tr><td width="33%" valign="top">
 
-**UI** (`TypingTest.jsx`) — the page-level orchestrator: connects the hook to the interface, renders header/selector/stats/typing area/sidebar, owns modal state, and controls keyboard shortcuts and focus.
+**🧠 Engine**
+`useTypingTest.js`
 
-**Prompt renderer** (`TypingText.jsx`) — tokenizes and renders words/characters, highlights correctness and cursor position, and manages custom scroll anchoring.
+Loads settings, generates prompts, tracks input/correctness/cursor/time, computes WPM/accuracy, applies Arena rules, appends endless content, persists results.
+
+</td>
+<td width="33%" valign="top">
+
+**🖥️ UI Orchestrator**
+`TypingTest.jsx`
+
+Connects the hook to the interface, renders header/selector/stats/typing area/sidebar, owns modal state, controls shortcuts and focus.
+
+</td>
+<td width="33%" valign="top">
+
+**✍️ Prompt Renderer**
+`TypingText.jsx`
+
+Tokenizes/renders words & characters, highlights correctness and cursor, manages custom scroll anchoring.
+
+</td>
+</tr>
+</table>
 
 <br/>
 
 ## 🔄 User Flow
 
-1. `index.html` loads → mounts React via `src/main.jsx`
-2. `App.jsx` reads saved theme and applies the shell
-3. `TypingTest.jsx` renders the workspace, selector, stats, sidebars, dialogs, Arena overlays
-4. `useTypingTest.js` generates the prompt, runs the timer, captures input, computes live stats
-5. User selects a mode and types — live feedback updates continuously
-6. In Challenge Arena: memory fades, no-backspace enforcement, attempt locking, and badge awards can all trigger
-7. On completion, `ResultScreen.jsx` shows the outcome, bests, and recent performance
-8. History, leaderboard, badge gallery, settings, and onboarding stay accessible throughout
+<div align="center">
+
+`index.html` → `main.jsx` → `App.jsx` (theme) → `TypingTest.jsx` (workspace) → `useTypingTest.js` (engine)
+→ **user types** → live feedback → *(Arena: fades / locks / badges)* → `ResultScreen.jsx` → history · leaderboard · badges · settings
+
+</div>
 
 <br/>
 
@@ -300,14 +328,16 @@ src/
 
 ## 💾 Persistence Model
 
-Everything lives in `localStorage`:
+<div align="center">
 
 | Category | Contents |
 |---|---|
-| **Preferences** | Theme, sound on/off + volume, scroll margin, onboarding-seen flag, mode/goal preferences |
-| **Performance** | Best WPM by mode, recent results, leaderboard entries |
-| **Progression** | Badge collection (`badgeId`, `name`, `iconName`, `earnedCount`, metadata) |
-| **Streaks** | Streak info, daily goal state, daily Arena attempt count |
+| ⚙️ **Preferences** | Theme, sound on/off + volume, scroll margin, onboarding-seen flag, mode/goal preferences |
+| 📈 **Performance** | Best WPM by mode, recent results, leaderboard entries |
+| 🏅 **Progression** | Badge collection (`badgeId`, `name`, `iconName`, `earnedCount`, metadata) |
+| 🔥 **Streaks** | Streak info, daily goal state, daily Arena attempt count |
+
+</div>
 
 **Result records** include mode key, word count/time limit, Goal variant, WPM, accuracy, correct/incorrect character counts, time used, and Challenge-specific flags (completion, failure, text-fade usage, prompt-hidden usage).
 
@@ -315,30 +345,39 @@ Everything lives in `localStorage`:
 
 ## 🚀 Getting Started
 
-### Install
+<table>
+<tr><td width="25%" align="center">
 
+**1️⃣ Install**
 ```bash
 npm install
 ```
 
-### Development server
+</td><td width="25%" align="center">
 
+**2️⃣ Dev Server**
 ```bash
 npm run dev
 ```
 
-### Production build
+</td><td width="25%" align="center">
 
+**3️⃣ Build**
 ```bash
 npm run build
 ```
-Runs `vite build && node scripts/fix-sitemap.mjs` under the hood.
 
-### Preview
+</td><td width="25%" align="center">
 
+**4️⃣ Preview**
 ```bash
 npm run preview
 ```
+
+</td></tr>
+</table>
+
+> `npm run build` runs `vite build && node scripts/fix-sitemap.mjs` under the hood.
 
 <br/>
 
@@ -348,34 +387,46 @@ npm run preview
 npm run test
 ```
 
-Current coverage focuses on the utility layer (Vitest + jsdom):
+<div align="center">
 
-- `dailyChallenge.test.js` — challenge generation & validation
-- `storage.test.js` — persistence & sanitization
-- `typingStats.test.js` — WPM/accuracy calculations
+| Test File | Covers |
+|---|---|
+| `dailyChallenge.test.js` | Challenge generation & validation |
+| `storage.test.js` | Persistence & sanitization |
+| `typingStats.test.js` | WPM / accuracy calculations |
+
+</div>
+
+Runs on **Vitest + jsdom** — no real browser runtime needed.
 
 <br/>
 
 ## 🌐 Deployment & SEO
 
-Built for **Vercel**, with:
+<div align="center">
+<img src="https://img.shields.io/badge/Deployed_on-Vercel-000000?style=for-the-badge&logo=vercel&logoColor=white" />
+</div>
 
-- `vercel.json` for clean routes + legacy `.html` compatibility
-- `index.html` with Open Graph, Twitter Card, structured data, and `robots` indexing
-- Dedicated `legal.html`, `privacy.html`, `terms.html`, `contact.html` with page-specific metadata
-- `public/robots.txt` pointing to the sitemap
-- `public/manifest.json` for installable web-app support
-- `public/og-image.png` social preview image
-- Sitemap generated during build, sanitized by `scripts/fix-sitemap.mjs`
+- `vercel.json` — clean routes + legacy `.html` compatibility
+- `index.html` — Open Graph, Twitter Card, structured data, `robots` indexing
+- `legal.html` / `privacy.html` / `terms.html` / `contact.html` — page-specific metadata
+- `public/robots.txt` — points to the sitemap
+- `public/manifest.json` — installable web-app support
+- `public/og-image.png` — social preview image
+- Sitemap generated at build time, sanitized by `scripts/fix-sitemap.mjs`
 
 <br/>
 
 ## ⌨️ Keyboard Shortcuts
 
+<div align="center">
+
 | Shortcut | Action |
-|---|---|
-| `Ctrl/Cmd + Shift + R` | Restart |
-| `Ctrl/Cmd + Shift + S` | Toggle sound |
+|:---:|:---:|
+| `Ctrl/Cmd + Shift + R` | 🔁 Restart |
+| `Ctrl/Cmd + Shift + S` | 🔊 Toggle sound |
+
+</div>
 
 > **Note:** `Escape` is not globally wired yet — modals close via their explicit controls/overlay actions.
 
@@ -383,14 +434,18 @@ Built for **Vercel**, with:
 
 ## 📋 Changelog
 
-**Recent improvements:**
-- Challenge Arena hardened — daily unique templates, rule validation, badge rewards, attempt locking
-- Memory-test behavior expanded — per-word fading after an idle delay
-- Auto-scroll rewritten — configurable bottom margin, manual-scroll respect, append-aware resync
-- Result screen — more engaging recent-performance visualization
-- SEO upgrade — titles, descriptions, canonical structure, manifest, structured data, robots.txt, sitemap
-- Static policy pages aligned with clean routing for deployment
-- Welcome tour updated to reflect the current layout (Arena sidebar, modern top controls)
+<details open>
+<summary><strong>Latest improvements</strong></summary>
+
+- 🏟️ Challenge Arena hardened — daily unique templates, rule validation, badge rewards, attempt locking
+- 🧠 Memory-test behavior expanded — per-word fading after an idle delay
+- 🖱️ Auto-scroll rewritten — configurable bottom margin, manual-scroll respect, append-aware resync
+- 📊 Result screen — more engaging recent-performance visualization
+- 🔍 SEO upgrade — titles, descriptions, canonical structure, manifest, structured data, robots.txt, sitemap
+- 📄 Static policy pages aligned with clean routing for deployment
+- 👋 Welcome tour updated to reflect the current layout (Arena sidebar, modern top controls)
+
+</details>
 
 <br/>
 
@@ -398,12 +453,14 @@ Built for **Vercel**, with:
 
 - [ ] Wire `Escape` globally for modal dismissal
 - [ ] Add pagination/grouping to the Badge Gallery as the catalogue grows
-- [ ] Evaluate a charting library if the performance visualization needs more depth (not currently using Recharts)
+- [ ] Evaluate a charting library if the performance visualization needs more depth
 
 <br/>
 
 <div align="center">
 
-**⭐ If you found this useful, consider giving it a star!**
+### ⭐ If GoType helped you type faster, consider starring the repo!
+
+<img src="https://capsule-render.vercel.app/api?type=waving&color=gradient&customColorList=6,11,20&height=120&section=footer" width="100%"/>
 
 </div>
