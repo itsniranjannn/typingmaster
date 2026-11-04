@@ -3,13 +3,10 @@ import {
   TYPING_MODES,
   TEST_DURATION_SECONDS,
   DEFAULT_GOAL_WPM,
-  GOAL_VARIANTS,
-  CUSTOM_TIME_MIN_SECONDS,
-  CUSTOM_TIME_MAX_SECONDS,
-  UNIVERSAL_MODES
+  GOAL_VARIANTS
 } from "../constants/typingModes";
-import { getRandomQuote, fetchRandomQuote } from "../data/quotes";
-import { generateRandomParagraph, getFirstNWords, generateNumbersParagraph, generateEndlessChunk } from "../utils/paragraphGenerator";
+import { fetchRandomQuote } from "../data/quotes";
+import { generateEndlessChunk } from "../utils/paragraphGenerator";
 import { useTypingSounds } from "./useTypingSounds";
 import { calculateAccuracy, calculateWpm } from "../utils/typingStats";
 import confetti from "canvas-confetti";
@@ -42,56 +39,16 @@ import {
   getChallengeObjectiveStatus
 } from "../utils/dailyChallenge";
 
-const DEFAULT_WORD_COUNT = 25;
-const QUOTE_LOADING_PLACEHOLDER = "Loading quote...";
-const getWordList = (text) => text.split(" ").filter((word) => word.length > 0);
-const getGeneratedTextForMode = (mode, wordCount) => {
-  if (mode === TYPING_MODES.WORDS) {
-    const sourceMin = Math.max(wordCount + 10, 35);
-    const sourceMax = Math.max(wordCount + 25, sourceMin + 10);
-    return getFirstNWords(generateRandomParagraph(sourceMin, sourceMax), wordCount);
-  }
-
-  if (mode === TYPING_MODES.NUMBERS) return generateNumbersParagraph();
-
-  if (mode === TYPING_MODES.TIME) return generateRandomParagraph(30, 30);
-
-  if (mode === TYPING_MODES.QUOTE) return getRandomQuote();
-
-  return generateRandomParagraph();
-};
-
-const normalizeMode = (value) => {
-  const validModes = [TYPING_MODES.TIME, TYPING_MODES.WORDS, TYPING_MODES.QUOTE, TYPING_MODES.CUSTOM, TYPING_MODES.GOAL, TYPING_MODES.NUMBERS, TYPING_MODES.CHALLENGE_ARENA];
-  return validModes.includes(value) ? value : TYPING_MODES.TIME;
-};
-
-const normalizeGoalVariant = (value) => (value === GOAL_VARIANTS.REACH ? GOAL_VARIANTS.REACH : GOAL_VARIANTS.SUSTAIN);
-
-const normalizeTimeLimitSeconds = (value) => {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return TEST_DURATION_SECONDS;
-  return Math.min(Math.max(Math.round(parsed), CUSTOM_TIME_MIN_SECONDS), CUSTOM_TIME_MAX_SECONDS);
-};
-
-const getBestWpmModeKey = ({ mode, wordCount, goalVariant, timeLimitSeconds }) => {
-  if (mode === TYPING_MODES.WORDS) {
-    const count = Number.isFinite(Number(wordCount)) ? Number(wordCount) : DEFAULT_WORD_COUNT;
-    return `words${count}`;
-  }
-
-  if (mode === TYPING_MODES.GOAL) {
-    return goalVariant === GOAL_VARIANTS.REACH ? "goalReach" : "goalSustain";
-  }
-
-  if (mode === TYPING_MODES.QUOTE) return "quote";
-  if (mode === TYPING_MODES.CUSTOM) return "custom";
-  if (mode === TYPING_MODES.NUMBERS) return "numbers";
-  if (mode === TYPING_MODES.CHALLENGE_ARENA) return "challengeArena";
-  if (mode === TYPING_MODES.TIME) return timeLimitSeconds > TEST_DURATION_SECONDS ? "time" : "time";
-
-  return "time";
-};
+import {
+  DEFAULT_WORD_COUNT,
+  QUOTE_LOADING_PLACEHOLDER,
+  getBestWpmModeKey,
+  getGeneratedTextForMode,
+  getWordList,
+  normalizeGoalVariant,
+  normalizeMode,
+  normalizeTimeLimitSeconds
+} from "../utils/typingModeHelpers";
 
 export const useTypingTest = () => {
   const initialMode = normalizeMode(getPreferredMode());
