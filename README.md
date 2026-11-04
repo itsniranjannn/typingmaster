@@ -105,7 +105,9 @@
 
 </div>
 
-> ℹ️ Recharts is **not** part of the current dependency tree — the result performance view is built with GoType's own UI and animation code.
+> ℹ️ Recharts is **not** part of the dependency tree — charts are hand-built SVG.
+
+**Design:** "Wine & Periwinkle" palette (indigo inks, periwinkle primary, sand accents; sand + wine in light theme). Fonts: Sora (display), Inter (body), JetBrains Mono (typing).
 
 <br/>
 
@@ -136,8 +138,13 @@
 
 ### 📊 Live Performance Tracking
 - Continuous WPM, accuracy, time remaining, word progress
-- Recent-performance visualization on the result screen
-- History & Insights — mistake heatmap, CSV export
+- **WPM-over-time chart** on every result, with average and personal-best lines
+- History & Insights — keys-you-miss heatmap, CSV export
+
+### 🎯 Practice Tools
+- **Weak-key drills** generated from the keys you miss most
+- **Ghost cursor** replays your personal-best pace for the current mode
+- Share your result (native share sheet or clipboard)
 
 </td>
 <td width="50%" valign="top">
@@ -394,6 +401,8 @@ npm run test
 | `dailyChallenge.test.js` | Challenge generation & validation |
 | `storage.test.js` | Persistence & sanitization |
 | `typingStats.test.js` | WPM / accuracy calculations |
+| `typingModeHelpers.test.js` | Mode normalization, best-WPM keys, text generation |
+| `practiceTools.test.js` | Weak-key drills, ghost interpolation, ghost/sample storage |
 
 </div>
 
@@ -428,7 +437,7 @@ Runs on **Vitest + jsdom** — no real browser runtime needed.
 
 </div>
 
-> **Note:** `Escape` is not globally wired yet — modals close via their explicit controls/overlay actions.
+`Escape` closes the tour, modals and the sidebar.
 
 <br/>
 
@@ -436,6 +445,12 @@ Runs on **Vitest + jsdom** — no real browser runtime needed.
 
 <details open>
 <summary><strong>Latest improvements</strong></summary>
+
+- 🎨 New logo and Wine & Periwinkle palette, Sora display font
+- 👋 First visit focuses the typing box; the tour is a short, opt-in 3 steps
+- 📈 WPM-over-time chart, 👻 ghost cursor and 🎯 weak-key drills
+- 🛠️ Arena fixes: milestone badges, challenge rotation, numbers prompts, persisted metadata
+- ⌨️ `Escape` closes modals; CI runs tests and build on every push
 
 - 🏟️ Challenge Arena hardened — daily unique templates, rule validation, badge rewards, attempt locking
 - 🧠 Memory-test behavior expanded — per-word fading after an idle delay
@@ -451,7 +466,10 @@ Runs on **Vitest + jsdom** — no real browser runtime needed.
 
 ## 🗺️ Roadmap
 
-- [ ] Wire `Escape` globally for modal dismissal
+- [x] Wire `Escape` globally for modal dismissal
+- [ ] Split `useTypingTest.js` into smaller hooks with engine tests
+- [ ] Add ESLint + Prettier and a lint step in CI
+- [ ] Mobile layout pass
 - [ ] Add pagination/grouping to the Badge Gallery as the catalogue grows
 - [ ] Evaluate a charting library if the performance visualization needs more depth
 
