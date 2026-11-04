@@ -1,14 +1,29 @@
+import colors from "tailwindcss/colors";
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,jsx}"],
   theme: {
     extend: {
       colors: {
+        // Aurora palette: violet primary, fuchsia accent, indigo support.
+        // Remapping the stock scales re-themes every existing sky/cyan/blue utility at once.
+        sky: colors.violet,
+        cyan: colors.fuchsia,
+        blue: colors.indigo,
+        // Slightly purple-tinted inks for the dark theme.
+        slate: {
+          ...colors.slate,
+          700: "#342d52",
+          800: "#1f1a33",
+          900: "#14102a",
+          950: "#0b0818"
+        },
         brand: {
-          300: "#7dd3fc",
-          400: "#38bdf8",
-          500: "#0ea5e9",
-          600: "#0284c7"
+          300: "#c4b5fd",
+          400: "#a78bfa",
+          500: "#8b5cf6",
+          600: "#7c3aed"
         },
         surface: {
           dark: "#0f172a",

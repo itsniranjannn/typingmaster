@@ -1,34 +1,58 @@
 import { motion } from "framer-motion";
-import { Keyboard } from "lucide-react";
+
+/**
+ * GoType mark: a rounded keycap holding a "G" built from an arc and a bar,
+ * with a blinking caret beside it. Pure SVG so it scales crisply and themes via gradients.
+ */
+export function LogoMark({ size = 44 }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" role="img" aria-label="GoType logo">
+      <defs>
+        <linearGradient id="gt-key" x1="4" y1="4" x2="44" y2="44" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#8b5cf6" />
+          <stop offset="1" stopColor="#d946ef" />
+        </linearGradient>
+        <linearGradient id="gt-shine" x1="24" y1="4" x2="24" y2="26" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stopColor="#fff" stopOpacity="0.35" />
+          <stop offset="1" stopColor="#fff" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <rect x="3" y="3" width="42" height="42" rx="12" fill="url(#gt-key)" />
+      <rect x="3" y="3" width="42" height="42" rx="12" fill="url(#gt-shine)" />
+      <path
+        d="M30.5 17.5A9 9 0 1 0 31 28.5V24H24"
+        fill="none"
+        stroke="#fff"
+        strokeWidth="3.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <motion.rect
+        x="35.5"
+        y="15"
+        width="2.6"
+        height="18"
+        rx="1.3"
+        fill="#fff"
+        animate={{ opacity: [1, 1, 0, 0] }}
+        transition={{ duration: 1.1, repeat: Infinity, times: [0, 0.5, 0.5, 1] }}
+      />
+    </svg>
+  );
+}
 
 function AppLogo({ isDark = true }) {
   return (
-    <motion.div
-      className="group flex items-center gap-3 cursor-pointer"
-      whileHover={{ scale: 1.04 }}
-      whileTap={{ scale: 0.98 }}
-    >
-      <motion.div
-        className={`relative flex h-12 w-12 items-center justify-center rounded-2xl border ${
-          isDark
-            ? "border-cyan-400/25 bg-gradient-to-br from-slate-900 to-slate-800 shadow-[0_18px_40px_rgba(2,6,23,0.6)]"
-            : "border-blue-200 bg-gradient-to-br from-white to-slate-50 shadow-[0_18px_40px_rgba(15,23,42,0.12)]"
-        }`}
-        initial={{ rotate: 0 }}
-        animate={{ rotate: [0, 3, -3, 0] }}
-        transition={{ duration: 6, repeat: Infinity, repeatDelay: 1 }}
-      >
-        <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-cyan-400/12 via-blue-400/8 to-violet-500/10 blur-sm" />
-        <Keyboard size={20} className="relative z-10 text-cyan-300" />
-      </motion.div>
+    <motion.div className="group flex cursor-pointer items-center gap-3" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
+      <div className="rounded-2xl shadow-[0_10px_30px_rgba(139,92,246,0.45)]">
+        <LogoMark size={44} />
+      </div>
       <div className="flex flex-col leading-none">
-        <span
-          className="text-lg font-semibold tracking-[-0.02em] text-transparent bg-gradient-to-r from-cyan-300 via-sky-400 to-blue-500 bg-clip-text"
-          style={{ fontFamily: "'Space Grotesk', sans-serif" }}
-        >
-          GoType
+        <span className="text-xl font-bold tracking-[-0.03em]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
+          <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">Go</span>
+          <span className={isDark ? "text-white" : "text-slate-900"}>Type</span>
         </span>
-        <small className={`text-[11px] -mt-0.5 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Practice. Improve. Repeat.</small>
+        <small className={`mt-1 text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"}`}>Practice. Improve. Repeat.</small>
       </div>
     </motion.div>
   );
