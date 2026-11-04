@@ -15,7 +15,7 @@ const formatCharacter = (character) => {
   return character;
 };
 
-function HistoryInsights({ isDark = true, onExportCsv, closeSignal = 0 }) {
+function HistoryInsights({ isDark = true, onExportCsv, onStartDrill, closeSignal = 0 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [results, setResults] = useState([]);
   const [topMistakes, setTopMistakes] = useState([]);
@@ -25,7 +25,7 @@ function HistoryInsights({ isDark = true, onExportCsv, closeSignal = 0 }) {
 
     const latestResults = getLastResults();
     setResults(latestResults);
-    setTopMistakes(getTopMistakes(latestResults, 5));
+    setTopMistakes(getTopMistakes(latestResults, 5, 10));
   }, [isExpanded]);
 
   useEffect(() => {
@@ -107,7 +107,7 @@ function HistoryInsights({ isDark = true, onExportCsv, closeSignal = 0 }) {
           </div>
 
           <div>
-            <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Mistake Heatmap (last 3 tests)</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">Keys you miss most (last 10 tests)</h3>
             {topMistakes.length === 0 ? (
               <p className="mt-2 text-sm text-slate-400">No mistake data available yet.</p>
             ) : (
@@ -125,6 +125,15 @@ function HistoryInsights({ isDark = true, onExportCsv, closeSignal = 0 }) {
                   );
                 })}
               </div>
+            )}
+            {topMistakes.length > 0 && onStartDrill && (
+              <button
+                type="button"
+                onClick={onStartDrill}
+                className="mt-4 rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white shadow-lg transition hover:from-violet-400 hover:to-fuchsia-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300"
+              >
+                Start weak-key drill
+              </button>
             )}
           </div>
         </div>

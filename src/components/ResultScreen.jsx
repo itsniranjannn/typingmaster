@@ -14,6 +14,8 @@ import {
   Lock
 } from "lucide-react";
 import { loadResults } from "../utils/storage";
+import { buildSmoothPath } from "../utils/chartPath";
+import WpmRunChart from "./WpmRunChart";
 
 const ICONS = {
   Award,
@@ -36,38 +38,13 @@ const MODE_FILTERS = [
   { key: "challenge_arena", label: "Arena" }
 ];
 
-const buildSmoothPath = (points, valueKey) => {
-  if (!Array.isArray(points) || points.length === 0) return "";
-  if (points.length === 1) {
-    const point = points[0];
-    return `M ${point.x} ${point[valueKey]}`;
-  }
-
-  const path = [`M ${points[0].x} ${points[0][valueKey]}`];
-
-  for (let index = 0; index < points.length - 1; index += 1) {
-    const current = points[index];
-    const next = points[index + 1];
-    const previous = points[index - 1] || current;
-    const following = points[index + 2] || next;
-
-    const controlPoint1X = current.x + (next.x - previous.x) / 6;
-    const controlPoint1Y = current[valueKey] + (next[valueKey] - previous[valueKey]) / 6;
-    const controlPoint2X = next.x - (following.x - current.x) / 6;
-    const controlPoint2Y = next[valueKey] - (following[valueKey] - current[valueKey]) / 6;
-
-    path.push(`C ${controlPoint1X} ${controlPoint1Y}, ${controlPoint2X} ${controlPoint2Y}, ${next.x} ${next[valueKey]}`);
-  }
-
-  return path.join(" ");
-};
-
 function ResultScreenContent({
   result,
   bestWpm,
   onRestart,
   onViewBadgeGallery,
   onExitToClassicCore,
+  onStartDrill,
   arenaMode = false,
   isDark = true
 }) {
@@ -244,15 +221,15 @@ function ResultScreenContent({
             <defs>
               <linearGradient id="wpmLine" x1="0" x2="1" y1="0" y2="0">
                 <stop offset="0%" stopColor="#22d3ee" />
-                <stop offset="100%" stopColor="#38bdf8" />
+                <stop offset="100%" stopColor="#a78bfa" />
               </linearGradient>
               <linearGradient id="accLine" x1="0" x2="1" y1="0" y2="0">
                 <stop offset="0%" stopColor="#a78bfa" />
                 <stop offset="100%" stopColor="#f472b6" />
               </linearGradient>
               <linearGradient id="wpmAreaFill" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="#38bdf8" stopOpacity="0.22" />
-                <stop offset="100%" stopColor="#38bdf8" stopOpacity="0" />
+                <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.22" />
+                <stop offset="100%" stopColor="#a78bfa" stopOpacity="0" />
               </linearGradient>
               <linearGradient id="accAreaFill" x1="0" x2="0" y1="0" y2="1">
                 <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.12" />
@@ -276,7 +253,7 @@ function ResultScreenContent({
                     cx={point.x}
                     cy={point.wpmY}
                     r={rWpm}
-                    fill="#38bdf8"
+                    fill="#a78bfa"
                     onMouseEnter={(e) => handlePointEnter(point, index, e)}
                     onMouseMove={(e) => handlePointMove(point, e)}
                     onMouseLeave={handlePointLeave}
@@ -498,6 +475,23 @@ function ResultScreenContent({
           <p className={`mt-4 text-4xl font-bold text-sky-400 tabular-nums md:text-5xl`}>{bestWpm}</p>
         </div>
       </div>
+
+      {Array.isArray(result.wpmSamples) && result.wpmSamples.length >= 2 && (
+        <div className={`rounded-2xl border ${cardClass} p-5`}>
+          <WpmRunChart samples={result.wpmSamples} bestWpm={bestWpm} isDark={isDark} />
+        </div>
+      )}
+
+      {onStartDrill && Array.isArray(result.mistypedCharacters) && result.mistypedCharacters.length > 0 && (
+        <div className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border ${cardClass} px-5 py-4`}>
+          <p className={`text-sm ${secondaryText}`}>
+            You missed <span className="font-mono font-semibold text-fuchsia-400">{[...new Set(result.mistypedCharacters.map((character) => (character === " " ? "␣" : character)))].slice(0, 6).join(" ")}</span> most. Train those keys next.
+          </p>
+          <button type="button" onClick={onStartDrill} className="rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-violet-400 hover:to-fuchsia-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300">
+            Weak-key drill
+          </button>
+        </div>
+      )}
 
       <div className="relative flex gap-3 pt-4">
         <button onClick={onRestart} aria-label="Restart test" className={`flex-1 rounded-full bg-gradient-to-r from-purple-600 to-blue-500 px-6 py-3 text-base font-semibold text-white shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 hover:from-purple-700 hover:to-blue-600 md:py-4 md:text-lg`}>

@@ -23,10 +23,10 @@ export const calculateAccuracy = (correctCharacters, totalTypedCharacters) => {
   return Number(Math.min(rawAccuracy, 100).toFixed(2));
 };
 
-export const getTopMistakes = (results, limit = 5) => {
+export const getTopMistakes = (results, limit = 5, windowSize = 3) => {
   if (!Array.isArray(results) || results.length === 0) return [];
 
-  const recentResults = results.slice(0, Math.min(3, results.length));
+  const recentResults = results.slice(0, Math.min(Math.max(windowSize, 1), results.length));
   const mistakeCounter = new Map();
 
   recentResults.forEach((result) => {

@@ -13,7 +13,9 @@ const STORAGE_KEYS = {
   SOUND: "typingMaster.soundEnabled",
   SOUND_VOLUME: "typingMaster.soundVolume",
   SCROLL_MARGIN: "typingMaster.scrollMargin",
-  HAS_SEEN_TOUR: "typingMaster.hasSeenTour"
+  HAS_SEEN_TOUR: "typingMaster.hasSeenTour",
+  GHOST_ENABLED: "typingMaster.ghostEnabled",
+  GHOST_RUNS: "typingMaster.ghostRuns"
 };
 
 const STREAK_KEYS = {
@@ -328,6 +330,11 @@ const sanitizeBadge = (value) => {
   };
 };
 
+const sanitizeSamples = (value) =>
+  Array.isArray(value)
+    ? value.filter((entry) => isFiniteNumber(entry) && entry >= 0).slice(0, 300).map((entry) => Math.round(entry))
+    : [];
+
 const sanitizeResult = (result) => {
   if (!result || typeof result !== "object") return null;
 
@@ -363,7 +370,8 @@ const sanitizeResult = (result) => {
     challengeCompleted: typeof result.challengeCompleted === "boolean" ? result.challengeCompleted : false,
     challengeCompletedToday: typeof result.challengeCompletedToday === "boolean" ? result.challengeCompletedToday : false,
     challengeFailed: typeof result.challengeFailed === "boolean" ? result.challengeFailed : false,
-    challengeStreak: sanitizeNumber(result.challengeStreak, 0)
+    challengeStreak: sanitizeNumber(result.challengeStreak, 0),
+    wpmSamples: sanitizeSamples(result.wpmSamples)
   };
 
   return stripChallengeFieldsForNonArenaResult(sanitized);
@@ -816,4 +824,25 @@ export const resetDailyChallengeState = () => {
   safeWrite(DAILY_CHALLENGE_KEYS.HISTORY, []);
   safeWrite(DAILY_CHALLENGE_KEYS.ATTEMPTS, null);
   return { state: null, history: [] };
+};
+
+export const getGhostEnabled = () => sanitizeBoolean(safeRead(STORAGE_KEYS.GHOST_ENABLED, true), true);
+export const setGhostEnabled = (enabled) => safeWrite(STORAGE_KEYS.GHOST_ENABLED, sanitizeBoolean(enabled, true));
+
+const readGhostRuns = () => {
+  const stored = safeRead(STORAGE_KEYS.GHOST_RUNS, {});
+  return stored && typeof stored === "object" && !Array.isArray(stored) ? stored : {};
+};
+
+/** Cumulative correct characters per second of the personal-best run for a mode key. */
+export const getGhostRun = (modeKey) => {
+  const run = readGhostRuns()[modeKey];
+  return Array.isArray(run) ? sanitizeSamples(run) : [];
+};
+
+export const setGhostRun = (modeKey, charSamples) => {
+  if (typeof modeKey !== "string" || !modeKey) return;
+  const samples = sanitizeSamples(charSamples);
+  if (samples.length < 3) return;
+  safeWrite(STORAGE_KEYS.GHOST_RUNS, { ...readGhostRuns(), [modeKey]: samples });
 };

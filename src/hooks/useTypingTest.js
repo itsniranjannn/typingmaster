@@ -6,13 +6,20 @@ import {
   GOAL_VARIANTS
 } from "../constants/typingModes";
 import { fetchRandomQuote } from "../data/quotes";
-import { generateEndlessChunk } from "../utils/paragraphGenerator";
+import { generateEndlessChunk, generateWeakKeyParagraph } from "../utils/paragraphGenerator";
+import { useRunRecorder } from "./useRunRecorder";
+import { useGhostCursor } from "./useGhostCursor";
 import { useTypingSounds } from "./useTypingSounds";
-import { calculateAccuracy, calculateWpm } from "../utils/typingStats";
+import { calculateAccuracy, calculateWpm, getTopMistakes } from "../utils/typingStats";
 import confetti from "canvas-confetti";
 import {
   addResult,
   getBestWpmByMode,
+  getGhostEnabled,
+  getGhostRun,
+  getLastResults,
+  setGhostEnabled,
+  setGhostRun,
   getStreak,
   updateStreakWithTimestamp,
   getDailyGoalProgress,
@@ -786,7 +793,8 @@ export const useTypingTest = () => {
           correctCharsRef.current += 1;
         } else {
           incorrectCharsRef.current += 1;
-          mistypedCharactersRef.current.push(typedChar);
+          // Record the key the typist was aiming for: that is the weak key worth drilling.
+          mistypedCharactersRef.current.push(targetChar);
         }
 
         if (typedChar === " ") {
@@ -886,7 +894,7 @@ export const useTypingTest = () => {
           playCorrectKey();
         } else {
           incorrectCharsRef.current += 1;
-          mistypedCharactersRef.current.push(newChar);
+          mistypedCharactersRef.current.push(targetChar);
           playIncorrectKeyForWord(currentWordIndexRef.current);
         }
 
@@ -1454,6 +1462,43 @@ export const useTypingTest = () => {
     }
   }, [finishTest, hasStarted, mode, paragraph, typedText]);
 
+  const { getSamples } = useRunRecorder({
+    elapsedSeconds,
+    correctCharacters: engineSnapshot.correctCharacters,
+    hasStarted,
+    isFinished
+  });
+
+  const [isGhostEnabled, setIsGhostEnabled] = useState(() => getGhostEnabled());
+  const ghostCharSamples = useMemo(
+    () => (mode === TYPING_MODES.CHALLENGE_ARENA ? [] : getGhostRun(currentBestKey)),
+    // finalResult changes when a new personal best may have been stored.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentBestKey, finalResult, mode]
+  );
+  const ghostIndex = useGhostCursor({
+    charSamples: ghostCharSamples,
+    enabled: isGhostEnabled,
+    hasStarted,
+    isFinished
+  });
+
+  const toggleGhost = useCallback(() => {
+    setIsGhostEnabled((current) => {
+      setGhostEnabled(!current);
+      return !current;
+    });
+  }, []);
+
+  const startWeakKeyDrill = useCallback(() => {
+    const weakKeys = getTopMistakes(getLastResults(), 5, 10);
+    if (weakKeys.length === 0) return false;
+    const drillText = generateWeakKeyParagraph(weakKeys, 30);
+    setCustomText(drillText);
+    resetTypingState({ nextMode: TYPING_MODES.CUSTOM, nextCustomText: drillText });
+    return true;
+  }, [resetTypingState]);
+
   useEffect(() => {
     if (!isFinished || !hasStarted || hasSavedResultRef.current) return;
 
@@ -1475,8 +1520,14 @@ export const useTypingTest = () => {
       setBestWpmByMode(nextBestMap);
     }
 
+    const runSamples = getSamples();
+    if (mode !== TYPING_MODES.CHALLENGE_ARENA && finalWpm > previousBest) {
+      setGhostRun(currentBestKey, runSamples.map((sample) => sample.chars));
+    }
+
     const result = {
       id: Date.now(),
+      wpmSamples: runSamples.map((sample) => sample.wpm),
       mode,
       wordCount: mode === TYPING_MODES.WORDS ? wordCount : null,
       goalVariant: mode === TYPING_MODES.GOAL ? goalVariant : null,
@@ -1598,7 +1649,8 @@ export const useTypingTest = () => {
     timeLimitSeconds,
     wordCount,
     rawWpm,
-    calculateArenaWpm
+    calculateArenaWpm,
+    getSamples
   ]);
 
   return {
@@ -1666,6 +1718,11 @@ export const useTypingTest = () => {
     toggleActive,
     streakInfo,
     startDailyChallenge,
-    cancelDailyChallenge
+    cancelDailyChallenge,
+    ghostIndex,
+    hasGhost: ghostCharSamples.length > 0,
+    isGhostEnabled,
+    toggleGhost,
+    startWeakKeyDrill
   };
 };

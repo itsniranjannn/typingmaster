@@ -213,3 +213,47 @@ export const getFirstNWords = (text, n) => {
     .slice(0, limit)
     .join(" ");
 };
+
+/**
+ * Builds a drill that leans on the characters the typist misses most.
+ * `weakCharacters` is an array of single characters or { character, count } entries.
+ */
+export const generateWeakKeyParagraph = (weakCharacters = [], wordTarget = 30) => {
+  const weights = new Map();
+  weakCharacters.forEach((entry) => {
+    const character = typeof entry === "string" ? entry : entry?.character;
+    const count = typeof entry === "string" ? 1 : Math.max(1, Number(entry?.count) || 1);
+    if (typeof character === "string" && character.length === 1 && character.trim()) {
+      weights.set(character.toLowerCase(), (weights.get(character.toLowerCase()) || 0) + count);
+    }
+  });
+
+  const letters = [...weights.keys()].filter((character) => /[a-z]/.test(character));
+  const symbols = [...weights.keys()].filter((character) => !/[a-z]/.test(character));
+  if (letters.length === 0 && symbols.length === 0) return generateRandomParagraph(wordTarget, wordTarget);
+
+  const pools = letters.map((letter) => ({ letter, words: wordBank.filter((word) => word.includes(letter)) })).filter((pool) => pool.words.length > 0);
+  const totalWeight = pools.reduce((sum, pool) => sum + weights.get(pool.letter), 0);
+
+  const pickPool = () => {
+    let roll = Math.random() * totalWeight;
+    for (const pool of pools) {
+      roll -= weights.get(pool.letter);
+      if (roll <= 0) return pool;
+    }
+    return pools[pools.length - 1];
+  };
+
+  const words = [];
+  for (let index = 0; index < wordTarget; index += 1) {
+    const pool = pools.length > 0 && Math.random() < 0.85 ? pickPool() : null;
+    let word = pool ? pool.words[randomInt(0, pool.words.length - 1)] : randomWord();
+    if (symbols.length > 0 && index % 3 === 2) {
+      const symbol = symbols[randomInt(0, symbols.length - 1)];
+      word = `${word}${symbol}`;
+    }
+    words.push(word);
+  }
+
+  return normalizeSpaces(words.join(" "));
+};

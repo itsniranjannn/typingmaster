@@ -68,6 +68,10 @@ const areTokenPropsEqual = (previousProps, nextProps) => {
   
   if (previousProps.currentWordIndex !== nextProps.currentWordIndex) return false;
   if (previousProps.activeIndex !== nextProps.activeIndex) return false;
+  if (previousProps.ghostIndex !== nextProps.ghostIndex) {
+    const touchesToken = (ghost) => ghost >= nextToken.start && ghost <= nextToken.end;
+    if (touchesToken(previousProps.ghostIndex) || touchesToken(nextProps.ghostIndex)) return false;
+  }
   if (previousToken.id !== nextToken.id) return false;
   if (previousToken.text !== nextToken.text) return false;
   if (previousToken.start !== nextToken.start || previousToken.end !== nextToken.end) return false;
@@ -88,6 +92,7 @@ const TypingToken = memo(function TypingToken({
   characterStates,
   currentWordIndex,
   activeIndex,
+  ghostIndex = -1,
   isDark,
   hideContent,
   fadedWords,
@@ -152,7 +157,9 @@ const TypingToken = memo(function TypingToken({
                 ? isDark
                   ? "bg-yellow-500/60 text-white"
                   : "bg-yellow-300/80 text-black"
-                : ""
+                : index === ghostIndex
+                  ? "rounded-sm bg-fuchsia-400/25 underline decoration-fuchsia-400 decoration-2 underline-offset-4"
+                  : ""
             }`}
           >
             {character}
@@ -167,6 +174,7 @@ function TypingText({
   paragraph = "",
   characterStates = [],
   activeIndex = -1,
+  ghostIndex = -1,
   currentWordIndex = 0,
   className = "",
   style,
@@ -412,7 +420,7 @@ function TypingText({
         scrollBehavior: "smooth"
       }}
       className={`typing-area relative mx-auto min-h-[140px] max-h-[55vh] w-full max-w-[76rem] rounded-2xl p-4 sm:p-6 font-mono text-[calc(1.2rem*var(--typing-scale))] sm:text-[calc(1.6rem*var(--typing-scale))] md:text-[calc(1.8rem*var(--typing-scale))] leading-[1.5] tracking-[0.01em] cursor-text outline-none overflow-x-hidden overflow-y-auto overscroll-contain whitespace-pre-wrap ${
-        focused ? (isDark ? "ring-1 ring-cyan-300/40 shadow-[0_0_0_1px_rgba(103,232,249,0.12),inset_0_0_55px_rgba(34,211,238,0.08)]" : "ring-1 ring-cyan-500/35 shadow-[0_0_0_1px_rgba(14,165,233,0.08),inset_0_0_55px_rgba(14,165,233,0.06)]") : ""
+        focused ? (isDark ? "ring-1 ring-cyan-300/40 shadow-[0_0_0_1px_rgba(103,232,249,0.12),inset_0_0_55px_rgba(232, 121, 249,0.08)]" : "ring-1 ring-cyan-500/35 shadow-[0_0_0_1px_rgba(139, 92, 246,0.08),inset_0_0_55px_rgba(139, 92, 246,0.06)]") : ""
       } ${className}`}
       tabIndex={0}
       role="textbox"
@@ -440,6 +448,7 @@ function TypingText({
               characterStates={characterStates}
               currentWordIndex={currentWordIndex}
               activeIndex={activeIndex}
+              ghostIndex={ghostIndex}
               isDark={isDark}
               hideContent={hideContent}
               fadedWords={fadedWords}
