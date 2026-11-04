@@ -85,6 +85,7 @@ describe("storage helpers", () => {
       timeLimitSeconds: 25,
       soundEnabled: false,
       soundVolume: 0.7,
+      scrollMargin: 50,
       hasSeenTour: true
     });
   });
@@ -104,6 +105,7 @@ describe("storage helpers", () => {
       timeLimitSeconds: 25,
       soundEnabled: true,
       soundVolume: 0.5,
+      scrollMargin: 50,
       hasSeenTour: false
     });
   });
