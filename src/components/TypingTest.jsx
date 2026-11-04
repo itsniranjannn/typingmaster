@@ -651,11 +651,11 @@ function TypingTest({ theme, onToggleTheme }) {
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
-        className="border-b border-wine-950/60 bg-gradient-to-r from-wine-900 via-wine-800 to-wine-900 shadow-[0_8px_30px_rgba(46,9,22,0.45)]"
+        className={`border-b backdrop-blur ${isDark ? "border-slate-700/60 bg-slate-900/90 shadow-[0_8px_30px_rgba(12,13,36,0.4)]" : "border-slate-200 bg-slate-100/95 shadow-[0_6px_24px_rgba(95,74,34,0.08)]"}`}
       >
         <div className="flex flex-col lg:flex-row items-center justify-between gap-4 px-4 py-4 sm:px-8">
           <div className="flex items-center gap-4 w-full lg:w-auto">
-            <AppLogo />
+            <AppLogo isDark={isDark} />
             {/* simplified nav - removed Practice / Leaderboard / Pro Tip links per request */}
           </div>
           <div className="w-full flex-1 min-w-0 lg:px-2 mt-3 lg:mt-0">
@@ -689,26 +689,27 @@ function TypingTest({ theme, onToggleTheme }) {
               onToggleSound={toggleSound}
               volume={volume}
               onVolumeChange={setVolume}
+              isDark={isDark}
             />
 
             <motion.button
               onClick={onToggleTheme}
-              className={`p-2 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 bg-white/10 text-sand-100 hover:bg-white/20`}
+              className={`p-2 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 ${isDark ? "bg-slate-900 hover:bg-slate-800" : "bg-slate-200 hover:bg-slate-300"}`}
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.96 }}
               transition={{ duration: 0.18 }}
               aria-label="Toggle theme"
             >
               {isDark ? (
-                <Sun size={18} className="text-sand-300" />
+                <Sun size={18} className="text-yellow-500" />
               ) : (
-                <Moon size={18} className="text-sand-200" />
+                <Moon size={18} className="text-slate-700" />
               )}
             </motion.button>
             {/* Leaderboard button (open leaderboard modal) */}
             <motion.button
               onClick={() => setIsLeaderboardOpen(true)}
-              className={`p-2 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 bg-white/10 text-sand-100 hover:bg-white/20`}
+              className={`p-2 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 ${isDark ? "bg-slate-900 hover:bg-slate-800" : "bg-slate-200 hover:bg-slate-300"}`}
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.96 }}
               transition={{ duration: 0.18 }}
@@ -719,7 +720,7 @@ function TypingTest({ theme, onToggleTheme }) {
 
             <motion.button
               onClick={() => setIsBadgeGalleryOpen(true)}
-              className={`p-2 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 bg-white/10 text-sand-100 hover:bg-white/20`}
+              className={`p-2 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 ${isDark ? "bg-slate-900 hover:bg-slate-800" : "bg-slate-200 hover:bg-slate-300"}`}
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.96 }}
               transition={{ duration: 0.18 }}
@@ -730,7 +731,7 @@ function TypingTest({ theme, onToggleTheme }) {
 
             <motion.button
               onClick={() => setIsSettingsOpen(true)}
-              className={`p-2 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 bg-white/10 text-sand-100 hover:bg-white/20`}
+              className={`p-2 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 ${isDark ? "bg-slate-900 hover:bg-slate-800" : "bg-slate-200 hover:bg-slate-300"}`}
               whileHover={{ scale: 1.1, rotate: 90 }}
               whileTap={{ scale: 0.95 }}
               transition={{ duration: 0.3 }}
@@ -741,7 +742,7 @@ function TypingTest({ theme, onToggleTheme }) {
 
             <motion.button
               onClick={startWelcomeTour}
-              className={`p-2 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 bg-white/10 text-sand-100 hover:bg-white/20`}
+              className={`p-2 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 ${isDark ? "bg-slate-900 hover:bg-slate-800" : "bg-slate-200 hover:bg-slate-300"}`}
               whileHover={{ scale: 1.08 }}
               whileTap={{ scale: 0.96 }}
               aria-label="Show the quick tour"

@@ -75,6 +75,21 @@ export default {
           900: "#15163a",
           950: "#0c0d24"
         },
+        gray: {
+          ...colors.slate,
+          // Light-theme surfaces lean sand instead of cool grey.
+          50: "#faf4e6",
+          100: "#f4ebd8",
+          200: "#e9dcc2",
+          300: "#c5c9e7",
+          400: "#9fa3cc",
+          500: "#7d81ad",
+          600: "#4f5380",
+          700: "#2f3160",
+          800: "#1f2048",
+          900: "#15163a",
+          950: "#0c0d24"
+        },
         brand: {
           300: "#bdbff0",
           400: "#a8a0e3",

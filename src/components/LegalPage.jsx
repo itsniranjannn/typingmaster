@@ -114,8 +114,8 @@ function LegalPage() {
 
       <header className={`border-b ${isDark ? "border-slate-800/80 bg-slate-950/80" : "border-slate-200 bg-white/80"} backdrop-blur-xl`}>
         <div className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
-          <a href="/" className="inline-flex w-fit rounded-2xl bg-gradient-to-r from-wine-900 to-wine-800 px-4 py-2 shadow-lg">
-            <AppLogo />
+          <a href="/" className="inline-flex w-fit">
+            <AppLogo isDark={isDark} />
           </a>
 
           <nav className="flex flex-wrap items-center gap-2 text-sm">
