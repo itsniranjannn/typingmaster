@@ -260,7 +260,7 @@ const makeBadgeCatalog = () => {
       catalog.push({
         badgeId,
         name: `${family.family[0].toUpperCase()}${family.family.slice(1)} ${tier.label}`,
-        iconName: tier.iconName || family.iconName,
+        iconName: family.iconName,
         family: family.family,
         tier: tier.suffix
       });

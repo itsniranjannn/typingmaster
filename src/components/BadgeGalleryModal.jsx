@@ -21,7 +21,7 @@ import {
   Zap
 } from "lucide-react";
 import { getBadgeCatalog, getChallengeTemplates } from "../utils/dailyChallenge";
-import { loadBadges } from "../utils/storage";
+import { getSoundEnabled, loadBadges } from "../utils/storage";
 import confetti from "canvas-confetti";
 
 const ICONS = {
@@ -44,7 +44,7 @@ const ICONS = {
   Zap
 };
 
-function BadgeTile({ badge, earned, isDark, selected = false, onClick }) {
+function BadgeTile({ badge, earned, isDark, selected = false, hint = "", onClick }) {
   const Icon = ICONS[badge.iconName] || Trophy;
   const earnedClass = earned
     ? (isDark
@@ -68,6 +68,7 @@ function BadgeTile({ badge, earned, isDark, selected = false, onClick }) {
       type="button"
       onClick={onClick}
       disabled={!earned}
+      aria-label={`${badge.name} — ${earned ? `earned ${earned.earnedCount} time${earned.earnedCount > 1 ? "s" : ""}` : "locked"}`}
       className={`group relative flex h-full min-h-[220px] w-full flex-col overflow-hidden rounded-3xl border p-4 text-left transition duration-200 ${earned ? "hover:-translate-y-1 hover:scale-[1.01]" : "cursor-default"} ${selected ? "ring-2 ring-amber-300/60" : ""} ${earnedClass} ${isNew ? "animate-pulse" : ""}`}
       title={earned ? "View challenge details" : undefined}
       aria-pressed={selected}
@@ -88,10 +89,10 @@ function BadgeTile({ badge, earned, isDark, selected = false, onClick }) {
       <div className="relative mt-4 flex flex-1 flex-col">
         <div className="min-h-[52px]">
           <p className={`text-sm font-semibold tracking-wide ${isDark ? "text-white" : "text-slate-950"}`}>{badge.name}</p>
-          <p className={`mt-1 text-[11px] leading-5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>{badge.description || (earned ? "Unlocked in arena" : "Unlock this badge in the arena")}</p>
+          <p className={`mt-1 text-[11px] leading-5 ${isDark ? "text-slate-300" : "text-slate-700"}`}>{badge.description || hint || (earned ? "Unlocked in arena" : "Unlock this badge in the arena")}</p>
         </div>
         <div className={`mt-auto rounded-2xl px-3 py-2 text-[11px] font-medium ${earned ? (isDark ? "bg-white/6 text-amber-100" : "bg-amber-100/80 text-amber-800") : (isDark ? "bg-slate-900/55 text-slate-400" : "bg-slate-100 text-slate-600")}`}>
-          {earned ? (isNew ? "Recently earned" : "Earned badge") : "Locked badge"}
+          {earned ? (isNew ? "Recently earned" : "Earned badge") : "Locked — keep playing the Arena"}
         </div>
       </div>
     </button>
@@ -151,6 +152,9 @@ function BadgeGalleryModal({ isOpen, onClose, isDark = true, refreshToken = 0 })
     return visibleBadges.filter((b) => !earnedLookup.has(b.badgeId));
   }, [visibleBadges, filterMode, earnedLookup]);
 
+  const totalCount = visibleBadges.length;
+  const earnedCount = visibleBadges.filter((badge) => earnedLookup.has(badge.badgeId)).length;
+
   const selectedBadge = selectedBadgeId ? earnedLookup.get(selectedBadgeId) || null : null;
   const selectedChallenge = selectedBadge ? challengeLookup.get(selectedBadge.badgeId) || null : null;
 
@@ -192,6 +196,7 @@ function BadgeGalleryModal({ isOpen, onClose, isDark = true, refreshToken = 0 })
 
   const playEarnSound = () => {
     try {
+      if (!getSoundEnabled()) return;
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
       const ctx = new AudioCtx();
@@ -256,8 +261,8 @@ function BadgeGalleryModal({ isOpen, onClose, isDark = true, refreshToken = 0 })
     : "border-slate-300/80 bg-[radial-gradient(circle_at_top,_rgba(255,255,255,0.92),_rgba(241,245,249,0.96)_36%),linear-gradient(180deg,rgba(255,255,255,0.98),rgba(226,232,240,0.96))] text-slate-900 shadow-[0_24px_90px_rgba(148,163,184,0.22)]";
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-50 flex items-center justify-center px-4" role="dialog" aria-modal="true" aria-label="Badge gallery">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <motion.div initial={{ scale: 0.96, y: 18 }} animate={{ scale: 1, y: 0 }} transition={{ type: "spring", stiffness: 260, damping: 28 }} className={`relative z-50 w-full max-w-6xl overflow-hidden rounded-3xl border ${modalThemeClass}`}>
         <div className={`flex items-center justify-between border-b px-5 py-4 ${themeDark ? "border-white/10" : "border-slate-200/80"}`}>
           <div>
@@ -271,6 +276,15 @@ function BadgeGalleryModal({ isOpen, onClose, isDark = true, refreshToken = 0 })
           </div>
         </div>
         <div className="max-h-[78vh] overflow-y-auto scrollbar-none p-5 lg:p-6">
+          <div className={`mb-4 rounded-2xl border px-4 py-3 ${themeDark ? "border-white/10 bg-white/5" : "border-slate-200 bg-white/80"}`}>
+            <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-[0.18em]">
+              <span className={themeDark ? "text-slate-300" : "text-slate-600"}>Collection</span>
+              <span className={themeDark ? "text-amber-300" : "text-amber-700"}>{earnedCount} / {totalCount} unlocked</span>
+            </div>
+            <div className={`mt-2 h-2 overflow-hidden rounded-full ${themeDark ? "bg-slate-800" : "bg-slate-200"}`} role="progressbar" aria-valuemin={0} aria-valuemax={totalCount} aria-valuenow={earnedCount} aria-label="Badges unlocked">
+              <div className="h-full rounded-full bg-gradient-to-r from-amber-300 via-orange-400 to-rose-400 transition-all duration-700" style={{ width: `${totalCount ? Math.round((earnedCount / totalCount) * 100) : 0}%` }} />
+            </div>
+          </div>
           <div className="mb-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <button onClick={() => setFilterMode("all")} className={`rounded-md px-3 py-1 text-sm font-medium ${filterMode === "all" ? (themeDark ? "bg-amber-500/10 text-amber-300" : "bg-amber-100 text-amber-800") : (themeDark ? "bg-transparent text-slate-300" : "bg-transparent text-slate-700")}`}>All</button>
@@ -307,6 +321,7 @@ function BadgeGalleryModal({ isOpen, onClose, isDark = true, refreshToken = 0 })
                 badge={badge}
                 earned={earnedLookup.get(badge.badgeId)}
                 isDark={themeDark}
+                hint={challengeLookup.get(badge.badgeId)?.subtitle || ""}
                 selected={selectedBadgeId === badge.badgeId}
                 onClick={earnedLookup.has(badge.badgeId) ? () => setSelectedBadgeId((current) => (current === badge.badgeId ? null : badge.badgeId)) : undefined}
               />
