@@ -23,18 +23,11 @@ function TextSelector({
 
   const activeTopMode = isCoreActive ? "core" : mode;
 
-  const shellClass = isDark
-    ? "border-slate-700/60 bg-slate-950/55 text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_12px_24px_rgba(15,23,42,0.25)]"
-    : "border-slate-200/80 bg-white/70 text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_12px_24px_rgba(148,163,184,0.14)]";
-  const activeCoreClass = isDark
-    ? "bg-gradient-to-r from-sky-600 to-sky-500 text-white shadow-[0_0_0_1px_rgba(189,191,240,0.35),0_12px_30px_rgba(111,105,191,0.35)]"
-    : "bg-gradient-to-r from-sky-600 to-sky-500 text-white shadow-[0_0_0_1px_rgba(168,160,227,0.25),0_12px_30px_rgba(111,105,191,0.25)]";
-  const activeChipClass = isDark
-    ? "bg-slate-100 text-slate-950 shadow-[0_0_0_1px_rgba(255,255,255,0.2)]"
-    : "bg-slate-900 text-white shadow-[0_0_0_1px_rgba(15,23,42,0.18)]";
-  const inactiveChipClass = isDark
-    ? "bg-slate-900/70 text-slate-200 hover:bg-slate-800"
-    : "bg-white/90 text-slate-700 hover:bg-slate-100";
+  // The selector sits on the wine navbar in both themes, so it uses sand-on-wine styling.
+  const shellClass = "border-white/15 bg-black/25 text-sand-50 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]";
+  const activeCoreClass = "bg-gradient-to-b from-sand-50 to-sand-300 text-wine-900 shadow-[0_6px_16px_rgba(0,0,0,0.3)]";
+  const activeChipClass = activeCoreClass;
+  const inactiveChipClass = "bg-white/10 text-sand-100 hover:bg-white/20";
 
   return (
     <div className="w-full">
@@ -45,9 +38,7 @@ function TextSelector({
           const chipClass = modeItem.value === "core"
             ? isActive
               ? activeCoreClass
-              : isDark
-                ? "bg-slate-900/70 text-slate-200 ring-1 ring-cyan-300/20 hover:bg-slate-800"
-                : "bg-white/90 text-slate-700 ring-1 ring-cyan-500/20 hover:bg-slate-100"
+              : "bg-white/10 text-sand-100 ring-1 ring-sand-300/30 hover:bg-white/20"
             : isActive
               ? activeChipClass
               : inactiveChipClass;
