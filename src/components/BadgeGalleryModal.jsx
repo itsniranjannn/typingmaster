@@ -121,6 +121,7 @@ function BadgeGalleryModal({ isOpen, onClose, isDark = true, refreshToken = 0 })
     });
     // Sort so most recently earned badges appear first, then by earnedCount, then locked
     const list = [...badgeMap.values()];
+    const order = new Map(list.map((badge, index) => [badge.badgeId, index]));
     const todayKey = new Date().toISOString().slice(0, 10);
     list.sort((a, b) => {
       const ea = earnedLookup.get(a.badgeId);
@@ -134,7 +135,8 @@ function BadgeGalleryModal({ isOpen, onClose, isDark = true, refreshToken = 0 })
       }
       if (ea) return -1;
       if (eb) return 1;
-      return a.name.localeCompare(b.name);
+      // Locked badges keep catalog order so tiers read Bronze → Master.
+      return order.get(a.badgeId) - order.get(b.badgeId);
     });
     return list;
   }, [badges, earnedBadges]);
