@@ -62,7 +62,7 @@ const buildSmoothPath = (points, valueKey) => {
   return path.join(" ");
 };
 
-function ResultScreen({
+function ResultScreenContent({
   result,
   bestWpm,
   onRestart,
@@ -71,7 +71,22 @@ function ResultScreen({
   arenaMode = false,
   isDark = true
 }) {
-  if (!result) return null;
+  const [shareState, setShareState] = useState("idle");
+
+  const handleShare = async () => {
+    const summary = `I just typed ${Math.round(result.wpm)} WPM at ${Math.round(result.accuracy)}% accuracy on GoType. Can you beat it?`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ text: summary, url: window.location.origin });
+      } else {
+        await navigator.clipboard.writeText(`${summary} ${window.location.origin}`);
+      }
+      setShareState("done");
+    } catch {
+      setShareState("error");
+    }
+    setTimeout(() => setShareState("idle"), 2000);
+  };
 
   const trendSeries = useMemo(() => {
     const raw = Array.isArray(loadResults()) ? loadResults() : [];
@@ -488,9 +503,23 @@ function ResultScreen({
         <button onClick={onRestart} aria-label="Restart test" className={`flex-1 rounded-full bg-gradient-to-r from-purple-600 to-blue-500 px-6 py-3 text-base font-semibold text-white shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 hover:from-purple-700 hover:to-blue-600 md:py-4 md:text-lg`}>
           {challengeFailure ? "Retry Arena" : "Try Again"}
         </button>
+        <button
+          type="button"
+          onClick={handleShare}
+          aria-label="Share your result"
+          className={`rounded-full border px-5 py-3 text-sm font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 md:py-4 ${isDark ? "border-white/15 text-slate-200 hover:bg-white/10" : "border-slate-300 text-slate-700 hover:bg-slate-100"}`}
+        >
+          {shareState === "done" ? "Copied!" : shareState === "error" ? "Couldn't share" : "Share"}
+        </button>
       </div>
     </section>
   );
+}
+
+function ResultScreen(props) {
+  // Guard here so the content component never changes its hook order between renders.
+  if (!props.result) return null;
+  return <ResultScreenContent {...props} />;
 }
 
 export default memo(ResultScreen);
