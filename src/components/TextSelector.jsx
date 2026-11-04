@@ -27,8 +27,8 @@ function TextSelector({
     ? "border-slate-700/60 bg-slate-950/55 text-slate-100 shadow-[inset_0_1px_0_rgba(255,255,255,0.05),0_12px_24px_rgba(15,23,42,0.25)]"
     : "border-slate-200/80 bg-white/70 text-slate-900 shadow-[inset_0_1px_0_rgba(255,255,255,0.7),0_12px_24px_rgba(148,163,184,0.14)]";
   const activeCoreClass = isDark
-    ? "bg-gradient-to-r from-cyan-400 via-sky-500 to-indigo-500 text-white shadow-[0_0_0_1px_rgba(125,211,252,0.35),0_12px_30px_rgba(14,165,233,0.24)]"
-    : "bg-gradient-to-r from-cyan-500 via-sky-500 to-blue-500 text-white shadow-[0_0_0_1px_rgba(56,189,248,0.25),0_12px_30px_rgba(14,165,233,0.18)]";
+    ? "bg-gradient-to-r from-sky-600 to-sky-500 text-white shadow-[0_0_0_1px_rgba(189,191,240,0.35),0_12px_30px_rgba(111,105,191,0.35)]"
+    : "bg-gradient-to-r from-sky-600 to-sky-500 text-white shadow-[0_0_0_1px_rgba(168,160,227,0.25),0_12px_30px_rgba(111,105,191,0.25)]";
   const activeChipClass = isDark
     ? "bg-slate-100 text-slate-950 shadow-[0_0_0_1px_rgba(255,255,255,0.2)]"
     : "bg-slate-900 text-white shadow-[0_0_0_1px_rgba(15,23,42,0.18)]";
@@ -71,7 +71,7 @@ function TextSelector({
               aria-pressed={isActive}
               title={modeItem.title}
             >
-              <Icon size={16} className={modeItem.value === "core" ? "drop-shadow-[0_0_12px_rgba(125,211,252,0.55)]" : ""} />
+              <Icon size={16} className={modeItem.value === "core" ? "drop-shadow-[0_0_12px_rgba(189,191,240,0.55)]" : ""} />
               <span>{modeItem.label}</span>
             </motion.button>
           );

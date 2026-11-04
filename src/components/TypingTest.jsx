@@ -653,12 +653,12 @@ function TypingTest({ theme, onToggleTheme }) {
         transition={{ delay: 0.05 }}
         className={`border-b ${isDark ? "border-gray-700 bg-gray-800" : "border-slate-300 bg-slate-100"}`}
       >
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-4 py-4 sm:px-8">
-          <div className="flex items-center gap-4 w-full sm:w-auto">
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-4 px-4 py-4 sm:px-8">
+          <div className="flex items-center gap-4 w-full lg:w-auto">
             <AppLogo isDark={isDark} />
             {/* simplified nav - removed Practice / Leaderboard / Pro Tip links per request */}
           </div>
-          <div className="w-full flex-1 sm:px-2 mt-3 sm:mt-0">
+          <div className="w-full flex-1 min-w-0 lg:px-2 mt-3 lg:mt-0">
             {isArenaMode ? (
               <div className={`rounded-2xl border px-4 py-3 ${isDark ? "border-amber-400/20 bg-gradient-to-r from-slate-950/80 to-amber-950/20" : "border-amber-200 bg-gradient-to-r from-white to-amber-50"}`}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -683,7 +683,7 @@ function TypingTest({ theme, onToggleTheme }) {
             )}
           </div>
 
-          <div ref={headerControlsRef} className="flex items-center gap-2 w-full sm:w-auto mt-3 sm:mt-0">
+          <div ref={headerControlsRef} className="flex items-center gap-2 w-full lg:w-auto mt-3 lg:mt-0 flex-wrap justify-center">
             <SoundControls
               isSoundEnabled={isSoundEnabled}
               onToggleSound={toggleSound}
@@ -785,7 +785,7 @@ function TypingTest({ theme, onToggleTheme }) {
                             handleModeChange(TYPING_MODES.GOAL, { goalVariant });
                           }
                         }}
-                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold tracking-[0.01em] transition ${isActive ? "bg-gradient-to-r from-cyan-400 via-sky-500 to-indigo-500 text-white shadow-[0_0_0_1px_rgba(125,211,252,0.35),0_8px_20px_rgba(139, 92, 246,0.14)]" : isDark ? "bg-slate-900/80 text-slate-200 hover:bg-slate-800" : "bg-white/90 text-slate-700 hover:bg-slate-100"}`}
+                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold tracking-[0.01em] transition ${isActive ? "bg-gradient-to-r from-sky-600 to-sky-500 text-white shadow-[0_0_0_1px_rgba(189,191,240,0.35),0_8px_20px_rgba(141,134,214,0.14)]" : isDark ? "bg-slate-900/80 text-slate-200 hover:bg-slate-800" : "bg-white/90 text-slate-700 hover:bg-slate-100"}`}
                         aria-pressed={isActive}
                         title={section.detail}
                       >
@@ -798,7 +798,7 @@ function TypingTest({ theme, onToggleTheme }) {
                           {section.value === TYPING_MODES.TIME && (
                             <>
                               {[10, 30, 60].map((seconds) => (
-                                <button key={seconds} onClick={() => { setTimeInput(String(seconds)); handleModeChange(TYPING_MODES.TIME, { timeLimitSeconds: seconds }); setTipSeed((v) => v + 1); setGoalReachedShown(false); if (goalReachedTimeoutRef.current) { window.clearTimeout(goalReachedTimeoutRef.current); goalReachedTimeoutRef.current = null; } }} className={`rounded-full px-2.5 py-1 text-sm font-semibold transition ${mode === TYPING_MODES.TIME && timeLimitSeconds === seconds ? "bg-gradient-to-r from-cyan-400 to-sky-500 text-white shadow-[0_0_12px_rgba(167, 139, 250,0.22)]" : isDark ? "bg-slate-900/80 text-slate-200 hover:bg-slate-800" : "bg-white text-slate-700 hover:bg-slate-100"}`}>{seconds}s</button>
+                                <button key={seconds} onClick={() => { setTimeInput(String(seconds)); handleModeChange(TYPING_MODES.TIME, { timeLimitSeconds: seconds }); setTipSeed((v) => v + 1); setGoalReachedShown(false); if (goalReachedTimeoutRef.current) { window.clearTimeout(goalReachedTimeoutRef.current); goalReachedTimeoutRef.current = null; } }} className={`rounded-full px-2.5 py-1 text-sm font-semibold transition ${mode === TYPING_MODES.TIME && timeLimitSeconds === seconds ? "bg-gradient-to-r from-sky-600 to-sky-500 text-white shadow-[0_0_12px_rgba(168,160,227,0.22)]" : isDark ? "bg-slate-900/80 text-slate-200 hover:bg-slate-800" : "bg-white text-slate-700 hover:bg-slate-100"}`}>{seconds}s</button>
                               ))}
                               <div className={`flex items-center gap-2 rounded-full border px-2 py-1 ${isDark ? "border-slate-700/70 bg-slate-900/70" : "border-slate-200 bg-white"}`} title="Type a custom time between 10 and 300 seconds">
                                 <input type="number" min={CUSTOM_TIME_MIN_SECONDS} max={CUSTOM_TIME_MAX_SECONDS} value={timeInput} onChange={(event) => setTimeInput(event.target.value)} onBlur={() => { if (String(timeInput).trim().length === 0) { setTimeInput(String(timeLimitSeconds)); return; } commitTimeInput(timeInput); }} onKeyDown={(event) => { if (event.key === "Enter") { event.currentTarget.blur(); } }} className={`w-12 bg-transparent text-sm font-semibold outline-none ${isDark ? "text-slate-100 placeholder:text-slate-500" : "text-slate-800 placeholder:text-slate-400"}`} aria-label="Custom time limit in seconds" />
@@ -1009,7 +1009,7 @@ function TypingTest({ theme, onToggleTheme }) {
                   aria-pressed={isGhostEnabled}
                   className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/60 ${
                     isGhostEnabled
-                      ? "border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-200"
+                      ? "border-cyan-400/40 bg-cyan-500/15 text-cyan-200"
                       : isDark ? "border-white/10 text-slate-400" : "border-slate-300 text-slate-600"
                   }`}
                   title="A marker that replays your personal-best pace"

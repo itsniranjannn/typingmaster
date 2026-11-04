@@ -191,7 +191,7 @@ function ResultScreenContent({
 
   const trendPanel = trendMeta ? (
     <div ref={panelRef} className={`relative overflow-hidden rounded-2xl border p-4 ${cardClass}`}>
-      <div className={`pointer-events-none absolute inset-0 opacity-70 ${isDark ? "bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.10),transparent_36%),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(180deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:auto,24px_24px,24px_24px]" : "bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.12),transparent_34%),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(180deg,rgba(148,163,184,0.08)_1px,transparent_1px)] bg-[size:auto,24px_24px,24px_24px]"}`} />
+      <div className={`pointer-events-none absolute inset-0 opacity-70 ${isDark ? "bg-[radial-gradient(circle_at_top_left,rgba(168,160,227,0.10),transparent_36%),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(180deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:auto,24px_24px,24px_24px]" : "bg-[radial-gradient(circle_at_top_left,rgba(168,160,227,0.12),transparent_34%),linear-gradient(90deg,rgba(148,163,184,0.08)_1px,transparent_1px),linear-gradient(180deg,rgba(148,163,184,0.08)_1px,transparent_1px)] bg-[size:auto,24px_24px,24px_24px]"}`} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Recent Performance</p>
@@ -221,19 +221,19 @@ function ResultScreenContent({
             <defs>
               <linearGradient id="wpmLine" x1="0" x2="1" y1="0" y2="0">
                 <stop offset="0%" stopColor="#22d3ee" />
-                <stop offset="100%" stopColor="#a78bfa" />
+                <stop offset="100%" stopColor="#a8a0e3" />
               </linearGradient>
               <linearGradient id="accLine" x1="0" x2="1" y1="0" y2="0">
-                <stop offset="0%" stopColor="#a78bfa" />
+                <stop offset="0%" stopColor="#a8a0e3" />
                 <stop offset="100%" stopColor="#f472b6" />
               </linearGradient>
               <linearGradient id="wpmAreaFill" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.22" />
-                <stop offset="100%" stopColor="#a78bfa" stopOpacity="0" />
+                <stop offset="0%" stopColor="#a8a0e3" stopOpacity="0.22" />
+                <stop offset="100%" stopColor="#a8a0e3" stopOpacity="0" />
               </linearGradient>
               <linearGradient id="accAreaFill" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="#a78bfa" stopOpacity="0.12" />
-                <stop offset="100%" stopColor="#a78bfa" stopOpacity="0" />
+                <stop offset="0%" stopColor="#a8a0e3" stopOpacity="0.12" />
+                <stop offset="100%" stopColor="#a8a0e3" stopOpacity="0" />
               </linearGradient>
               <pattern id="trendGrid" width="12" height="12" patternUnits="userSpaceOnUse">
                 <path d="M 12 0 L 0 0 0 12" fill="none" stroke={isDark ? "rgba(255,255,255,0.08)" : "rgba(148,163,184,0.14)"} strokeWidth="0.8" />
@@ -253,7 +253,7 @@ function ResultScreenContent({
                     cx={point.x}
                     cy={point.wpmY}
                     r={rWpm}
-                    fill="#a78bfa"
+                    fill="#a8a0e3"
                     onMouseEnter={(e) => handlePointEnter(point, index, e)}
                     onMouseMove={(e) => handlePointMove(point, e)}
                     onMouseLeave={handlePointLeave}
@@ -393,7 +393,7 @@ function ResultScreenContent({
             type="button"
             onClick={onRestart}
             aria-label="Retry challenge"
-            className={`flex-1 rounded-full bg-gradient-to-r from-purple-600 to-blue-500 px-6 py-3 text-base font-semibold text-white shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 hover:from-purple-700 hover:to-blue-600 md:py-4 md:text-lg`}
+            className={`flex-1 rounded-full bg-gradient-to-r from-sky-600 to-sky-500 px-6 py-3 text-base font-semibold text-white shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 hover:from-sky-700 hover:to-sky-600 md:py-4 md:text-lg`}
           >
             {result.challengeCompletedToday ? "Already earned badge today" : "Retry Challenge"}
           </button>
@@ -487,14 +487,14 @@ function ResultScreenContent({
           <p className={`text-sm ${secondaryText}`}>
             You missed <span className="font-mono font-semibold text-fuchsia-400">{[...new Set(result.mistypedCharacters.map((character) => (character === " " ? "␣" : character)))].slice(0, 6).join(" ")}</span> most. Train those keys next.
           </p>
-          <button type="button" onClick={onStartDrill} className="rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-violet-400 hover:to-fuchsia-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300">
+          <button type="button" onClick={onStartDrill} className="rounded-full bg-gradient-to-r from-sky-600 to-sky-500 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-sky-500 hover:to-sky-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300">
             Weak-key drill
           </button>
         </div>
       )}
 
       <div className="relative flex gap-3 pt-4">
-        <button onClick={onRestart} aria-label="Restart test" className={`flex-1 rounded-full bg-gradient-to-r from-purple-600 to-blue-500 px-6 py-3 text-base font-semibold text-white shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 hover:from-purple-700 hover:to-blue-600 md:py-4 md:text-lg`}>
+        <button onClick={onRestart} aria-label="Restart test" className={`flex-1 rounded-full bg-gradient-to-r from-sky-600 to-sky-500 px-6 py-3 text-base font-semibold text-white shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 hover:from-sky-700 hover:to-sky-600 md:py-4 md:text-lg`}>
           {challengeFailure ? "Retry Arena" : "Try Again"}
         </button>
         <button

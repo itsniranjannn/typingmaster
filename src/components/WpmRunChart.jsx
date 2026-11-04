@@ -27,7 +27,7 @@ function WpmRunChart({ samples = [], bestWpm = 0, isDark = true }) {
 
   if (!model) return null;
 
-  const grid = isDark ? "rgba(167,139,250,0.14)" : "rgba(100,116,139,0.2)";
+  const grid = isDark ? "rgba(168,160,227,0.14)" : "rgba(100,116,139,0.2)";
   const label = isDark ? "#a7a3c4" : "#64748b";
 
   return (
@@ -39,12 +39,12 @@ function WpmRunChart({ samples = [], bestWpm = 0, isDark = true }) {
       <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="h-auto w-full" role="img" aria-hidden="true">
         <defs>
           <linearGradient id="wpm-area" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#a78bfa" stopOpacity="0.45" />
-            <stop offset="1" stopColor="#a78bfa" stopOpacity="0" />
+            <stop offset="0" stopColor="#a8a0e3" stopOpacity="0.45" />
+            <stop offset="1" stopColor="#a8a0e3" stopOpacity="0" />
           </linearGradient>
           <linearGradient id="wpm-line" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor="#8b5cf6" />
-            <stop offset="1" stopColor="#e879f9" />
+            <stop offset="0" stopColor="#a8a0e3" />
+            <stop offset="1" stopColor="#ddbf84" />
           </linearGradient>
         </defs>
         {model.ticks.map((tick) => (

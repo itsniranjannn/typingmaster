@@ -130,7 +130,7 @@ function HistoryInsights({ isDark = true, onExportCsv, onStartDrill, closeSignal
               <button
                 type="button"
                 onClick={onStartDrill}
-                className="mt-4 rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white shadow-lg transition hover:from-violet-400 hover:to-fuchsia-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300"
+                className="mt-4 rounded-full bg-gradient-to-r from-sky-600 to-sky-500 px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] text-white shadow-lg transition hover:from-sky-500 hover:to-sky-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-300"
               >
                 Start weak-key drill
               </button>

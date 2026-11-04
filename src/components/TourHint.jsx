@@ -18,7 +18,7 @@ function TourHint({ isDark = true, onStartTour, onDismiss }) {
       <p className="flex-1">
         <strong className="font-semibold">Just start typing</strong> — the test begins on your first key.
       </p>
-      <button type="button" onClick={onStartTour} className="rounded-full bg-violet-500 px-3 py-1 text-xs font-semibold text-white transition hover:bg-violet-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300">
+      <button type="button" onClick={onStartTour} className="rounded-full bg-violet-500 px-3 py-1 text-xs font-semibold text-white transition hover:bg-sky-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300">
         20-second tour
       </button>
       <button type="button" onClick={onDismiss} aria-label="Dismiss tip" className="rounded-full p-1 opacity-70 transition hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-300">
