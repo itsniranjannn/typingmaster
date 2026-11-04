@@ -9,8 +9,8 @@ export function LogoMark({ size = 44 }) {
     <svg width={size} height={size} viewBox="0 0 48 48" role="img" aria-label="GoType logo">
       <defs>
         <linearGradient id="gt-key" x1="4" y1="4" x2="44" y2="44" gradientUnits="userSpaceOnUse">
-          <stop offset="0" stopColor="#8b5cf6" />
-          <stop offset="1" stopColor="#d946ef" />
+          <stop offset="0" stopColor="#a8233f" />
+          <stop offset="1" stopColor="#651230" />
         </linearGradient>
         <linearGradient id="gt-shine" x1="24" y1="4" x2="24" y2="26" gradientUnits="userSpaceOnUse">
           <stop offset="0" stopColor="#fff" stopOpacity="0.35" />
@@ -22,7 +22,7 @@ export function LogoMark({ size = 44 }) {
       <path
         d="M30.5 17.5A9 9 0 1 0 31 28.5V24H24"
         fill="none"
-        stroke="#fff"
+        stroke="#f4e8cf"
         strokeWidth="3.4"
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -33,7 +33,7 @@ export function LogoMark({ size = 44 }) {
         width="2.6"
         height="18"
         rx="1.3"
-        fill="#fff"
+        fill="#f4e8cf"
         animate={{ opacity: [1, 1, 0, 0] }}
         transition={{ duration: 1.1, repeat: Infinity, times: [0, 0.5, 0.5, 1] }}
       />
@@ -44,12 +44,12 @@ export function LogoMark({ size = 44 }) {
 function AppLogo({ isDark = true }) {
   return (
     <motion.div className="group flex cursor-pointer items-center gap-3" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.98 }}>
-      <div className="rounded-2xl shadow-[0_10px_30px_rgba(139,92,246,0.45)]">
+      <div className="rounded-2xl shadow-[0_10px_30px_rgba(138,28,59,0.5)]">
         <LogoMark size={44} />
       </div>
       <div className="flex flex-col leading-none">
-        <span className="text-xl font-bold tracking-[-0.03em]" style={{ fontFamily: "'Space Grotesk', sans-serif" }}>
-          <span className="bg-gradient-to-r from-violet-400 to-fuchsia-400 bg-clip-text text-transparent">Go</span>
+        <span className="font-display text-xl font-extrabold tracking-[-0.03em]" >
+          <span className={isDark ? "text-cyan-300" : "text-wine-700"}>Go</span>
           <span className={isDark ? "text-white" : "text-slate-900"}>Type</span>
         </span>
         <small className={`mt-1 text-[11px] ${isDark ? "text-slate-400" : "text-slate-600"}`}>Practice. Improve. Repeat.</small>

@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@500;600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -6,31 +6,31 @@
 
 :root,
 [data-theme="dark"] {
-  --app-bg: #0b0818;
-  --app-bg-glow: rgba(139, 92, 246, 0.2);
-  --text-main: #ece8ff;
-  --text-muted: #94a3b8;
-  --card-bg: rgba(20, 16, 42, 0.72);
+  --app-bg: #0d0e26;
+  --app-bg-glow: rgba(141, 134, 214, 0.2);
+  --text-main: #eaedfe;
+  --text-muted: #a9adcf;
+  --card-bg: rgba(27, 28, 66, 0.72);
   --card-border: rgba(148, 163, 184, 0.18);
-  --surface-soft: rgba(20, 16, 42, 0.6);
-  --surface-strong: rgba(20, 16, 42, 0.9);
-  --button-bg: rgba(20, 16, 42, 0.84);
+  --surface-soft: rgba(27, 28, 66, 0.6);
+  --surface-strong: rgba(27, 28, 66, 0.9);
+  --button-bg: rgba(27, 28, 66, 0.84);
   --button-border: rgba(148, 163, 184, 0.22);
-  --badge-bg: rgba(20, 16, 42, 0.92);
+  --badge-bg: rgba(27, 28, 66, 0.92);
 }
 
 [data-theme="light"] {
-  --app-bg: #f6f3ff;
-  --app-bg-glow: rgba(139, 92, 246, 0.1);
-  --text-main: #0f172a;
-  --text-muted: #475569;
-  --card-bg: rgba(255, 255, 255, 0.96);
+  --app-bg: #f4ebd8;
+  --app-bg-glow: rgba(138, 28, 59, 0.07);
+  --text-main: #2a2a55;
+  --text-muted: #5a5c85;
+  --card-bg: rgba(252, 247, 236, 0.96);
   --card-border: rgba(148, 163, 184, 0.2);
-  --surface-soft: rgba(255, 255, 255, 0.95);
-  --surface-strong: rgba(255, 255, 255, 0.98);
-  --button-bg: rgba(255, 255, 255, 0.98);
+  --surface-soft: rgba(252, 247, 236, 0.95);
+  --surface-strong: rgba(252, 247, 236, 0.98);
+  --button-bg: rgba(252, 247, 236, 0.98);
   --button-border: rgba(148, 163, 184, 0.22);
-  --badge-bg: rgba(248, 250, 252, 0.98);
+  --badge-bg: rgba(249, 242, 227, 0.98);
 }
 
 * {
@@ -84,21 +84,21 @@ body::-webkit-scrollbar {
     ),
     radial-gradient(
       1000px 500px at 100% 50%,
-      rgba(99, 102, 241, 0.05),
+      rgba(111, 105, 191, 0.05),
       transparent 70%
     ),
     var(--app-bg);
 }
 
 ::selection {
-  background: rgba(167, 139, 250, 0.32);
+  background: rgba(168, 160, 227, 0.32);
   color: #020617;
 }
 
 .logo {
   font-weight: 700;
   letter-spacing: -0.02em;
-  background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, #a8a0e3 0%, #8d86d6 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -267,7 +267,7 @@ input:focus {
   box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.12);
   overflow-anchor: none;
   scrollbar-width: thin;
-  scrollbar-color: rgba(167, 139, 250, 0.72) rgba(15, 23, 42, 0.28);
+  scrollbar-color: rgba(168, 160, 227, 0.72) rgba(15, 23, 42, 0.28);
 }
 
 .typing-area::-webkit-scrollbar {
@@ -281,13 +281,13 @@ input:focus {
 }
 
 .typing-area::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(167, 139, 250, 0.95), rgba(96, 165, 250, 0.72));
+  background: linear-gradient(180deg, rgba(168, 160, 227, 0.95), rgba(96, 165, 250, 0.72));
   border-radius: 9999px;
   border: 2px solid rgba(15, 23, 42, 0.2);
 }
 
 .typing-area::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(180deg, rgba(125, 211, 252, 1), rgba(99, 102, 241, 0.88));
+  background: linear-gradient(180deg, rgba(125, 211, 252, 1), rgba(111, 105, 191, 0.88));
 }
 
 /* Confetti Animation */
@@ -363,23 +363,23 @@ input:focus {
 /* Action Button Mini (for sticky header) */
 .action-btn-mini {
   @apply inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-all duration-200 hover:scale-110 hover:text-brand-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-400/60 active:scale-95;
-  background: rgba(167, 139, 250, 0.08);
-  border: 1px solid rgba(167, 139, 250, 0.2);
+  background: rgba(168, 160, 227, 0.08);
+  border: 1px solid rgba(168, 160, 227, 0.2);
 }
 
 .action-btn-mini:hover {
-  background: rgba(167, 139, 250, 0.15);
-  border-color: rgba(167, 139, 250, 0.4);
+  background: rgba(168, 160, 227, 0.15);
+  border-color: rgba(168, 160, 227, 0.4);
 }
 
 [data-theme="light"] .action-btn-mini {
-  background: rgba(139, 92, 246, 0.08);
-  border-color: rgba(139, 92, 246, 0.2);
+  background: rgba(141, 134, 214, 0.08);
+  border-color: rgba(141, 134, 214, 0.2);
 }
 
 [data-theme="light"] .action-btn-mini:hover {
-  background: rgba(139, 92, 246, 0.15);
-  border-color: rgba(139, 92, 246, 0.4);
+  background: rgba(141, 134, 214, 0.15);
+  border-color: rgba(141, 134, 214, 0.4);
 }
 
 
@@ -400,5 +400,18 @@ input:focus {
 
 input[type="range"],
 input[type="checkbox"] {
-  accent-color: #8b5cf6;
+  accent-color: #8d86d6;
+}
+
+
+/* Typography: Sora for display text, Inter for body, JetBrains Mono for typing and numbers. */
+h1, h2, h3, h4, .font-display {
+  font-family: Sora, Inter, system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+body {
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
