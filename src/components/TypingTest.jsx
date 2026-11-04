@@ -499,6 +499,26 @@ function TypingTest({ theme, onToggleTheme }) {
     setHasSeenTour(true);
   }, []);
 
+  // Escape dismisses the topmost layer: tour first, then modals and the sidebar.
+  useEffect(() => {
+    const handleEscape = (event) => {
+      if (event.key !== "Escape") return;
+      if (isWelcomeTourOpen) {
+        event.preventDefault();
+        closeWelcomeTour();
+        return;
+      }
+      if (isSettingsOpen || isLeaderboardOpen || isBadgeGalleryOpen || isSidebarOpen) {
+        event.preventDefault();
+        closeOverlays();
+        setIsSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [closeOverlays, closeWelcomeTour, isBadgeGalleryOpen, isLeaderboardOpen, isSettingsOpen, isSidebarOpen, isWelcomeTourOpen]);
+
   const advanceWelcomeTour = useCallback(() => {
     setWelcomeTourStep((currentStep) => {
       const nextStep = currentStep + 1;
