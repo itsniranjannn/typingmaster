@@ -160,7 +160,15 @@ const makeNumbersParagraph = (minChars = 80, maxChars = 120) => {
   const fallback = normalizeSpaces([buildNumbersSentence(), buildNumbersSentence()].join(" "));
   if (fallback.length >= min && fallback.length <= max) return fallback;
 
-  return normalizeSpaces([buildNumbersSentence(), buildNumbersSentence(), buildNumbersSentence()].join(" ")).slice(0, max);
+  // Last resort: trim on a sentence boundary so we never end mid-word.
+  const sentences = [buildNumbersSentence(), buildNumbersSentence(), buildNumbersSentence(), buildNumbersSentence()];
+  let paragraph = "";
+  for (const sentence of sentences) {
+    const next = paragraph ? `${paragraph} ${sentence}` : sentence;
+    if (next.length > max) break;
+    paragraph = next;
+  }
+  return paragraph || sentences[0];
 };
 
 export const generateNumbersParagraph = (minChars = 80, maxChars = 120) => makeNumbersParagraph(minChars, maxChars);

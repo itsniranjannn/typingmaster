@@ -60,11 +60,11 @@ const BADGE_TIERS = [
 ];
 
 const MILESTONE_BADGES = [
-  { badgeId: "milestone-first-blood", name: "First Blood", iconName: "Flame" },
-  { badgeId: "milestone-challenger", name: "Challenger", iconName: "Target" },
-  { badgeId: "milestone-veteran", name: "Veteran", iconName: "Shield" },
-  { badgeId: "milestone-legend", name: "Legend", iconName: "Trophy" },
-  { badgeId: "milestone-master-of-all", name: "Master of All", iconName: "Crown" }
+  { badgeId: "milestone-first-blood", name: "First Blood", iconName: "Flame", description: "Win your first daily challenge." },
+  { badgeId: "milestone-challenger", name: "Challenger", iconName: "Target", description: "Win 5 daily challenges." },
+  { badgeId: "milestone-veteran", name: "Veteran", iconName: "Shield", description: "Win 10 daily challenges." },
+  { badgeId: "milestone-legend", name: "Legend", iconName: "Trophy", description: "Win 25 daily challenges." },
+  { badgeId: "milestone-master-of-all", name: "Master of All", iconName: "Crown", description: "Earn 10 different challenge badges." }
 ];
 
 const getTypedWordCount = (result) => {
@@ -427,7 +427,9 @@ export const buildChallengePrompt = (template, seed) => {
   }
 
   if (template.promptType === "numbers") {
-    return generateMixedNumbersParagraph(90, 130);
+    // The prompt must always be long enough to satisfy the template's own character target.
+    const charTarget = Number(template?.rules?.charTarget) || 80;
+    return generateMixedNumbersParagraph(charTarget + 10, charTarget + 50);
   }
 
   if (template.family === "memory") {
@@ -435,7 +437,7 @@ export const buildChallengePrompt = (template, seed) => {
     return targetWords > 0 ? getFirstNWords(memoryPrompt, targetWords) : memoryPrompt;
   }
 
-  const paragraphPrompt = generateChallengeParagraph(40, 50);
+  const paragraphPrompt = generateChallengeParagraph(Math.max(targetWords, 40), Math.max(targetWords, 40) + 10);
   return targetWords > 0 ? getFirstNWords(paragraphPrompt, targetWords) : paragraphPrompt;
 };
 
@@ -488,23 +490,21 @@ const getRecentChallengeIds = (history, timestampMs) => {
 
 const selectTemplateForDate = (dateKey, history, timestampMs = Date.now()) => {
   const recentIds = getRecentChallengeIds(history, timestampMs);
-  const safeFallback = CHALLENGE_TEMPLATES.find((template) => template.templateId === "endurance-bronze") || CHALLENGE_TEMPLATES[0];
+  const random = createRandom(`${dateKey}:select`);
+  const pool = CHALLENGE_TEMPLATES.filter((template) => !recentIds.has(template.templateId));
+  if (pool.length > 0) return pool[randomInt(random, 0, pool.length - 1)];
 
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    const random = createRandom(`${dateKey}:${attempt}`);
-    const pool = CHALLENGE_TEMPLATES.filter((template) => !recentIds.has(template.templateId));
-    if (pool.length > 0) {
-      const candidate = pool[randomInt(random, 0, pool.length - 1)];
-      if (candidate) return candidate;
-    }
-
-    const fallbackCandidate = CHALLENGE_TEMPLATES[randomInt(random, 0, CHALLENGE_TEMPLATES.length - 1)];
-    if (fallbackCandidate && !recentIds.has(fallbackCandidate.templateId)) {
-      return fallbackCandidate;
-    }
-  }
-
-  return safeFallback;
+  // Every template was used inside the reuse window: rotate through the least recently used ones
+  // instead of always falling back to the same challenge.
+  const lastUsedAt = new Map();
+  history.forEach((entry) => {
+    const id = entry.templateId || entry.challengeId;
+    const usedAt = Number(entry.createdAt) || Date.parse(`${entry.date}T00:00:00.000Z`) || 0;
+    if (id && usedAt > (lastUsedAt.get(id) || 0)) lastUsedAt.set(id, usedAt);
+  });
+  const oldestUse = Math.min(...CHALLENGE_TEMPLATES.map((template) => lastUsedAt.get(template.templateId) || 0));
+  const leastRecent = CHALLENGE_TEMPLATES.filter((template) => (lastUsedAt.get(template.templateId) || 0) === oldestUse);
+  return leastRecent[randomInt(random, 0, leastRecent.length - 1)];
 };
 
 const getCompletedHistory = (history) => history.filter((entry) => entry.completed === true);
@@ -640,7 +640,8 @@ const meetsChallengeObjectives = (challenge, result, { requireHold = true } = {}
   return validateChallengeCompletion(challenge, result, { requireHold });
 };
 
-const awardMilestoneBadges = () => {
+const awardMilestoneBadges = (timestampMs = Date.now()) => {
+  const earnedOn = utcDateKey(timestampMs);
   const history = getDailyChallengeCompletedHistory();
   const totalWins = history.length;
   const uniqueBadgeCount = new Set(history.map((entry) => entry.badgeId).filter(Boolean)).size;
@@ -653,21 +654,21 @@ const awardMilestoneBadges = () => {
     { badgeId: "milestone-master-of-all", target: 10, unique: true }
   ];
 
+  const alreadyEarned = new Set(loadBadges().map((badge) => badge.badgeId));
+  const newlyEarned = [];
+
   milestoneTargets.forEach((milestone) => {
     const badge = BADGE_LOOKUP.get(milestone.badgeId);
     if (!badge) return;
 
-    if (milestone.unique) {
-      if (uniqueBadgeCount >= milestone.target) {
-        saveBadge({ badgeId: badge.badgeId, name: badge.name, iconName: badge.iconName, earnedCount: 1, lastEarnedDate: utcDateKey() });
-      }
-      return;
-    }
+    const reached = milestone.unique ? uniqueBadgeCount >= milestone.target : totalWins >= milestone.target;
+    if (!reached) return;
 
-    if (totalWins >= milestone.target) {
-      saveBadge({ badgeId: badge.badgeId, name: badge.name, iconName: badge.iconName, earnedCount: 1, lastEarnedDate: utcDateKey() });
-    }
+    const saved = saveBadge({ badgeId: badge.badgeId, name: badge.name, iconName: badge.iconName, earnedCount: 1, lastEarnedDate: earnedOn });
+    if (saved && !alreadyEarned.has(badge.badgeId)) newlyEarned.push(saved);
   });
+
+  return newlyEarned;
 };
 
 export const completeChallenge = (result, timestampMs = Date.now()) => {
@@ -709,7 +710,6 @@ export const completeChallenge = (result, timestampMs = Date.now()) => {
   }, timestampMs);
 
   lockChallengeAttemptsToday(timestampMs);
-  awardMilestoneBadges();
 
   const completedState = {
     ...state,
@@ -727,11 +727,15 @@ export const completeChallenge = (result, timestampMs = Date.now()) => {
   setDailyChallengeState(completedState);
   updateTodayHistoryEntry(completedState, timestampMs);
 
+  // Milestones count wins from history, so they must be evaluated after today's win is recorded.
+  const milestonesAwarded = awardMilestoneBadges(timestampMs);
+
   return {
     state: completedState,
     history: getDailyChallengeHistory(),
     completed: true,
-    badgeAwarded: awardedBadge
+    badgeAwarded: awardedBadge,
+    milestonesAwarded
   };
 };
 

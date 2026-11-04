@@ -180,7 +180,10 @@ describe("daily challenge helpers", () => {
       completedWords: Number(template.rules.wordCount || 45)
     };
 
+    // Accuracy is already enforced by the base rules, so a faded run with the right word count passes.
     expect(template.validateCompletion(fadedMismatch)).toBe(true);
+    expect(template.validateCompletion({ ...fadedMismatch, accuracy: 60 })).toBe(false);
+    expect(template.validateCompletion({ ...fadedMismatch, typedWordCount: 5 })).toBe(false);
 
     const passingResult = {
       ...notFaded,
@@ -348,7 +351,38 @@ describe("daily challenge helpers", () => {
     expect(firstOutcome.completed).toBe(true);
     expect(firstOutcome.state?.challengeCompletedToday).toBe(true);
     expect(secondOutcome.alreadyCompleted).toBe(true);
-    expect(loadBadges()).toHaveLength(1);
+    // The challenge badge plus the "First Blood" milestone, each earned exactly once.
+    const badges = loadBadges();
+    expect(badges).toHaveLength(2);
+    expect(badges.find((badge) => badge.badgeId === state.challenge.badgeId)?.earnedCount).toBe(1);
+    expect(badges.some((badge) => badge.badgeId === "milestone-first-blood")).toBe(true);
+  });
+
+  it("keeps challenge metadata after a storage round trip", () => {
+    const state = getDailyChallenge();
+    const reloaded = getDailyChallenge();
+
+    expect(reloaded.challenge.difficulty).toBe(state.challenge.difficulty);
+    expect(reloaded.challenge.difficultyStars).toBe(state.challenge.difficultyStars);
+    expect(reloaded.templateId).toBe(state.challenge.templateId);
+    expect(getDailyChallengeHistoryEntries()[0]?.badgeId).toBe(state.challenge.badgeId);
+  });
+
+  it("builds numbers prompts long enough for every character target", () => {
+    for (const template of getChallengeTemplates().filter((item) => item.family === "numbers")) {
+      for (let run = 0; run < 20; run += 1) {
+        expect(buildChallengePrompt(template, `seed-${run}`).length).toBeGreaterThanOrEqual(template.rules.charTarget);
+      }
+    }
+  });
+
+  it("keeps rotating challenges once every template has been used inside the reuse window", () => {
+    const seen = new Set();
+    for (let dayIndex = 0; dayIndex < 45; dayIndex += 1) {
+      vi.setSystemTime(new Date(Date.parse("2026-05-24T12:00:00.000Z") + dayIndex * DAY_MS));
+      seen.add(getDailyChallenge().challenge.id);
+    }
+    expect(seen.size).toBe(getChallengeTemplates().length);
   });
 
   it("locks the daily challenge after three failed attempts and resets on the next UTC day", () => {
