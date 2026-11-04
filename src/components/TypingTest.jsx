@@ -1,6 +1,6 @@
-﻿import { memo, useCallback, useEffect, useMemo, useState, useRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { Moon, Sun, Settings, RotateCcw, Trophy, BarChart2, CheckCircle, XCircle } from "lucide-react";
+import { Moon, Sun, Settings, RotateCcw, Trophy, BarChart2, CheckCircle, XCircle, HelpCircle } from "lucide-react";
 import confetti from "canvas-confetti";
 import AppLogo from "./AppLogo";
 import TextSelector from "./TextSelector";
@@ -16,6 +16,7 @@ import RightSidebar from "./RightSidebar";
 import SidebarModal from "./SidebarModal";
 import ChallengeArenaBanner from "./ChallengeArenaBanner";
 import WelcomeTour from "./WelcomeTour";
+import TourHint from "./TourHint";
 import { useTypingTest } from "../hooks/useTypingTest";
 import { TYPING_MODES, GOAL_VARIANTS, CUSTOM_TIME_MIN_SECONDS, CUSTOM_TIME_MAX_SECONDS } from "../constants/typingModes";
 import { exportResultsToCSV, getArenaBannerCollapsed, getChallengeAttemptsToday, getHasSeenTour, setArenaBannerCollapsed, setHasSeenTour } from "../utils/storage";
@@ -43,6 +44,11 @@ function TypingTest({ theme, onToggleTheme }) {
     isActive,
     isFinished,
     focusTrigger,
+    ghostIndex,
+    hasGhost,
+    isGhostEnabled,
+    toggleGhost,
+    startWeakKeyDrill,
     activeIndex,
     correctCharacters,
     incorrectCharacters,
@@ -104,7 +110,8 @@ function TypingTest({ theme, onToggleTheme }) {
   const hiddenInputRef = useRef(null);
   const rightSidebarRef = useRef(null);
   const [isTypingAreaFocused, setIsTypingAreaFocused] = useState(false);
-  const [isWelcomeTourOpen, setIsWelcomeTourOpen] = useState(() => !getHasSeenTour());
+  const [isWelcomeTourOpen, setIsWelcomeTourOpen] = useState(false);
+  const [showTourHint, setShowTourHint] = useState(() => !getHasSeenTour());
   const [isArenaBannerCollapsed, setIsArenaBannerCollapsed] = useState(() => getArenaBannerCollapsed());
   const [arenaOverlayOpen, setArenaOverlayOpen] = useState(false);
     const [showLockOverlay, setShowLockOverlay] = useState(false);
@@ -186,31 +193,19 @@ function TypingTest({ theme, onToggleTheme }) {
         target: "modeBar",
         title: "Choose your route",
         description:
-          "Use the top selector to jump between Classic Core, Quotes, Custom, and Numbers. Classic Core opens the Time, Words, and Goal controls below, while Challenge Arena lives in the sidebar."
+          "Switch between Classic, Quotes, Custom and Numbers here. Time, Words and Goal controls open below."
       },
       {
         target: "typingPanel",
         title: "Type in the panel",
         description:
-          "Click the prompt to start typing. The current word stays anchored, and the text can grow smoothly during longer runs."
+          "Just start typing — the test begins on your first key. Press Esc any time to close panels."
       },
       {
         target: "rightSidebar",
         title: "Open Challenge Arena",
         description:
-          "The right sidebar holds streaks, daily goals, and the Challenge Arena card on desktop. On mobile, tap the floating button to open the same tools in a drawer."
-      },
-      {
-        target: "statsBar",
-        title: "Watch live progress",
-        description:
-          "WPM, accuracy, remaining time, and completed words update live above the typing area so you can see every run at a glance."
-      },
-      {
-        target: "headerControls",
-        title: "Use the top-right tools",
-        description:
-          "Sound, theme, leaderboard, badges, and settings live here. These tools stay in sync with the right sidebar and Arena flow."
+          "Streaks, daily goals and the daily Challenge Arena live in the sidebar. Win missions to earn badges."
       }
     ],
     []
@@ -447,6 +442,13 @@ function TypingTest({ theme, onToggleTheme }) {
     focusTypingArea();
   }, [focusTrigger, focusTypingArea]);
 
+  const handleStartDrill = useCallback(() => {
+    if (startWeakKeyDrill()) {
+      setHistoryCloseSignal((value) => value + 1);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [startWeakKeyDrill]);
+
   const toggleSidebar = useCallback(() => setIsSidebarOpen((v) => !v), []);
 
   const toggleArenaBanner = useCallback(() => {
@@ -496,8 +498,25 @@ function TypingTest({ theme, onToggleTheme }) {
 
   const closeWelcomeTour = useCallback(() => {
     setIsWelcomeTourOpen(false);
+    setShowTourHint(false);
     setHasSeenTour(true);
   }, []);
+
+  const startWelcomeTour = useCallback(() => {
+    setWelcomeTourStep(0);
+    setIsWelcomeTourOpen(true);
+    setShowTourHint(false);
+  }, []);
+
+  const dismissTourHint = useCallback(() => {
+    setShowTourHint(false);
+    setHasSeenTour(true);
+  }, []);
+
+  // The first keystroke is the best signal that the visitor does not need the nudge.
+  useEffect(() => {
+    if (showTourHint && typedText.length > 0) dismissTourHint();
+  }, [dismissTourHint, showTourHint, typedText.length]);
 
   // Escape dismisses the topmost layer: tour first, then modals and the sidebar.
   useEffect(() => {
@@ -719,6 +738,17 @@ function TypingTest({ theme, onToggleTheme }) {
             >
               <Settings size={18} />
             </motion.button>
+
+            <motion.button
+              onClick={startWelcomeTour}
+              className={`p-2 rounded-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/60 ${isDark ? "bg-slate-900 hover:bg-slate-800" : "bg-slate-200 hover:bg-slate-300"}`}
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.96 }}
+              aria-label="Show the quick tour"
+              title="Quick tour"
+            >
+              <HelpCircle size={18} />
+            </motion.button>
           </div>
 
         </div>
@@ -755,7 +785,7 @@ function TypingTest({ theme, onToggleTheme }) {
                             handleModeChange(TYPING_MODES.GOAL, { goalVariant });
                           }
                         }}
-                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold tracking-[0.01em] transition ${isActive ? "bg-gradient-to-r from-cyan-400 via-sky-500 to-indigo-500 text-white shadow-[0_0_0_1px_rgba(125,211,252,0.35),0_8px_20px_rgba(14,165,233,0.14)]" : isDark ? "bg-slate-900/80 text-slate-200 hover:bg-slate-800" : "bg-white/90 text-slate-700 hover:bg-slate-100"}`}
+                        className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-sm font-semibold tracking-[0.01em] transition ${isActive ? "bg-gradient-to-r from-cyan-400 via-sky-500 to-indigo-500 text-white shadow-[0_0_0_1px_rgba(125,211,252,0.35),0_8px_20px_rgba(139, 92, 246,0.14)]" : isDark ? "bg-slate-900/80 text-slate-200 hover:bg-slate-800" : "bg-white/90 text-slate-700 hover:bg-slate-100"}`}
                         aria-pressed={isActive}
                         title={section.detail}
                       >
@@ -768,7 +798,7 @@ function TypingTest({ theme, onToggleTheme }) {
                           {section.value === TYPING_MODES.TIME && (
                             <>
                               {[10, 30, 60].map((seconds) => (
-                                <button key={seconds} onClick={() => { setTimeInput(String(seconds)); handleModeChange(TYPING_MODES.TIME, { timeLimitSeconds: seconds }); setTipSeed((v) => v + 1); setGoalReachedShown(false); if (goalReachedTimeoutRef.current) { window.clearTimeout(goalReachedTimeoutRef.current); goalReachedTimeoutRef.current = null; } }} className={`rounded-full px-2.5 py-1 text-sm font-semibold transition ${mode === TYPING_MODES.TIME && timeLimitSeconds === seconds ? "bg-gradient-to-r from-cyan-400 to-sky-500 text-white shadow-[0_0_12px_rgba(56,189,248,0.22)]" : isDark ? "bg-slate-900/80 text-slate-200 hover:bg-slate-800" : "bg-white text-slate-700 hover:bg-slate-100"}`}>{seconds}s</button>
+                                <button key={seconds} onClick={() => { setTimeInput(String(seconds)); handleModeChange(TYPING_MODES.TIME, { timeLimitSeconds: seconds }); setTipSeed((v) => v + 1); setGoalReachedShown(false); if (goalReachedTimeoutRef.current) { window.clearTimeout(goalReachedTimeoutRef.current); goalReachedTimeoutRef.current = null; } }} className={`rounded-full px-2.5 py-1 text-sm font-semibold transition ${mode === TYPING_MODES.TIME && timeLimitSeconds === seconds ? "bg-gradient-to-r from-cyan-400 to-sky-500 text-white shadow-[0_0_12px_rgba(167, 139, 250,0.22)]" : isDark ? "bg-slate-900/80 text-slate-200 hover:bg-slate-800" : "bg-white text-slate-700 hover:bg-slate-100"}`}>{seconds}s</button>
                               ))}
                               <div className={`flex items-center gap-2 rounded-full border px-2 py-1 ${isDark ? "border-slate-700/70 bg-slate-900/70" : "border-slate-200 bg-white"}`} title="Type a custom time between 10 and 300 seconds">
                                 <input type="number" min={CUSTOM_TIME_MIN_SECONDS} max={CUSTOM_TIME_MAX_SECONDS} value={timeInput} onChange={(event) => setTimeInput(event.target.value)} onBlur={() => { if (String(timeInput).trim().length === 0) { setTimeInput(String(timeLimitSeconds)); return; } commitTimeInput(timeInput); }} onKeyDown={(event) => { if (event.key === "Enter") { event.currentTarget.blur(); } }} className={`w-12 bg-transparent text-sm font-semibold outline-none ${isDark ? "text-slate-100 placeholder:text-slate-500" : "text-slate-800 placeholder:text-slate-400"}`} aria-label="Custom time limit in seconds" />
@@ -972,6 +1002,25 @@ function TypingTest({ theme, onToggleTheme }) {
                 </motion.div>
               )}
 
+              {hasGhost && !isArenaMode && !isFinished && (
+                <button
+                  type="button"
+                  onClick={toggleGhost}
+                  aria-pressed={isGhostEnabled}
+                  className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-400/60 ${
+                    isGhostEnabled
+                      ? "border-fuchsia-400/40 bg-fuchsia-500/15 text-fuchsia-200"
+                      : isDark ? "border-white/10 text-slate-400" : "border-slate-300 text-slate-600"
+                  }`}
+                  title="A marker that replays your personal-best pace"
+                >
+                  <span aria-hidden="true">👻</span>
+                  {isGhostEnabled ? `Racing your best (${bestWpm} WPM)` : "Ghost off"}
+                </button>
+              )}
+
+              {showTourHint && !isArenaMode && <TourHint isDark={isDark} onStartTour={startWelcomeTour} onDismiss={dismissTourHint} />}
+
               {/* Typing Area */}
               <motion.div
                 initial={{ scale: 0.95, opacity: 0 }}
@@ -994,6 +1043,7 @@ function TypingTest({ theme, onToggleTheme }) {
                     paragraph={paragraph || customText}
                     characterStates={characterStates}
                     activeIndex={activeIndex}
+                    ghostIndex={ghostIndex}
                     currentWordIndex={currentWordIndex}
                     isDark={isDark}
                     fontScale={fontScale}
@@ -1047,7 +1097,7 @@ function TypingTest({ theme, onToggleTheme }) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.25 }}
               >
-                <HistoryInsights isDark={isDark} onExportCsv={handleExportCsv} closeSignal={historyCloseSignal} />
+                <HistoryInsights isDark={isDark} onExportCsv={handleExportCsv} onStartDrill={handleStartDrill} closeSignal={historyCloseSignal} />
               </motion.div>
             </div>
           ) : (
@@ -1063,6 +1113,7 @@ function TypingTest({ theme, onToggleTheme }) {
                 onRestart={finalResult?.challengeFailed || finalResult?.challengeCompleted ? handleRetryChallenge : handleRestart}
                 onViewBadgeGallery={() => setIsBadgeGalleryOpen(true)}
                 onExitToClassicCore={exitToClassicCore}
+                onStartDrill={handleStartDrill}
                 arenaMode={isArenaMode}
                 isDark={isDark}
               />
