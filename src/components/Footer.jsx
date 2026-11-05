@@ -1,4 +1,6 @@
-import { ArrowUpRight, Mail } from "lucide-react";
+import { useEffect, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { ArrowUp, ArrowUpRight, Mail } from "lucide-react";
 
 const LINKS = [
   { label: "Privacy", href: "/legal#privacy" },
@@ -7,56 +9,184 @@ const LINKS = [
   { label: "Contact", href: "/legal#contact" }
 ];
 
-/**
- * Slim, flat footer: brand and promise on the left, links in one row, one quiet
- * bottom line. No cards inside cards, so it stops competing with the typing area.
- */
+// Rotating promise line under the brand.
+const PHRASES = [
+  "Build speed, one key at a time.",
+  "Accuracy first. Speed follows.",
+  "नेपालीमा पनि टाइप गर्नुहोस्।",
+  "Practice. Improve. Repeat."
+];
+
+// Keycaps that spell the brand and ripple like someone typing it.
+const KEYS = ["G", "o", "T", "y", "p", "e"];
+
+function Keycaps({ isDark, reduceMotion }) {
+  return (
+    <div className="flex items-end gap-1.5" aria-hidden="true">
+      {KEYS.map((key, index) => (
+        <span
+          key={`${key}-${index}`}
+          className={`footer-keycap ${isDark ? "footer-keycap-dark" : "footer-keycap-light"}`}
+          style={reduceMotion ? undefined : { animationDelay: `${index * 0.18}s` }}
+        >
+          {key}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function RotatingPhrase({ isDark, reduceMotion }) {
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    if (reduceMotion) return undefined;
+    const timer = window.setInterval(() => setIndex((current) => (current + 1) % PHRASES.length), 3200);
+    return () => window.clearInterval(timer);
+  }, [reduceMotion]);
+
+  return (
+    <div className="relative h-6 overflow-hidden" aria-live="off">
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.p
+          key={index}
+          initial={reduceMotion ? false : { y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={reduceMotion ? undefined : { y: -16, opacity: 0 }}
+          transition={{ duration: 0.35, ease: "easeOut" }}
+          className={`text-sm ${isDark ? "text-slate-300" : "text-slate-600"}`}
+        >
+          {PHRASES[index]}
+        </motion.p>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function FooterLink({ href, children, external, isDark, icon: Icon }) {
+  return (
+    <a
+      href={href}
+      {...(external ? { target: "_blank", rel: "noreferrer" } : {})}
+      className={`footer-link group inline-flex items-center gap-1.5 text-sm transition-colors ${
+        isDark ? "text-slate-300 hover:text-white" : "text-slate-700 hover:text-slate-950"
+      }`}
+    >
+      {Icon ? <Icon size={14} aria-hidden="true" /> : null}
+      <span className="footer-link-text">{children}</span>
+      {external ? (
+        <ArrowUpRight
+          size={12}
+          aria-hidden="true"
+          className="transition-transform duration-200 group-hover:-translate-y-0.5 group-hover:translate-x-0.5"
+        />
+      ) : null}
+    </a>
+  );
+}
+
 function Footer({ isDark = true }) {
   const currentYear = new Date().getFullYear();
+  const reduceMotion = useReducedMotion();
   const muted = isDark ? "text-slate-400" : "text-slate-600";
-  const link = isDark ? "text-slate-300 hover:text-white" : "text-slate-700 hover:text-slate-950";
+
+  const container = {
+    hidden: {},
+    show: { transition: { staggerChildren: reduceMotion ? 0 : 0.09 } }
+  };
+  const item = {
+    hidden: reduceMotion ? { opacity: 1 } : { opacity: 0, y: 18 },
+    show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: "easeOut" } }
+  };
+
+  const scrollToTop = () => {
+    const target = document.querySelector("main") || window;
+    target.scrollTo?.({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+    window.scrollTo?.({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
+  };
 
   return (
     <footer
-      className={`mt-6 border-t px-4 py-6 sm:px-8 ${isDark ? "border-slate-800/80 bg-slate-950/60" : "border-slate-200 bg-white/80"}`}
+      className={`footer-root relative mt-8 overflow-hidden border-t ${isDark ? "border-slate-800/80 bg-slate-950" : "border-slate-200 bg-white"}`}
     >
-      <div className="mx-auto flex max-w-6xl flex-col gap-5 md:flex-row md:items-center md:justify-between">
-        <div className="max-w-sm">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-gradient-to-br from-sky-400 to-wine-400" aria-hidden="true" />
-            <span className={`text-sm font-semibold tracking-wide ${isDark ? "text-slate-100" : "text-slate-900"}`}>GoType</span>
-          </div>
-          <p className={`mt-1.5 text-xs leading-5 ${muted}`}>
-            Practice. Improve. Repeat. A calm place to build typing speed and accuracy in English and नेपाली.
-          </p>
+      {/* drifting colour glows */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className={`footer-glow footer-glow-a ${isDark ? "opacity-40" : "opacity-30"}`} />
+        <div className={`footer-glow footer-glow-b ${isDark ? "opacity-35" : "opacity-25"}`} />
+      </div>
+      {/* animated gradient line on the top edge */}
+      <div className="footer-shimmer pointer-events-none absolute inset-x-0 top-0 h-px" aria-hidden="true" />
+
+      <motion.div
+        variants={container}
+        initial="hidden"
+        whileInView="show"
+        viewport={{ once: true, amount: 0.25 }}
+        className="relative mx-auto max-w-6xl px-4 py-10 sm:px-8"
+      >
+        <div className="grid gap-8 md:grid-cols-[1.3fr_1fr_1fr]">
+          <motion.div variants={item} className="space-y-4">
+            <Keycaps isDark={isDark} reduceMotion={reduceMotion} />
+            <RotatingPhrase isDark={isDark} reduceMotion={reduceMotion} />
+            <p className={`max-w-sm text-xs leading-5 ${muted}`}>
+              A calm place to build typing speed and accuracy in English and नेपाली, with guided lessons and a Loksewa-style test.
+            </p>
+          </motion.div>
+
+          <motion.nav variants={item} aria-label="Footer" className="space-y-3">
+            <h3 className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${muted}`}>Explore</h3>
+            <ul className="flex flex-col gap-2.5">
+              {LINKS.map((link) => (
+                <li key={link.label}>
+                  <FooterLink href={link.href} isDark={isDark}>
+                    {link.label}
+                  </FooterLink>
+                </li>
+              ))}
+            </ul>
+          </motion.nav>
+
+          <motion.div variants={item} className="space-y-3">
+            <h3 className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${muted}`}>Say hello</h3>
+            <ul className="flex flex-col gap-2.5">
+              <li>
+                <FooterLink href="mailto:katwalniranjan40@gmail.com" icon={Mail} isDark={isDark}>
+                  katwalniranjan40@gmail.com
+                </FooterLink>
+              </li>
+              <li>
+                <FooterLink href="https://github.com/itsniranjannn" external isDark={isDark}>
+                  GitHub
+                </FooterLink>
+              </li>
+            </ul>
+            <motion.button
+              type="button"
+              onClick={scrollToTop}
+              whileHover={reduceMotion ? undefined : { y: -3 }}
+              whileTap={reduceMotion ? undefined : { scale: 0.96 }}
+              className={`mt-2 inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition-colors ${
+                isDark
+                  ? "border-slate-700 bg-slate-900/70 text-slate-200 hover:border-sky-400/60 hover:text-white"
+                  : "border-slate-300 bg-white text-slate-700 hover:border-sky-500 hover:text-slate-950"
+              }`}
+            >
+              <ArrowUp size={14} aria-hidden="true" className="footer-arrow" />
+              Back to top
+            </motion.button>
+          </motion.div>
         </div>
 
-        <nav aria-label="Footer" className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-          {LINKS.map((item) => (
-            <a key={item.label} href={item.href} className={`transition ${link}`}>
-              {item.label}
-            </a>
-          ))}
-          <a
-            href="https://github.com/itsniranjannn"
-            target="_blank"
-            rel="noreferrer"
-            className={`inline-flex items-center gap-1.5 transition ${link}`}
-          >
-            GitHub
-            <ArrowUpRight size={12} aria-hidden="true" />
-          </a>
-          <a href="mailto:katwalniranjan40@gmail.com" className={`inline-flex items-center gap-1.5 transition ${link}`}>
-            <Mail size={14} aria-hidden="true" />
-            Email
-          </a>
-        </nav>
-      </div>
-
-      <div className={`mx-auto mt-5 flex max-w-6xl flex-col gap-1 border-t pt-4 text-xs sm:flex-row sm:items-center sm:justify-between ${isDark ? "border-slate-800/70" : "border-slate-200"} ${muted}`}>
-        <span>© {currentYear} GoType. All rights reserved.</span>
-        <span>Built by Niranjan · Focused typing, minimal friction.</span>
-      </div>
+        <motion.div
+          variants={item}
+          className={`mt-8 flex flex-col gap-1 border-t pt-4 text-xs sm:flex-row sm:items-center sm:justify-between ${isDark ? "border-slate-800/70" : "border-slate-200"} ${muted}`}
+        >
+          <span>© {currentYear} GoType. All rights reserved.</span>
+          <span>
+            Made with <span className="footer-heart" aria-label="love">♥</span> by Niranjan
+          </span>
+        </motion.div>
+      </motion.div>
     </footer>
   );
 }

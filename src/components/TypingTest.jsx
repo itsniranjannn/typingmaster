@@ -1161,7 +1161,7 @@ function TypingTest({ theme, onToggleTheme }) {
                 </div>
               </motion.div>
 
-              {!isArenaMode && (
+              {isNepaliLayout && (
                 <div>
                 <KeyboardGuide
                   language={language}

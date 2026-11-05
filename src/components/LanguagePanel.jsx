@@ -136,6 +136,8 @@ function LanguagePanel({
           </>
         ) : null}
 
+        {/* The on-screen keyboard and finger hints are for learning the Nepali layout only. */}
+        {isNepali ? (
         <div className="ml-auto flex flex-wrap items-center gap-2">
           <Toggle
             checked={settings.showKeyboard}
@@ -152,6 +154,7 @@ function LanguagePanel({
             isDark={isDark}
           />
         </div>
+        ) : null}
       </div>
 
       {isNepali && settings.inputMethod === INPUT_METHODS.SYSTEM ? (
