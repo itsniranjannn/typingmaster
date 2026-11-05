@@ -170,14 +170,16 @@ function KeyboardGuide({
   const layout = useMemo(() => getLayout(language), [language]);
   const target = useMemo(() => (isFinished ? null : keyForText(layout, upcomingText)), [layout, upcomingText, isFinished]);
 
-  // brief hit/miss flash on the key the user just pressed
-  const [flash, setFlash] = useState(null);
+  // Brief hit/miss flash on the key just pressed. It is derived from the prop, and state is only set
+  // from a timer: setting state synchronously in an effect on every key press made fast typing trip
+  // React's nested-update limit.
+  const [expiredId, setExpiredId] = useState(null);
   useEffect(() => {
     if (!pressed) return undefined;
-    setFlash(pressed);
-    const timer = window.setTimeout(() => setFlash(null), 140);
+    const timer = window.setTimeout(() => setExpiredId(pressed.id), 140);
     return () => window.clearTimeout(timer);
   }, [pressed]);
+  const flash = pressed && pressed.id !== expiredId ? pressed : null;
 
   if (!showKeyboard && !showFingerHints) return null;
 

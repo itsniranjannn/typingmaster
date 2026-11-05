@@ -157,8 +157,8 @@ Switch the language bar above the typing panel to **नेपाली** to prac
 - **Composed vowels:** ो, ौ, आ, ओ and औ are typed as sequences (`ा + े`, `अ + ा`, ...). The engine holds a half-typed vowel back and commits it whole, so it is never counted as a mistake.
 - **Alt layer:** the reference chart has no keys for फ झ ङ ई ऊ ऐ, so they sit on `Alt + key` (shown in orange): Alt+K फ, Alt+H झ, Alt+U ङ, Alt+O ई, Alt+P ऊ, Alt+] ऐ.
 - **On-screen keyboard and finger hints:** shows the next key, the Shift or Alt key and which hand, a colour-coded hand diagram, and a sentence such as "Hold Shift with your right pinky, press S with your left ring finger". Both are toggleable.
-- **Learn Nepali typing:** 13 guided lessons (home row, top/bottom rows, vowel signs, Shift marks, half letters, conjunct keys, Alt letters, digits, everyday words).
-- **Loksewa typing test:** a timed test (5 or 10 minutes) on formal, administrative Nepali passages with a pass/fail verdict: target speed (20/25/30/35 WPM) and at least 95% accuracy. Net WPM = correct characters / 5 / minutes. Official time, speed target and font differ per vacancy notice, so set the target to match yours. Passages are original practice text, not official exam papers.
+- **Learn Nepali typing:** 12 guided lessons (home row, top/bottom rows, vowel signs, Shift marks, half letters, conjunct keys, Alt letters, digits, everyday words). Finish a drill with at least **90% keystroke accuracy** to pass it and unlock the next lesson; every wrong key counts, even one you fix with Backspace. Progress (passed, best accuracy and WPM) is saved in the browser, and **Unlock all** opens every lesson.
+- **Loksewa typing test:** a timed test (1 to 15 minutes) on one of **30 formal, administrative Nepali passages** (or Random), or on **your own pasted text** (checked against the layout and needing at least 5 words), with a pass/fail verdict: target speed (20/25/30/35 WPM) and at least 95% accuracy. Net WPM = correct characters / 5 / minutes. Official time, speed target and font differ per vacancy notice, so set the target to match yours. Passages are original practice text, not official exam papers, and have **not been proofread by a native speaker**: `node scripts/export-nepali-content.mjs` writes `docs/nepali-content-review.md`, a checklist of all Nepali text for a reviewer.
 - Nepali personal bests are tracked separately from English (`ne_*` keys). Weak-key drills only use your Nepali mistakes while Nepali is selected.
 
 ### 🖱️ Smart Auto-Scroll
@@ -403,7 +403,8 @@ npm run preview
 ## 🧪 Testing
 
 ```bash
-npm run test
+npm run test   # unit + hook tests (Vitest + jsdom)
+npm run e2e    # real-browser tests of the Nepali flow (Playwright + installed Edge/Chrome)
 ```
 
 <div align="center">
@@ -415,10 +416,17 @@ npm run test
 | `typingStats.test.js` | WPM / accuracy calculations |
 | `typingModeHelpers.test.js` | Mode normalization, best-WPM keys, text generation |
 | `practiceTools.test.js` | Weak-key drills, ghost interpolation, ghost/sample storage |
+| `nepali.test.js` | Layout keys, conjuncts, composed vowels, every Nepali text typeable keystroke by keystroke |
+| `nepaliIntegration.test.jsx` | Keyboard guide hints, Loksewa verdict, stat tiles, passage settings |
+| `useTypingTest.nepali.test.jsx` | Typing engine: composed vowels, conjunct keys and Backspace, Loksewa state, lesson pass/fail |
+| `lessonProgress.test.js` | Lesson unlocking, best scores, corrupt storage |
 
 </div>
 
-Runs on **Vitest + jsdom** — no real browser runtime needed.
+`npm run e2e` builds the app, serves it with `vite preview` and drives it with **real key events** (correct `KeyboardEvent.code`, Shift and Alt):
+it types whole Nepali passages through the UI at 100% accuracy, checks composed vowels, conjunct Backspace, the Alt layer, system-keyboard
+input, phone defaults, lesson gating, Loksewa pass/fail (with a fake clock) and light/dark rendering. Screenshots are written to `e2e/artifacts/`.
+It needs Microsoft Edge or Google Chrome (`E2E_CHANNEL=chrome` to choose Chrome) but downloads no browser; `E2E_DEV=1` uses the dev server.
 
 <br/>
 

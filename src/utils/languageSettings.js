@@ -7,18 +7,30 @@ export const INPUT_METHODS = {
   SYSTEM: "system" // pass through whatever the OS keyboard produces
 };
 
-const DEFAULTS = {
-  language: LANGUAGES.EN,
-  inputMethod: INPUT_METHODS.BUILT_IN,
-  showKeyboard: true,
-  showFingerHints: true
+/** Phones and tablets have no physical keyboard, so the key-position emulation cannot work there. */
+export const isTouchDevice = () => {
+  try {
+    return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(pointer: coarse)").matches;
+  } catch {
+    return false;
+  }
+};
+
+const getDefaults = () => {
+  const touch = isTouchDevice();
+  return {
+    language: LANGUAGES.EN,
+    inputMethod: touch ? INPUT_METHODS.SYSTEM : INPUT_METHODS.BUILT_IN,
+    showKeyboard: !touch,
+    showFingerHints: !touch
+  };
 };
 
 export const getLanguageSettings = () => {
   try {
-    if (typeof window === "undefined") return { ...DEFAULTS };
+    if (typeof window === "undefined") return getDefaults();
     const parsed = JSON.parse(window.localStorage.getItem(KEY) || "null");
-    if (!parsed || typeof parsed !== "object") return { ...DEFAULTS };
+    if (!parsed || typeof parsed !== "object") return getDefaults();
     return {
       language: parsed.language === LANGUAGES.NE ? LANGUAGES.NE : LANGUAGES.EN,
       inputMethod: parsed.inputMethod === INPUT_METHODS.SYSTEM ? INPUT_METHODS.SYSTEM : INPUT_METHODS.BUILT_IN,
@@ -26,7 +38,7 @@ export const getLanguageSettings = () => {
       showFingerHints: parsed.showFingerHints !== false
     };
   } catch {
-    return { ...DEFAULTS };
+    return getDefaults();
   }
 };
 

@@ -1,4 +1,4 @@
-import { NEPALI_WORDS } from "./nepaliText";
+import { NEPALI_WORDS } from "./nepaliText.js";
 
 /**
  * Guided course for the traditional Nepali layout. Lessons follow a typing teacher's

@@ -12,8 +12,9 @@ import { useGhostCursor } from "./useGhostCursor";
 import { useTypingSounds } from "./useTypingSounds";
 import { LANGUAGES, charFromKeyEvent, getLayout, physicalFromKey, planKeystroke } from "../data/keyboardLayouts";
 import { getNepaliChunk } from "../data/nepaliText";
-import { evaluateLoksewa, getLoksewaChunk, getLoksewaPassage } from "../data/loksewaPassages";
-import { buildLessonText, getLessonById } from "../data/nepaliLessons";
+import { evaluateLoksewa, getLoksewaChunk, getLoksewaPassage, normalizeCustomText } from "../data/loksewaPassages";
+import { NEPALI_LESSONS, buildLessonText, getLessonById } from "../data/nepaliLessons";
+import { PASS_ACCURACY, getLessonProgress, recordLessonAttempt, setUnlockedAll } from "../utils/lessonProgress";
 import { INPUT_METHODS, getLanguageSettings, saveLanguageSettings } from "../utils/languageSettings";
 import { calculateAccuracy, calculateWpm, getTopMistakes } from "../utils/typingStats";
 import confetti from "canvas-confetti";
@@ -73,8 +74,17 @@ export const useTypingTest = () => {
     getGeneratedTextForMode(initialMode === TYPING_MODES.CHALLENGE_ARENA ? TYPING_MODES.TIME : initialMode, DEFAULT_WORD_COUNT, initialLanguage)
   );
   const [activeLessonId, setActiveLessonId] = useState(null);
+  const [lessonProgress, setLessonProgress] = useState(() => getLessonProgress());
   const [loksewa, setLoksewa] = useState(null); // { durationSeconds, targetWpm } while a Loksewa-style test is set up
   const loksewaRef = useRef(null);
+  // Keystroke accuracy for lessons: every wrong key counts, even if it is corrected afterwards.
+  const strokeTotalRef = useRef(0);
+  const strokeErrorsRef = useRef(0);
+  const unitsRef = useRef([]); // length of each key press output, so Backspace removes a whole conjunct (ज्ञ)
+  const endLoksewa = useCallback(() => {
+    loksewaRef.current = null;
+    setLoksewa(null);
+  }, []);
   const pendingVowelRef = useRef(""); // first keys of a composed vowel (ो ौ आ ओ औ), held back until complete
   const [pendingVowel, setPendingVowel] = useState("");
   const [mode, setMode] = useState(initialMode);
@@ -496,6 +506,8 @@ export const useTypingTest = () => {
       correctCharsRef.current = 0;
       incorrectCharsRef.current = 0;
       currentIndexRef.current = 0;
+      strokeTotalRef.current = 0;
+      strokeErrorsRef.current = 0;
       currentWordRef.current = "";
       currentWordIndexRef.current = 0;
       completedWordsRef.current = 0;
@@ -891,6 +903,8 @@ export const useTypingTest = () => {
         const newChar = nextValue[typedIndex];
         const targetChar = paragraph[typedIndex];
         const isCorrectCharacter = newChar === targetChar;
+        strokeTotalRef.current += 1;
+        if (!isCorrectCharacter) strokeErrorsRef.current += 1;
         const currentWordIndex = currentWordIndexRef.current;
 
         if (mode === TYPING_MODES.CHALLENGE_ARENA && currentArenaChallengeRef.current?.family === "memory") {
@@ -1078,7 +1092,7 @@ export const useTypingTest = () => {
     if (loksewaRef.current) {
       resetTypingState({
         nextMode: TYPING_MODES.TIME,
-        nextParagraph: getLoksewaPassage(90, loksewaRef.current.passageIndex),
+        nextParagraph: loksewaRef.current.customText || getLoksewaPassage(90, loksewaRef.current.passageIndex),
         nextTimeLimitSeconds: loksewaRef.current.durationSeconds
       });
       return;
@@ -1200,11 +1214,12 @@ export const useTypingTest = () => {
 
   const handleWordCountChange = useCallback(
     (nextWordCount) => {
+      endLoksewa();
       if (mode === TYPING_MODES.WORDS) {
         resetTypingState({ nextWordCount });
       }
     },
-    [mode, resetTypingState]
+    [endLoksewa, mode, resetTypingState]
   );
 
   const handleGoalWpmChange = useCallback(
@@ -1213,17 +1228,19 @@ export const useTypingTest = () => {
       const wpm = Number.isFinite(parsedWpm)
         ? Math.max(10, Math.min(200, parsedWpm))
         : DEFAULT_GOAL_WPM;
+      endLoksewa();
       setTargetWpm(wpm);
       if (mode === TYPING_MODES.GOAL) {
         resetTypingState({ nextMode: TYPING_MODES.GOAL });
       }
     },
-    [mode, resetTypingState]
+    [endLoksewa, mode, resetTypingState]
   );
 
   const handleGoalVariantChange = useCallback(
     (nextGoalVariant) => {
       const normalizedGoal = normalizeGoalVariant(nextGoalVariant);
+      endLoksewa();
       setPreferredGoalVariant(normalizedGoal);
       if (mode === TYPING_MODES.GOAL) {
         resetTypingState({ nextMode: TYPING_MODES.GOAL, nextGoalVariant: normalizedGoal });
@@ -1231,12 +1248,13 @@ export const useTypingTest = () => {
         setGoalVariant(normalizedGoal);
       }
     },
-    [mode, resetTypingState]
+    [endLoksewa, mode, resetTypingState]
   );
 
   const handleTimeLimitChange = useCallback(
     (nextSeconds) => {
       const normalizedSeconds = normalizeTimeLimitSeconds(nextSeconds);
+      endLoksewa();
       setPreferredTimeLimitSeconds(normalizedSeconds);
       if (mode === TYPING_MODES.TIME) {
         resetTypingState({ nextMode: TYPING_MODES.TIME, nextTimeLimitSeconds: normalizedSeconds });
@@ -1244,7 +1262,7 @@ export const useTypingTest = () => {
         setTimeLimitSeconds(normalizedSeconds);
       }
     },
-    [mode, resetTypingState]
+    [endLoksewa, mode, resetTypingState]
   );
 
   const toggleSound = useCallback(() => {
@@ -1344,6 +1362,8 @@ export const useTypingTest = () => {
       (mode === TYPING_MODES.TIME || (mode === TYPING_MODES.GOAL && goalVariant === GOAL_VARIANTS.SUSTAIN));
 
     if (!canExtendText) return;
+    // A learner-supplied Loksewa text is typed exactly as given, it is never extended.
+    if (loksewaRef.current?.customText) return;
 
     const nearEnd = paragraph.length - typedText.length < 90;
     const elapsedTrigger = elapsedSeconds > 0 && elapsedSeconds % 10 === 0 && lastAppendedElapsedRef.current !== elapsedSeconds;
@@ -1577,6 +1597,10 @@ export const useTypingTest = () => {
     });
   }, []);
 
+  const unlockAllLessons = useCallback(() => {
+    setLessonProgress((current) => setUnlockedAll(current, true));
+  }, []);
+
   const startNepaliLesson = useCallback(
     (lessonId) => {
       const lesson = getLessonById(lessonId);
@@ -1624,6 +1648,7 @@ export const useTypingTest = () => {
   // A new passage or a restart always starts with no half-typed vowel.
   useEffect(() => {
     clearPendingVowel();
+    unitsRef.current = [];
   }, [paragraph, isFinished, clearPendingVowel]);
 
   /**
@@ -1641,15 +1666,43 @@ export const useTypingTest = () => {
       const plan = planKeystroke({ output, pending: pendingVowelRef.current, target });
       pendingVowelRef.current = plan.pending;
       setPendingVowel(plan.pending);
-      if (plan.action === "commit") handleTyping(`${typedText}${plan.text}`);
+      if (plan.action === "commit") {
+        unitsRef.current.push(plan.text.length);
+        handleTyping(`${typedText}${plan.text}`);
+      }
       return plan.ok;
     },
     [handleTyping, paragraph, typedText, usesBuiltInNepali]
   );
 
+  /**
+   * Backspace. On the built-in Nepali layout it first drops keys held back for a composed
+   * vowel, then removes a whole key press (so ज्ञ, typed with one key, goes in one press).
+   */
+  const handleBackspace = useCallback(() => {
+    if (!usesBuiltInNepali) {
+      handleTyping(typedText.slice(0, -1));
+      return;
+    }
+    if (pendingVowelRef.current) {
+      clearPendingVowel();
+      return;
+    }
+    let remove = 1;
+    const units = unitsRef.current;
+    const total = units.reduce((sum, length) => sum + length, 0);
+    if (total !== typedText.length) {
+      unitsRef.current = []; // out of step (text changed elsewhere): fall back to one character
+    } else if (units.length && !typedText.endsWith(" ")) {
+      remove = units.pop();
+    }
+    handleTyping(typedText.slice(0, Math.max(typedText.length - remove, 0)));
+  }, [clearPendingVowel, handleTyping, typedText, usesBuiltInNepali]);
+
   const startLoksewaTest = useCallback(
-    ({ durationSeconds = 300, targetWpm = 30, passageIndex = null } = {}) => {
-      const config = { durationSeconds, targetWpm, passageIndex };
+    ({ durationSeconds = 300, targetWpm = 30, passageIndex = null, customText = "" } = {}) => {
+      const custom = normalizeCustomText(customText);
+      const config = { durationSeconds, targetWpm, passageIndex, customText: custom || null };
       if (languageRef.current !== LANGUAGES.NE) {
         languageRef.current = LANGUAGES.NE;
         setLanguageSettings((previous) => {
@@ -1663,7 +1716,7 @@ export const useTypingTest = () => {
       setLoksewa(config);
       resetTypingState({
         nextMode: TYPING_MODES.TIME,
-        nextParagraph: getLoksewaPassage(90, passageIndex),
+        nextParagraph: custom || getLoksewaPassage(90, passageIndex),
         nextTimeLimitSeconds: durationSeconds
       });
     },
@@ -1705,6 +1758,7 @@ export const useTypingTest = () => {
       timeLimitSeconds: mode === TYPING_MODES.TIME || mode === TYPING_MODES.GOAL ? timeLimitSeconds : null,
       modeKey: currentBestKey,
       language: languageRef.current,
+      lesson: null,
       loksewa: loksewaRef.current
         ? { ...evaluateLoksewa({
             wpm: finalWpm,
@@ -1750,6 +1804,30 @@ export const useTypingTest = () => {
       setDailyGoalProgress(progress);
     } catch {}
     hasSavedResultRef.current = true;
+
+    // Guided Nepali lesson: pass with enough accuracy, which unlocks the next lesson.
+    const finishedLesson = mode === TYPING_MODES.CUSTOM && languageRef.current === LANGUAGES.NE ? getLessonById(activeLessonId) : null;
+    if (finishedLesson) {
+      const strokes = strokeTotalRef.current;
+      const lessonAccuracy = strokes > 0 ? Math.round(((strokes - strokeErrorsRef.current) / strokes) * 10000) / 100 : accuracy;
+      const { progress, passedNow, newlyPassed } = recordLessonAttempt(lessonProgress, finishedLesson.id, { accuracy: lessonAccuracy, wpm: finalWpm });
+      setLessonProgress(progress);
+      const index = NEPALI_LESSONS.findIndex((lesson) => lesson.id === finishedLesson.id);
+      result.lesson = {
+        id: finishedLesson.id,
+        title: finishedLesson.title,
+        number: index + 1,
+        total: NEPALI_LESSONS.length,
+        passed: passedNow,
+        newlyPassed,
+        passAccuracy: PASS_ACCURACY,
+        accuracy: lessonAccuracy,
+        mistakes: strokeErrorsRef.current,
+        wpm: finalWpm,
+        nextId: NEPALI_LESSONS[index + 1]?.id || null,
+        nextTitle: NEPALI_LESSONS[index + 1]?.title || null
+      };
+    }
     // update streak info based on now
     try {
       const s = updateStreakWithTimestamp(Date.now());
@@ -1830,7 +1908,9 @@ export const useTypingTest = () => {
     wordCount,
     rawWpm,
     calculateArenaWpm,
-    getSamples
+    getSamples,
+    activeLessonId,
+    lessonProgress
   ]);
 
   return {
@@ -1909,12 +1989,15 @@ export const useTypingTest = () => {
     setLanguage,
     updateLanguageSettings,
     startNepaliLesson,
+    lessonProgress,
+    unlockAllLessons,
     activeLessonId,
     translateKeyEvent,
     usesBuiltInNepali,
     pendingVowel,
     clearPendingVowel,
     typeOutput,
+    handleBackspace,
     loksewa,
     startLoksewaTest
   };

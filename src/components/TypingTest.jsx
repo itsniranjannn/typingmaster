@@ -8,6 +8,7 @@ import TypingText from "./TypingText";
 import LanguagePanel from "./LanguagePanel";
 import KeyboardGuide from "./KeyboardGuide";
 import LoksewaVerdict from "./LoksewaVerdict";
+import LessonVerdict from "./LessonVerdict";
 import NepaliStatTiles from "./NepaliStatTiles";
 import { LANGUAGES, getHintText, physicalFromKey } from "../data/keyboardLayouts";
 import ResultScreen from "./ResultScreen";
@@ -97,12 +98,15 @@ function TypingTest({ theme, onToggleTheme }) {
     setLanguage,
     updateLanguageSettings,
     startNepaliLesson,
+    lessonProgress,
+    unlockAllLessons,
     activeLessonId,
     translateKeyEvent,
     usesBuiltInNepali,
     pendingVowel,
     clearPendingVowel,
     typeOutput,
+    handleBackspace,
     loksewa,
     startLoksewaTest
   } = useTypingTest();
@@ -274,8 +278,7 @@ function TypingTest({ theme, onToggleTheme }) {
 
       if (key === "Backspace") {
         event.preventDefault();
-        if (usesBuiltInNepali) clearPendingVowel();
-        handleTyping(typedText.slice(0, -1));
+        handleBackspace();
         return;
       }
 
@@ -296,20 +299,42 @@ function TypingTest({ theme, onToggleTheme }) {
         event.preventDefault();
       }
     },
-    [handleTyping, isFinished, typedText, isArenaOverlayVisible, translateKeyEvent, typeOutput, usesBuiltInNepali, clearPendingVowel]
+    [handleTyping, handleBackspace, isFinished, typedText, isArenaOverlayVisible, translateKeyEvent, typeOutput, usesBuiltInNepali]
   );
 
   // Text the OS keyboard inserted without a usable keydown (Nepali keys that type several
-  // characters, dead keys, phone keyboards): take it from the input event instead.
-  const handleBeforeInput = useCallback(
-    (event) => {
-      const data = event.data ?? event.nativeEvent?.data;
-      if (!data || isFinished || isArenaOverlayVisible) return;
+  // characters, dead keys, phone and IME keyboards): take it from the native input events.
+  // Native listeners are used because React's onBeforeInput does not fire for every source.
+  useEffect(() => {
+    const element = hiddenInputRef.current;
+    if (!element || isFinished || isArenaOverlayVisible) return undefined;
+
+    const onBeforeInput = (event) => {
+      if (event.inputType !== "insertText" || !event.data) return;
       event.preventDefault();
-      handleTyping(`${typedText}${data}`);
-    },
-    [handleTyping, isFinished, isArenaOverlayVisible, typedText]
-  );
+      handleTyping(`${typedText}${event.data}`);
+    };
+    const onCompositionEnd = (event) => {
+      if (!event.data) return;
+      handleTyping(`${typedText}${event.data}`);
+    };
+    // Some sources (remote keyboards, automation) insert text with an input event only.
+    // Pasting is a different inputType and stays blocked.
+    const onInput = (event) => {
+      if (event.isComposing || event.inputType !== "insertText") return;
+      const value = element.value;
+      if (value.length > typedText.length && value.startsWith(typedText)) handleTyping(value);
+    };
+
+    element.addEventListener("beforeinput", onBeforeInput);
+    element.addEventListener("compositionend", onCompositionEnd);
+    element.addEventListener("input", onInput);
+    return () => {
+      element.removeEventListener("beforeinput", onBeforeInput);
+      element.removeEventListener("compositionend", onCompositionEnd);
+      element.removeEventListener("input", onInput);
+    };
+  }, [handleTyping, isFinished, isArenaOverlayVisible, typedText]);
 
   useEffect(() => {
     if (accuracy === prevAccuracy) return;
@@ -1071,6 +1096,8 @@ function TypingTest({ theme, onToggleTheme }) {
                   onLanguageChange={setLanguage}
                   onSettingsChange={updateLanguageSettings}
                   onStartLesson={startNepaliLesson}
+                  lessonProgress={lessonProgress}
+                  onUnlockAll={unlockAllLessons}
                   loksewa={loksewa}
                   onStartLoksewa={startLoksewaTest}
                   activeLessonId={mode === TYPING_MODES.CUSTOM ? activeLessonId : null}
@@ -1119,6 +1146,7 @@ function TypingTest({ theme, onToggleTheme }) {
                     fontScale={fontScale}
                     focused={isTypingAreaFocused}
                     className={isNepaliLayout ? "ne-passage" : ""}
+                    pendingActive={Boolean(pendingVowel)}
                     hideContent={false}
                     fadedWords={fadedWords}
                     challengePromptHidden={challengePromptHidden}
@@ -1134,7 +1162,6 @@ function TypingTest({ theme, onToggleTheme }) {
                     value={typedText}
                     onKeyDown={handleInlineKeyDown}
                     onChange={() => {}}
-                    onBeforeInput={handleBeforeInput}
                     onPaste={(event) => { if (mode !== TYPING_MODES.CUSTOM) event.preventDefault(); }}
                     aria-hidden="true"
                     tabIndex={-1}
@@ -1196,6 +1223,9 @@ function TypingTest({ theme, onToggleTheme }) {
               className="mx-auto w-full max-w-4xl lg:col-span-1"
             >
               {finalResult?.loksewa ? <LoksewaVerdict result={finalResult} isDark={isDark} /> : null}
+              {finalResult?.lesson ? (
+                <LessonVerdict result={finalResult} onStartLesson={startNepaliLesson} isDark={isDark} />
+              ) : null}
               <ResultScreen
                 result={finalResult}
                 bestWpm={bestWpm}

@@ -1,9 +1,10 @@
 import { memo, useState } from "react";
-import { BookOpen, Hand, Keyboard, Landmark } from "lucide-react";
-import { LANGUAGES } from "../data/keyboardLayouts";
+import { BookOpen, Check, Hand, Keyboard, Landmark, Lock } from "lucide-react";
+import { LANGUAGES, LAYOUTS, isTypeableText } from "../data/keyboardLayouts";
 import { NEPALI_LESSONS, getLessonById } from "../data/nepaliLessons";
 import { INPUT_METHODS } from "../utils/languageSettings";
-import { LOKSEWA_DURATIONS, LOKSEWA_MIN_ACCURACY, LOKSEWA_TARGETS, LOKSEWA_TITLES } from "../data/loksewaPassages";
+import { PASS_ACCURACY, countPassed, getNextLesson, isLessonUnlocked } from "../utils/lessonProgress";
+import { LOKSEWA_DURATIONS, LOKSEWA_MIN_ACCURACY, LOKSEWA_TARGETS, LOKSEWA_TITLES, normalizeCustomText } from "../data/loksewaPassages";
 
 function Toggle({ checked, onChange, label, icon: Icon, isDark }) {
   return (
@@ -34,6 +35,8 @@ function LanguagePanel({
   onLanguageChange,
   onSettingsChange,
   onStartLesson,
+  lessonProgress = { lessons: {}, unlockedAll: false },
+  onUnlockAll,
   activeLessonId,
   loksewa,
   onStartLoksewa,
@@ -44,7 +47,16 @@ function LanguagePanel({
   const [duration, setDuration] = useState(300);
   const [target, setTarget] = useState(30);
   const [passageIndex, setPassageIndex] = useState("random");
+  const [customText, setCustomText] = useState("");
+  const normalizedCustom = normalizeCustomText(customText);
+  const blockedCharacters = normalizedCustom
+    ? [...new Set([...normalizedCustom].filter((character) => !isTypeableText(LAYOUTS.ne, character)))]
+    : [];
+  const customWords = normalizedCustom ? normalizedCustom.split(" ").length : 0;
+  const customInvalid = normalizedCustom.length > 0 && (blockedCharacters.length > 0 || customWords < 5);
   const isNepali = language === LANGUAGES.NE;
+  const passedCount = countPassed(NEPALI_LESSONS, lessonProgress);
+  const nextLesson = getNextLesson(NEPALI_LESSONS, lessonProgress);
   const activeLesson = getLessonById(activeLessonId);
 
   const segment = (value, label, lang) => (
@@ -160,7 +172,7 @@ function LanguagePanel({
       {isNepali && settings.inputMethod === INPUT_METHODS.SYSTEM ? (
         <p className={`mt-2 text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
           Add a Nepali keyboard in your system settings first (Windows: Settings → Time & language → Language → Nepali). The on-screen
-          guide follows the standard Nepali layout; other layouts may differ.
+          guide shows the traditional (Preeti-style) layout; other layouts may differ.
         </p>
       ) : null}
 
@@ -204,6 +216,32 @@ function LanguagePanel({
               </select>
             </label>
           </div>
+          <label className="mt-3 block text-xs">
+            <span className={`mb-1 block font-semibold ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+              वा आफ्नो पाठ लेख्नुहोस् <span className="font-normal opacity-70">(Or paste your own text, optional)</span>
+            </span>
+            <textarea
+              value={customText}
+              onChange={(event) => setCustomText(event.target.value)}
+              aria-label="Loksewa custom text"
+              lang="ne"
+              rows={3}
+              placeholder="यहाँ आफ्नो नेपाली पाठ लेख्नुहोस्..."
+              className={`w-full resize-y rounded-lg border px-3 py-2 text-sm ${isDark ? "border-slate-600 bg-slate-900 text-slate-100 placeholder:text-slate-500" : "border-slate-300 bg-white text-slate-800 placeholder:text-slate-400"}`}
+            />
+            <span
+              data-testid="loksewa-custom-status"
+              className={`mt-1 block ${customInvalid ? "text-rose-400" : isDark ? "text-slate-400" : "text-slate-500"}`}
+            >
+              {!normalizedCustom
+                ? "Leave empty to use the passage above."
+                : blockedCharacters.length > 0
+                  ? `Cannot be typed on this layout: ${blockedCharacters.join(" ")}`
+                  : customWords < 5
+                    ? "Add at least 5 words."
+                    : `${customWords} words, ${normalizedCustom.length} characters. This text replaces the passage.`}
+            </span>
+          </label>
           <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-3">
             <div className="flex items-center gap-2 text-xs">
               <span className={isDark ? "text-slate-400" : "text-slate-500"}>Target</span>
@@ -225,8 +263,16 @@ function LanguagePanel({
             </div>
             <button
               type="button"
-              onClick={() => onStartLoksewa({ durationSeconds: duration, targetWpm: target, passageIndex: passageIndex === "random" ? null : Number(passageIndex) })}
-              className="rounded-full bg-gradient-to-r from-sky-600 to-sky-500 px-5 py-2 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(141,134,214,0.2)] transition hover:brightness-110"
+              disabled={customInvalid}
+              onClick={() =>
+                onStartLoksewa({
+                  durationSeconds: duration,
+                  targetWpm: target,
+                  passageIndex: passageIndex === "random" ? null : Number(passageIndex),
+                  customText: normalizedCustom
+                })
+              }
+              className="rounded-full disabled:cursor-not-allowed disabled:opacity-50  bg-gradient-to-r from-sky-600 to-sky-500 px-5 py-2 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(141,134,214,0.2)] transition hover:brightness-110"
             >
               परीक्षण सुरु गर्नुहोस् (Start test)
             </button>
@@ -242,35 +288,66 @@ function LanguagePanel({
       ) : null}
 
       {isNepali && lessonsOpen ? (
-        <div className="mt-3 border-t border-slate-700/40 pt-3">
-          <p className={`mb-2 text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-            Follow the lessons in order. Each one drills only the keys it teaches, and the keyboard shows which finger to use.
-          </p>
+        <div className="mt-3 border-t border-slate-700/40 pt-3" data-testid="lesson-list">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+              Finish each drill with at least {PASS_ACCURACY}% accuracy to pass it and unlock the next lesson.
+            </p>
+            <div className="flex items-center gap-3 text-xs">
+              <span className={`font-semibold ${isDark ? "text-slate-200" : "text-slate-700"}`} data-testid="lesson-count">
+                {passedCount}/{NEPALI_LESSONS.length} passed
+              </span>
+              {!lessonProgress.unlockedAll && passedCount < NEPALI_LESSONS.length ? (
+                <button
+                  type="button"
+                  onClick={onUnlockAll}
+                  className="rounded-full border border-slate-500/50 px-3 py-1 font-semibold text-slate-300 transition hover:border-sky-400/60 hover:text-white"
+                >
+                  Unlock all
+                </button>
+              ) : null}
+            </div>
+          </div>
+          <div className={`mb-3 h-1.5 overflow-hidden rounded-full ${isDark ? "bg-slate-800" : "bg-slate-200"}`} role="progressbar" aria-valuemin={0} aria-valuemax={NEPALI_LESSONS.length} aria-valuenow={passedCount}>
+            <div className="h-full rounded-full bg-gradient-to-r from-sky-500 to-emerald-400 transition-all duration-500" style={{ width: `${(passedCount / NEPALI_LESSONS.length) * 100}%` }} />
+          </div>
           <ol className="grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-3">
             {NEPALI_LESSONS.map((lesson, index) => {
               const active = lesson.id === activeLessonId;
+              const record = lessonProgress.lessons[lesson.id];
+              const passed = Boolean(record?.passed);
+              const unlocked = isLessonUnlocked(NEPALI_LESSONS, index, lessonProgress);
+              const isNext = unlocked && !passed && nextLesson?.id === lesson.id;
               return (
                 <li key={lesson.id}>
                   <button
                     type="button"
+                    disabled={!unlocked}
                     onClick={() => onStartLesson(lesson.id)}
                     aria-current={active ? "step" : undefined}
+                    title={unlocked ? undefined : `Pass lesson ${index} with ${PASS_ACCURACY}% accuracy to unlock`}
                     className={`flex w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-xs font-semibold transition ${
-                      active
-                        ? "border-sky-400/70 bg-sky-500/20 text-sky-100"
-                        : isDark
-                          ? "border-slate-700/70 bg-slate-900/60 text-slate-300 hover:border-slate-500"
-                          : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"
-                    } ${active && !isDark ? "!text-sky-800" : ""}`}
+                      !unlocked
+                        ? "cursor-not-allowed opacity-50 " + (isDark ? "border-slate-800 bg-slate-900/40 text-slate-500" : "border-slate-200 bg-slate-50 text-slate-400")
+                        : active
+                          ? "border-sky-400/70 bg-sky-500/20 text-sky-100"
+                          : passed
+                            ? "border-emerald-400/50 " + (isDark ? "bg-emerald-500/10 text-emerald-100" : "bg-emerald-50 text-emerald-800")
+                            : isDark
+                              ? "border-slate-700/70 bg-slate-900/60 text-slate-300 hover:border-slate-500"
+                              : "border-slate-200 bg-white text-slate-700 hover:border-slate-400"
+                    } ${active && !isDark ? "!text-sky-800" : ""} ${isNext ? "ring-1 ring-sky-400/60" : ""}`}
                   >
                     <span
                       className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] ${
-                        active ? "bg-sky-500 text-white" : isDark ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500"
+                        passed ? "bg-emerald-500 text-white" : active ? "bg-sky-500 text-white" : isDark ? "bg-slate-800 text-slate-400" : "bg-slate-100 text-slate-500"
                       }`}
                     >
-                      {index + 1}
+                      {passed ? <Check size={12} aria-label="passed" /> : !unlocked ? <Lock size={11} aria-label="locked" /> : index + 1}
                     </span>
-                    {lesson.title}
+                    <span className="flex-1">{lesson.title}</span>
+                    {passed ? <span className="text-[10px] font-medium opacity-80">{Math.round(record.bestAccuracy)}%</span> : null}
+                    {isNext ? <span className="rounded-full bg-sky-500/25 px-2 py-0.5 text-[10px] text-sky-200">Next</span> : null}
                   </button>
                 </li>
               );

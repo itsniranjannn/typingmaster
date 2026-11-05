@@ -68,6 +68,7 @@ const areTokenPropsEqual = (previousProps, nextProps) => {
   
   if (previousProps.currentWordIndex !== nextProps.currentWordIndex) return false;
   if (previousProps.activeIndex !== nextProps.activeIndex) return false;
+  if (previousProps.pendingActive !== nextProps.pendingActive) return false;
   if (previousProps.ghostIndex !== nextProps.ghostIndex) {
     const touchesToken = (ghost) => ghost >= nextToken.start && ghost <= nextToken.end;
     if (touchesToken(previousProps.ghostIndex) || touchesToken(nextProps.ghostIndex)) return false;
@@ -93,6 +94,7 @@ const TypingToken = memo(function TypingToken({
   currentWordIndex,
   activeIndex,
   ghostIndex = -1,
+  pendingActive = false,
   isDark,
   hideContent,
   fadedWords,
@@ -154,9 +156,11 @@ const TypingToken = memo(function TypingToken({
             ref={(node) => registerCharacterRef(index, node)}
             className={`${tokenClass[characterStates[index]] || tokenClass.default} transition-colors duration-150 ${
               index === activeIndex
-                ? isDark
-                  ? "bg-yellow-500/60 text-white"
-                  : "bg-yellow-300/80 text-black"
+                ? pendingActive
+                  ? "animate-pulse rounded-sm bg-emerald-400/55 text-white"
+                  : isDark
+                    ? "bg-yellow-500/60 text-white"
+                    : "bg-yellow-300/80 text-black"
                 : index === ghostIndex
                   ? "rounded-sm bg-cyan-400/25 underline decoration-cyan-400 decoration-2 underline-offset-4"
                   : ""
@@ -181,6 +185,7 @@ function TypingText({
   isDark = true,
   fontScale = 1,
   focused = false,
+  pendingActive = false,
   hideContent = false,
   fadedWords = [],
   challengePromptHidden = false,
@@ -427,6 +432,9 @@ function TypingText({
       aria-label="Typing area"
       aria-readonly="true"
       onPointerDown={onPointerDown}
+      // Keep focus on the hidden input (set by onPointerDown); otherwise the click focuses this
+      // non-editable div and text inserted by the OS keyboard has nowhere to go.
+      onMouseDown={(event) => event.preventDefault()}
       onKeyDown={onKeyDown}
       onFocus={onFocus}
       onBlur={onBlur}
@@ -449,6 +457,7 @@ function TypingText({
               currentWordIndex={currentWordIndex}
               activeIndex={activeIndex}
               ghostIndex={ghostIndex}
+              pendingActive={pendingActive}
               isDark={isDark}
               hideContent={hideContent}
               fadedWords={fadedWords}
