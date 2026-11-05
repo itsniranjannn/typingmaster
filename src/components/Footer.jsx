@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { ArrowUp, ArrowUpRight, Mail } from "lucide-react";
+import { LogoMark } from "./AppLogo";
 
 const LINKS = [
   { label: "Privacy", href: "/legal#privacy" },
@@ -16,25 +17,6 @@ const PHRASES = [
   "नेपालीमा पनि टाइप गर्नुहोस्।",
   "Practice. Improve. Repeat."
 ];
-
-// Keycaps that spell the brand and ripple like someone typing it.
-const KEYS = ["G", "o", "T", "y", "p", "e"];
-
-function Keycaps({ isDark, reduceMotion }) {
-  return (
-    <div className="flex items-end gap-1.5" aria-hidden="true">
-      {KEYS.map((key, index) => (
-        <span
-          key={`${key}-${index}`}
-          className={`footer-keycap ${isDark ? "footer-keycap-dark" : "footer-keycap-light"}`}
-          style={reduceMotion ? undefined : { animationDelay: `${index * 0.18}s` }}
-        >
-          {key}
-        </span>
-      ))}
-    </div>
-  );
-}
 
 function RotatingPhrase({ isDark, reduceMotion }) {
   const [index, setIndex] = useState(0);
@@ -122,11 +104,19 @@ function Footer({ isDark = true }) {
         initial="hidden"
         whileInView="show"
         viewport={{ once: true, amount: 0.25 }}
-        className="relative mx-auto max-w-6xl px-4 py-10 sm:px-8"
+        className="relative mx-auto max-w-6xl px-4 pb-20 pt-10 sm:px-8 lg:pb-10"
       >
         <div className="grid gap-8 md:grid-cols-[1.3fr_1fr_1fr]">
           <motion.div variants={item} className="space-y-4">
-            <Keycaps isDark={isDark} reduceMotion={reduceMotion} />
+            <a href="/" className="group inline-flex items-center gap-3" aria-label="GoType home">
+              <LogoMark size={44} animate={false} />
+              <span className="leading-tight">
+                <span className={`block text-xl font-bold tracking-tight ${isDark ? "text-white" : "text-slate-900"}`}>
+                  Go<span className="text-sky-400">Type</span>
+                </span>
+                <span className={`block text-[11px] font-medium uppercase tracking-[0.2em] ${muted}`}>Typing practice</span>
+              </span>
+            </a>
             <RotatingPhrase isDark={isDark} reduceMotion={reduceMotion} />
             <p className={`max-w-sm text-xs leading-5 ${muted}`}>
               A calm place to build typing speed and accuracy in English and नेपाली, with guided lessons and a Loksewa-style test.
@@ -182,9 +172,7 @@ function Footer({ isDark = true }) {
           className={`mt-8 flex flex-col gap-1 border-t pt-4 text-xs sm:flex-row sm:items-center sm:justify-between ${isDark ? "border-slate-800/70" : "border-slate-200"} ${muted}`}
         >
           <span>© {currentYear} GoType. All rights reserved.</span>
-          <span>
-            Made with <span className="footer-heart" aria-label="love">♥</span> by Niranjan
-          </span>
+          <span className={`font-medium ${isDark ? "text-slate-300" : "text-slate-700"}`}>Niranjan</span>
         </motion.div>
       </motion.div>
     </footer>
