@@ -1,8 +1,9 @@
 import { memo, useState } from "react";
-import { BookOpen, Hand, Keyboard } from "lucide-react";
+import { BookOpen, Hand, Keyboard, Landmark } from "lucide-react";
 import { LANGUAGES } from "../data/keyboardLayouts";
 import { NEPALI_LESSONS, getLessonById } from "../data/nepaliLessons";
 import { INPUT_METHODS } from "../utils/languageSettings";
+import { LOKSEWA_DURATIONS, LOKSEWA_MIN_ACCURACY, LOKSEWA_TARGETS } from "../data/loksewaPassages";
 
 function Toggle({ checked, onChange, label, icon: Icon, isDark }) {
   return (
@@ -32,9 +33,14 @@ function LanguagePanel({
   onSettingsChange,
   onStartLesson,
   activeLessonId,
+  loksewa,
+  onStartLoksewa,
   isDark
 }) {
   const [lessonsOpen, setLessonsOpen] = useState(false);
+  const [loksewaOpen, setLoksewaOpen] = useState(false);
+  const [duration, setDuration] = useState(300);
+  const [target, setTarget] = useState(30);
   const isNepali = language === LANGUAGES.NE;
   const activeLesson = getLessonById(activeLessonId);
 
@@ -110,6 +116,20 @@ function LanguagePanel({
               <BookOpen size={14} aria-hidden="true" />
               Learn Nepali typing
             </button>
+
+            <button
+              type="button"
+              onClick={() => setLoksewaOpen((open) => !open)}
+              aria-expanded={loksewaOpen}
+              className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                loksewa
+                  ? "border-emerald-400/60 bg-emerald-500/20 text-emerald-200"
+                  : "border-wine-400/50 bg-wine-400/10 text-wine-300 hover:bg-wine-400/20"
+              }`}
+            >
+              <Landmark size={14} aria-hidden="true" />
+              Loksewa typing test
+            </button>
           </>
         ) : null}
 
@@ -135,6 +155,67 @@ function LanguagePanel({
         <p className={`mt-2 text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
           Add a Nepali keyboard in your system settings first (Windows: Settings → Time & language → Language → Nepali). The on-screen
           guide follows the standard Nepali layout; other layouts may differ.
+        </p>
+      ) : null}
+
+      {isNepali && loksewaOpen ? (
+        <div className="mt-3 border-t border-slate-700/40 pt-3" data-testid="loksewa-setup">
+          <p className={`mb-3 text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+            Practice like a government typing exam: a timed test on formal Nepali passages with a pass mark. Time, speed target and font vary by
+            vacancy notice, so set them to match yours. Accuracy must be at least {LOKSEWA_MIN_ACCURACY}%.
+          </p>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
+            <div className="flex items-center gap-2 text-xs">
+              <span className={isDark ? "text-slate-400" : "text-slate-500"}>Time</span>
+              <div role="group" aria-label="Loksewa test duration" className="inline-flex gap-1">
+                {LOKSEWA_DURATIONS.map((option) => (
+                  <button
+                    key={option.seconds}
+                    type="button"
+                    aria-pressed={duration === option.seconds}
+                    onClick={() => setDuration(option.seconds)}
+                    className={`rounded-full px-3 py-1.5 font-semibold transition ${
+                      duration === option.seconds ? "bg-sky-500/25 text-sky-200" : isDark ? "bg-slate-900/70 text-slate-300" : "bg-slate-100 text-slate-600"
+                    } ${duration === option.seconds && !isDark ? "!text-sky-700" : ""}`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className={isDark ? "text-slate-400" : "text-slate-500"}>Target</span>
+              <div role="group" aria-label="Loksewa target speed" className="inline-flex gap-1">
+                {LOKSEWA_TARGETS.map((value) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={target === value}
+                    onClick={() => setTarget(value)}
+                    className={`rounded-full px-3 py-1.5 font-semibold transition ${
+                      target === value ? "bg-sky-500/25 text-sky-200" : isDark ? "bg-slate-900/70 text-slate-300" : "bg-slate-100 text-slate-600"
+                    } ${target === value && !isDark ? "!text-sky-700" : ""}`}
+                  >
+                    {value} WPM
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => onStartLoksewa({ durationSeconds: duration, targetWpm: target })}
+              className="rounded-full bg-gradient-to-r from-sky-600 to-sky-500 px-5 py-2 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(141,134,214,0.2)] transition hover:brightness-110"
+            >
+              Start test
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {isNepali && loksewa ? (
+        <p className={`mt-3 rounded-xl px-3 py-2 text-sm ${isDark ? "bg-emerald-500/10 text-emerald-100" : "bg-emerald-50 text-emerald-800"}`}>
+          <span className="font-semibold">Loksewa test:</span> {Math.round(loksewa.durationSeconds / 60)} minutes, pass at {loksewa.targetWpm} WPM and{" "}
+          {LOKSEWA_MIN_ACCURACY}% accuracy. The clock starts on your first key.
         </p>
       ) : null}
 

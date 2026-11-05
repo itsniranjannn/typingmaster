@@ -6,10 +6,11 @@
  * Monkeytype's layout emulator: the user can have any OS layout installed and
  * the built-in layout still produces the right characters.
  *
- * Nepali mapping source: the standard "Nepali" Devanagari layout shipped in
- * xkeyboard-config (symbols/np, group "basic"), which follows the traditional
- * Nepali typewriter order. Every key yields exactly ONE Unicode code point, so
- * the typing engine can keep comparing text one character at a time.
+ * Nepali layout: the traditional (Preeti-style) Nepali keyboard, transcribed from
+ * the reference chart supplied for this project. Normal press = the big glyph on a
+ * key, Shift = the small glyph (half letters such as क्, and the Devanagari digits).
+ * A key can output several code points (ज्ञ, द्ध, त्र, क्ष, श्र, रु, ्र ...), and the
+ * vowel signs ो and ौ and the vowels आ ओ औ are typed as sequences (ा + े, अ + ा ...).
  */
 
 export const LANGUAGES = {
@@ -88,90 +89,157 @@ const EN_PAIRS = {
 };
 
 /* ------------------------------------------------------------------ */
-/* Nepali (Devanagari, xkeyboard-config "np" basic)                    */
+/* Nepali traditional (Preeti-style)                                    */
 /* ------------------------------------------------------------------ */
 
+// [normal, shifted]; strings may hold several code points.
 const NE_PAIRS = {
-  Backquote: ["ऽ", "़"],
-  Digit1: ["१", "!"], Digit2: ["२", "@"], Digit3: ["३", "#"], Digit4: ["४", "$"],
-  Digit5: ["५", "%"], Digit6: ["६", "^"], Digit7: ["७", "&"], Digit8: ["८", "*"],
-  Digit9: ["९", "("], Digit0: ["०", ")"], Minus: ["-", "॒"], Equal: ["=", "+"],
-  KeyQ: ["ट", "ठ"], // ट ठ
-  KeyW: ["ौ", "औ"], // ौ औ
-  KeyE: ["े", "ै"], // े ै
-  KeyR: ["र", "ृ"], // र ृ
-  KeyT: ["त", "थ"], // त थ
-  KeyY: ["य", "ञ"], // य ञ
-  KeyU: ["ु", "ू"], // ु ू
-  KeyI: ["ि", "ी"], // ि ी
-  KeyO: ["ो", "ओ"], // ो ओ
-  KeyP: ["प", "फ"], // प फ
-  BracketLeft: ["इ", "ई"], // इ ई
-  BracketRight: ["ए", "ऐ"], // ए ऐ
-  Backslash: ["ॐ", "ः"], // ॐ ः
-  KeyA: ["ा", "आ"], // ा आ
-  KeyS: ["स", "श"], // स श
-  KeyD: ["द", "ध"], // द ध
-  KeyF: ["उ", "ऊ"], // उ ऊ
-  KeyG: ["ग", "घ"], // ग घ
-  KeyH: ["ह", "अ"], // ह अ
-  KeyJ: ["ज", "झ"], // ज झ
-  KeyK: ["क", "ख"], // क ख
-  KeyL: ["ल", "॥"], // ल ॥
-  Semicolon: [";", ":"], Quote: ["'", "\""],
-  KeyZ: ["ष", "ऋ"], // ष ऋ
-  KeyX: ["ड", "ढ"], // ड ढ
-  KeyC: ["च", "छ"], // च छ
-  KeyV: ["व", "ँ"], // व ँ
-  KeyB: ["ब", "भ"], // ब भ
-  KeyN: ["न", "ण"], // न ण
-  KeyM: ["म", "ं"], // म ं
-  Comma: [",", "ङ"], // , ङ
-  Period: ["।", "."], // । .
-  Slash: ["्", "?"] // ् ?
+  Backquote: ["ञ", "ञ्"],
+  Digit1: ["ज्ञ", "१"], Digit2: ["द्द", "२"], Digit3: ["घ", "३"], Digit4: ["द्ध", "४"], Digit5: ["छ", "५"],
+  Digit6: ["ट", "६"], Digit7: ["ठ", "७"], Digit8: ["ड", "८"], Digit9: ["ढ", "९"], Digit0: ["ण", "०"],
+  Minus: ["(", ")"], Equal: [".", "ं"], Backslash: ["्", "्र"],
+  KeyQ: ["त्र", "त्त"], KeyW: ["ध", "ध्"], KeyE: ["भ", "भ्"], KeyR: ["च", "च्"], KeyT: ["त", "त्"],
+  KeyY: ["थ", "थ्"], KeyU: ["ग", "ग्"], KeyI: ["ष", "क्ष"], KeyO: ["य", "इ"], KeyP: ["उ", "ए"],
+  BracketLeft: ["ृ", "र्"], BracketRight: ["े", "ै"],
+  KeyA: ["ब", "ब्"], KeyS: ["क", "क्"], KeyD: ["म", "म्"], KeyF: ["ा", "ँ"], KeyG: ["न", "न्"],
+  KeyH: ["ज", "ज्"], KeyJ: ["व", "व्"], KeyK: ["प", "प्"], KeyL: ["ि", "ी"], Semicolon: ["स", "स्"],
+  Quote: ["ु", "ू"],
+  KeyZ: ["श", "श्"], KeyX: ["ह", "ह्"], KeyC: ["अ", "ऋ"], KeyV: ["ख", "ख्"], KeyB: ["द", "द्"],
+  KeyN: ["ल", "ल्"], KeyM: ["ं", "ः"], Comma: [",", "?"], Period: ["।", "श्र"], Slash: ["र", "रु"]
 };
 
-const buildLayout = (id, label, pairs) => {
+/**
+ * Letters the reference chart has no key for. They sit on an extra Alt layer
+ * (Alt or AltGr + key) next to the closest sound, and are shown in a different
+ * colour on the on-screen keyboard.
+ */
+const NE_ALT = {
+  KeyK: "फ", // next to प
+  KeyH: "झ", // next to ज
+  KeyU: "ङ", // next to ग
+  KeyO: "ई", // next to इ
+  KeyP: "ऊ", // next to उ
+  BracketRight: "ऐ" // next to ए
+};
+
+/**
+ * Vowels the chart has no single key for are typed as a sequence. The typing
+ * engine compares code points, so while a sequence is half-typed the input layer
+ * holds it back (see planKeystroke) and commits the composed character at once.
+ */
+export const DECOMPOSITION = {
+  "ो": "ाे",
+  "ौ": "ाै",
+  "आ": "अा",
+  "ओ": "अाे",
+  "औ": "अाै"
+};
+
+const buildLayout = (id, label, pairs, extraChars = [], alt = {}) => {
   const byCode = {};
-  const byChar = {};
+  const outputs = [];
+  const chars = new Set([" ", ...extraChars]);
   Object.entries(pairs).forEach(([code, [normal, shifted]]) => {
-    byCode[code] = { normal, shifted };
-    if (!(normal in byChar)) byChar[normal] = { code, shift: false };
-    if (!(shifted in byChar)) byChar[shifted] = { code, shift: true };
+    byCode[code] = { normal, shifted, alt: alt[code] || "" };
+    outputs.push({ text: normal, code, shift: false });
+    outputs.push({ text: shifted, code, shift: true });
+    if (alt[code]) outputs.push({ text: alt[code], code, shift: false, alt: true });
+    [...normal, ...shifted, ...(alt[code] || "")].forEach((character) => chars.add(character));
   });
-  byChar[" "] = { code: "Space", shift: false };
-  return { id, label, byCode, byChar };
+  return { id, label, byCode, outputs, chars };
 };
 
 export const LAYOUTS = {
   [LANGUAGES.EN]: buildLayout(LANGUAGES.EN, "English (QWERTY)", EN_PAIRS),
-  [LANGUAGES.NE]: buildLayout(LANGUAGES.NE, "Nepali (Devanagari)", NE_PAIRS)
+  [LANGUAGES.NE]: buildLayout(LANGUAGES.NE, "Nepali traditional (Preeti-style)", NE_PAIRS, Object.keys(DECOMPOSITION), NE_ALT)
+};
+
+/**
+ * Some virtual keyboards and automation tools send key events with an empty `code`.
+ * Work out the physical key from the character they did send (US QWERTY position).
+ */
+export const physicalFromKey = (key) => {
+  if (typeof key !== "string" || key.length !== 1) return null;
+  const english = LAYOUTS[LANGUAGES.EN].byCode;
+  for (const [code, { normal, shifted }] of Object.entries(english)) {
+    if (key === normal) return { code, shift: false };
+    if (key === shifted) return { code, shift: true };
+  }
+  return null;
 };
 
 export const getLayout = (language) => LAYOUTS[language] || LAYOUTS[LANGUAGES.EN];
 
-/** Character produced by a physical key press, or null if the key is unmapped. */
-export const charFromKeyEvent = (layout, code, shiftKey) => {
+/** Text produced by a physical key press (may be several code points), or null if unmapped. */
+export const charFromKeyEvent = (layout, code, shiftKey, altKey = false) => {
   if (code === "Space") return " ";
   const entry = layout.byCode[code];
   if (!entry) return null;
+  if (altKey) return entry.alt || null;
   return shiftKey ? entry.shifted : entry.normal;
 };
 
-/** Which key (and whether Shift) types a character. */
-export const keyForChar = (layout, character) => {
-  if (!character) return null;
-  const hit = layout.byChar[character];
-  if (!hit) return null;
-  if (hit.code === "Space") return { code: "Space", shift: false, finger: "RT", shiftCode: null, shiftFinger: null };
+const describeKey = (hit) => {
+  if (hit.code === "Space") return { code: "Space", shift: false, finger: "RT", shiftCode: null, shiftFinger: null, output: " " };
   const shiftCode = hit.shift ? getShiftCodeFor(hit.code) : null;
+  // Alt is held with the thumb on the side opposite the key's hand
+  const altCode = hit.alt ? (getFingerForCode(hit.code)?.startsWith("L") ? "AltRight" : "AltLeft") : null;
   return {
     code: hit.code,
     shift: hit.shift,
+    alt: Boolean(hit.alt),
     finger: getFingerForCode(hit.code),
     shiftCode,
-    shiftFinger: shiftCode ? getShiftFinger(shiftCode) : null
+    shiftFinger: shiftCode ? getShiftFinger(shiftCode) : null,
+    altCode,
+    altFinger: altCode ? (altCode === "AltRight" ? "RT" : "LT") : null,
+    output: hit.text
   };
 };
 
-export const isTypeableCharacter = (layout, character) => Boolean(layout.byChar[character]);
+/**
+ * The key that types the start of `text`. Prefers the longest key output (so ज्ञ is
+ * one key press), except that a half letter followed by र is typed as the plain
+ * consonant plus the rakar key (प + ्र), the way Preeti typists do.
+ */
+export const keyForText = (layout, text) => {
+  if (!text) return null;
+  if (text[0] === " ") return describeKey({ code: "Space", shift: false, text: " " });
+  let best = null;
+  for (const output of layout.outputs) {
+    if (!text.startsWith(output.text)) continue;
+    if (layout.id === LANGUAGES.NE && output.text.length > 1 && output.text.endsWith("्") && text[output.text.length] === "र") continue;
+    if (!best || output.text.length > best.text.length) best = output;
+  }
+  return best ? describeKey(best) : null;
+};
+
+export const keyForChar = (layout, character) => keyForText(layout, character);
+
+/** True when every character of `text` can be typed on the layout. */
+export const isTypeableText = (layout, text) => [...text].every((character) => layout.chars.has(character));
+
+/**
+ * Decide what a key press does, given the characters still to type.
+ *  - "commit": append `text` (may be a whole composed vowel)
+ *  - "pending": hold `pending` back, it is the start of a composed vowel
+ * `ok` is whether the press is on track for the target text.
+ */
+export const planKeystroke = ({ output, pending = "", target = "" }) => {
+  const decomposed = DECOMPOSITION[target[0]];
+  const candidate = `${pending}${output}`;
+  if (decomposed && decomposed.startsWith(candidate)) {
+    if (decomposed === candidate) return { action: "commit", text: target[0], pending: "", ok: true };
+    return { action: "pending", text: "", pending: candidate, ok: true };
+  }
+  return { action: "commit", text: candidate, pending: "", ok: target.startsWith(candidate) };
+};
+
+/** What the learner still has to type, with an unfinished composed vowel expanded. */
+export const getHintText = (target, pending = "") => {
+  if (!target) return "";
+  const decomposed = DECOMPOSITION[target[0]];
+  if (decomposed && pending && decomposed.startsWith(pending)) return decomposed.slice(pending.length);
+  if (decomposed) return `${decomposed}${target.slice(1)}`;
+  return target;
+};

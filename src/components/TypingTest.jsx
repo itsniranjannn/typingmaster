@@ -7,7 +7,8 @@ import TextSelector from "./TextSelector";
 import TypingText from "./TypingText";
 import LanguagePanel from "./LanguagePanel";
 import KeyboardGuide from "./KeyboardGuide";
-import { LANGUAGES } from "../data/keyboardLayouts";
+import LoksewaVerdict from "./LoksewaVerdict";
+import { LANGUAGES, getHintText, physicalFromKey } from "../data/keyboardLayouts";
 import ResultScreen from "./ResultScreen";
 import SettingsModal from "./SettingsModal";
 import LeaderboardModal from "./LeaderboardModal";
@@ -96,7 +97,13 @@ function TypingTest({ theme, onToggleTheme }) {
     updateLanguageSettings,
     startNepaliLesson,
     activeLessonId,
-    translateKeyEvent
+    translateKeyEvent,
+    usesBuiltInNepali,
+    pendingVowel,
+    clearPendingVowel,
+    typeOutput,
+    loksewa,
+    startLoksewaTest
   } = useTypingTest();
 
   useEffect(() => {
@@ -252,7 +259,9 @@ function TypingTest({ theme, onToggleTheme }) {
       }
 
       const { key } = event;
-      if (event.ctrlKey || event.metaKey || event.altKey) {
+      // Alt / AltGr is the extra-letter layer of the built-in Nepali layout; elsewhere it is a shortcut.
+      const isAltLayer = usesBuiltInNepali && event.altKey && !event.metaKey;
+      if (!isAltLayer && (event.ctrlKey || event.metaKey || event.altKey)) {
         return;
       }
 
@@ -262,28 +271,29 @@ function TypingTest({ theme, onToggleTheme }) {
 
       if (key === "Backspace") {
         event.preventDefault();
+        if (usesBuiltInNepali) clearPendingVowel();
         handleTyping(typedText.slice(0, -1));
         return;
       }
 
       if (key === " ") {
         event.preventDefault();
-        setPressedKey({ code: "Space", ok: (paragraph || customText || "")[typedText.length] === " ", id: event.timeStamp });
-        handleTyping(`${typedText} `);
+        const spaceOk = typeOutput(" ");
+        setPressedKey({ code: "Space", ok: spaceOk, id: event.timeStamp });
         return;
       }
 
       const typedCharacter = translateKeyEvent(event);
       if (typedCharacter !== null) {
         event.preventDefault();
-        setPressedKey({ code: event.code, ok: typedCharacter === (paragraph || customText || "")[typedText.length], id: event.timeStamp });
-        handleTyping(`${typedText}${typedCharacter}`);
+        const ok = typeOutput(typedCharacter);
+        setPressedKey({ code: event.code || physicalFromKey(event.key)?.code, ok, id: event.timeStamp });
       } else if (key.length === 1) {
         // A printable key that the active layout does not map: swallow it.
         event.preventDefault();
       }
     },
-    [handleTyping, isFinished, typedText, isArenaOverlayVisible, translateKeyEvent, paragraph, customText]
+    [handleTyping, isFinished, typedText, isArenaOverlayVisible, translateKeyEvent, typeOutput, usesBuiltInNepali, clearPendingVowel]
   );
 
   useEffect(() => {
@@ -1046,6 +1056,8 @@ function TypingTest({ theme, onToggleTheme }) {
                   onLanguageChange={setLanguage}
                   onSettingsChange={updateLanguageSettings}
                   onStartLesson={startNepaliLesson}
+                  loksewa={loksewa}
+                  onStartLoksewa={startLoksewaTest}
                   activeLessonId={mode === TYPING_MODES.CUSTOM ? activeLessonId : null}
                   isDark={isDark}
                 />
@@ -1123,7 +1135,9 @@ function TypingTest({ theme, onToggleTheme }) {
               {!isArenaMode && (
                 <KeyboardGuide
                   language={language}
+                  upcomingText={usesBuiltInNepali ? getHintText((paragraph || customText || "").slice(typedText.length, typedText.length + 12), pendingVowel) : (paragraph || customText || "").slice(typedText.length, typedText.length + 12)}
                   nextCharacter={(paragraph || customText || "")[typedText.length] || ""}
+                  pendingVowel={pendingVowel}
                   pressed={pressedKey}
                   showKeyboard={languageSettings.showKeyboard}
                   showFingerHints={languageSettings.showFingerHints}
@@ -1150,6 +1164,7 @@ function TypingTest({ theme, onToggleTheme }) {
               transition={{ type: "spring", stiffness: 100 }}
               className="lg:col-span-1"
             >
+              {finalResult?.loksewa ? <LoksewaVerdict result={finalResult} isDark={isDark} /> : null}
               <ResultScreen
                 result={finalResult}
                 bestWpm={bestWpm}

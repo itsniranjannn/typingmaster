@@ -153,12 +153,13 @@
 
 Switch the language bar above the typing panel to **नेपाली** to practice Nepali (Devanagari) in every classic mode (Time, Words, Quotes, Numbers, Goal).
 
-- **Built-in Nepali layout:** uses the physical key you press (`KeyboardEvent.code`), like Monkeytype's layout emulator, so it works with any OS keyboard and needs no setup. The mapping follows the standard Nepali layout from xkeyboard-config (`symbols/np`, "basic"); every key produces exactly one Unicode character. Choose **My system keyboard** to use a Nepali keyboard installed in your OS instead.
-- **On-screen keyboard:** shows the next key, whether Shift is needed, and flashes green/red on each press. Toggle it with the **Keyboard** button.
-- **Finger hints:** a hand diagram plus a sentence ("Hold Shift with your right pinky, press T with your left index finger"), colour-matched to the keys. Toggle with **Finger hints**.
-- **Learn Nepali typing:** 13 guided lessons (home row, top/bottom rows, vowel signs, Shift consonants, halant and conjuncts, digits, everyday words).
+- **Built-in traditional (Preeti-style) layout:** uses the physical key you press (`KeyboardEvent.code`), like Monkeytype's layout emulator, so it works on any OS keyboard with no setup. Normal press types the big glyph on a key; Shift gives half letters (क्, न् ...), Shift on the number row gives the Devanagari digits. Some keys type whole conjuncts (ज्ञ, द्ध, त्र, क्ष, श्र, रु, ्र). Choose **My system keyboard** to use a Nepali keyboard installed in your OS instead.
+- **Composed vowels:** ो, ौ, आ, ओ and औ are typed as sequences (`ा + े`, `अ + ा`, ...). The engine holds a half-typed vowel back and commits it whole, so it is never counted as a mistake.
+- **Alt layer:** the reference chart has no keys for फ झ ङ ई ऊ ऐ, so they sit on `Alt + key` (shown in orange): Alt+K फ, Alt+H झ, Alt+U ङ, Alt+O ई, Alt+P ऊ, Alt+] ऐ.
+- **On-screen keyboard and finger hints:** shows the next key, the Shift or Alt key and which hand, a colour-coded hand diagram, and a sentence such as "Hold Shift with your right pinky, press S with your left ring finger". Both are toggleable.
+- **Learn Nepali typing:** 13 guided lessons (home row, top/bottom rows, vowel signs, Shift marks, half letters, conjunct keys, Alt letters, digits, everyday words).
+- **Loksewa typing test:** a timed test (5 or 10 minutes) on formal, administrative Nepali passages with a pass/fail verdict: target speed (20/25/30/35 WPM) and at least 95% accuracy. Net WPM = correct characters / 5 / minutes. Official time, speed target and font differ per vacancy notice, so set the target to match yours. Passages are original practice text, not official exam papers.
 - Nepali personal bests are tracked separately from English (`ne_*` keys). Weak-key drills only use your Nepali mistakes while Nepali is selected.
-- WPM uses the usual 5 characters per word, counted per Unicode character.
 
 ### 🖱️ Smart Auto-Scroll
 - Custom margin-aware scroll (not plain `scrollIntoView`)
