@@ -695,7 +695,7 @@ function TypingTest({ theme, onToggleTheme }) {
         transition={{ delay: 0.05 }}
         className={`border-b backdrop-blur ${isDark ? "border-slate-700/60 bg-slate-900/90 shadow-[0_8px_30px_rgba(12,13,36,0.4)]" : "border-slate-200 bg-slate-100/95 shadow-[0_6px_24px_rgba(95,74,34,0.08)]"}`}
       >
-        <div className="flex flex-col lg:flex-row items-center justify-between gap-4 px-4 py-4 sm:px-8">
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-3 px-4 py-2.5 sm:px-8">
           <div className="flex items-center gap-4 w-full lg:w-auto">
             <AppLogo isDark={isDark} />
             {/* simplified nav - removed Practice / Leaderboard / Pro Tip links per request */}
@@ -950,7 +950,7 @@ function TypingTest({ theme, onToggleTheme }) {
         transition={{ delay: 0.2 }}
         className={`flex-1 overflow-y-auto scrollbar-none px-4 sm:px-6 ${isNepaliLayout ? "py-2 sm:py-2" : "py-6 sm:py-8"} ${isDark ? "bg-gray-900" : "bg-white"} ${isArenaOverlayVisible ? "pointer-events-none select-none blur-sm brightness-75" : ""}`}
       >
-        <div className={`mx-auto grid w-full gap-4 ${isNepaliLayout ? "max-w-6xl" : "max-w-6xl lg:grid-cols-[minmax(0,1fr)_220px] xl:grid-cols-[minmax(0,1fr)_240px]"}`}>
+        <div className={`mx-auto grid w-full gap-4 ${isNepaliLayout || isFinished ? "max-w-6xl" : "max-w-6xl lg:grid-cols-[minmax(0,1fr)_220px] xl:grid-cols-[minmax(0,1fr)_240px]"}`}>
           {!isFinished ? (
             <div className={`mx-auto w-full space-y-4 ${isNepaliLayout ? "max-w-[64rem] !space-y-2" : "max-w-5xl space-y-5 lg:mx-auto xl:max-w-[58rem]"}`}>
               {isArenaMode ? (
@@ -1193,7 +1193,7 @@ function TypingTest({ theme, onToggleTheme }) {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 100 }}
-              className="lg:col-span-1"
+              className="mx-auto w-full max-w-4xl lg:col-span-1"
             >
               {finalResult?.loksewa ? <LoksewaVerdict result={finalResult} isDark={isDark} /> : null}
               <ResultScreen
