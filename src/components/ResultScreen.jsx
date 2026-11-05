@@ -352,28 +352,28 @@ function ResultScreenContent({
 
         {trendPanel}
 
-        <div className={`relative grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6`}>
-          <div className={`rounded-2xl border ${cardClass} p-6`}>
+        <div className={`relative grid grid-cols-2 gap-3 sm:grid-cols-3`}>
+          <div className={`rounded-2xl border ${cardClass} p-4`}>
             <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Final WPM</p>
-            <p className={`mt-4 text-4xl font-bold ${textClass} tabular-nums md:text-5xl`}>{result.wpm}</p>
+            <p className={`mt-2 text-3xl font-bold ${textClass} tabular-nums`}>{result.wpm}</p>
           </div>
-          <div className={`rounded-2xl border ${cardClass} p-6`}>
+          <div className={`rounded-2xl border ${cardClass} p-4`}>
             <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Accuracy</p>
-            <p className={`mt-4 text-4xl font-bold ${textClass} tabular-nums md:text-5xl`}>{result.accuracy}%</p>
+            <p className={`mt-2 text-2xl font-bold ${textClass} tabular-nums xl:text-3xl`}>{result.accuracy}%</p>
           </div>
-          <div className={`rounded-2xl border ${cardClass} p-6`}>
+          <div className={`rounded-2xl border ${cardClass} p-4`}>
             <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Time Used</p>
-            <p className={`mt-4 text-4xl font-bold ${textClass} tabular-nums md:text-5xl`}>{result.timeUsed}s</p>
+            <p className={`mt-2 text-3xl font-bold ${textClass} tabular-nums`}>{result.timeUsed}s</p>
           </div>
-          <div className={`rounded-2xl border ${cardClass} p-6`}>
+          <div className={`rounded-2xl border ${cardClass} p-4`}>
             <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Correct</p>
-            <p className={`mt-4 text-4xl font-bold text-emerald-400 tabular-nums md:text-5xl`}>{result.correctCharacters}</p>
+            <p className={`mt-2 text-3xl font-bold text-emerald-400 tabular-nums`}>{result.correctCharacters}</p>
           </div>
-          <div className={`rounded-2xl border ${cardClass} p-6`}>
+          <div className={`rounded-2xl border ${cardClass} p-4`}>
             <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Incorrect</p>
-            <p className={`mt-4 text-4xl font-bold text-rose-400 tabular-nums md:text-5xl`}>{result.incorrectCharacters}</p>
+            <p className={`mt-2 text-3xl font-bold text-rose-400 tabular-nums`}>{result.incorrectCharacters}</p>
           </div>
-          <div className={`rounded-2xl border ${cardClass} p-6`}>
+          <div className={`rounded-2xl border ${cardClass} p-4`}>
             <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Badge</p>
             <p className={`mt-4 text-2xl font-bold text-sky-400 tabular-nums md:text-3xl`}>{result.challengeBadgeName || "Arena"}</p>
           </div>
@@ -411,7 +411,7 @@ function ResultScreenContent({
 
   return (
     <section
-      className={`result-fade relative overflow-hidden space-y-8 rounded-2xl border ${bgClass} p-8 shadow-lg sm:p-10`}
+      className={`result-fade relative overflow-hidden space-y-5 rounded-2xl border ${bgClass} p-5 shadow-lg sm:p-8`}
       aria-live="assertive"
       aria-label="Typing test results"
     >
@@ -423,7 +423,7 @@ function ResultScreenContent({
       </div>
 
       <div className="relative space-y-2">
-        <h2 className={`text-4xl font-bold ${textClass} md:text-5xl`}>Test Complete!</h2>
+        <h2 className={`text-3xl font-bold ${textClass} md:text-4xl`}>Test Complete!</h2>
         <p className={`text-base ${secondaryText} md:text-lg`}>
           {goalFailure
             ? "You finished the run, but the target WPM was not reached."
@@ -447,40 +447,39 @@ function ResultScreenContent({
         ) : null}
       </div>
 
-      {trendPanel}
-
-      <div className={`relative grid grid-cols-2 gap-4 sm:grid-cols-3 sm:gap-6`}>
-        <div className={`rounded-2xl border ${cardClass} p-6`}>
-          <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>WPM</p>
-          <p className={`mt-4 text-4xl font-bold ${textClass} tabular-nums md:text-5xl`}>{result.wpm}</p>
-        </div>
-        <div className={`rounded-2xl border ${cardClass} p-6`}>
-          <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Accuracy</p>
-          <p className={`mt-4 text-4xl font-bold ${textClass} tabular-nums md:text-5xl`}>{result.accuracy}%</p>
-        </div>
-        <div className={`rounded-2xl border ${cardClass} p-6`}>
-          <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Time</p>
-          <p className={`mt-4 text-4xl font-bold ${textClass} tabular-nums md:text-5xl`}>{result.timeUsed}s</p>
-        </div>
-        <div className={`rounded-2xl border ${cardClass} p-6`}>
-          <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Correct</p>
-          <p className={`mt-4 text-4xl font-bold text-emerald-400 tabular-nums md:text-5xl`}>{result.correctCharacters}</p>
-        </div>
-        <div className={`rounded-2xl border ${cardClass} p-6`}>
-          <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Incorrect</p>
-          <p className={`mt-4 text-4xl font-bold text-rose-400 tabular-nums md:text-5xl`}>{result.incorrectCharacters}</p>
-        </div>
-        <div className={`rounded-2xl border ${cardClass} p-6`}>
-          <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Personal Best</p>
-          <p className={`mt-4 text-4xl font-bold text-sky-400 tabular-nums md:text-5xl`}>{bestWpm}</p>
-        </div>
-      </div>
-
       {Array.isArray(result.wpmSamples) && result.wpmSamples.length >= 2 && (
-        <div className={`rounded-2xl border ${cardClass} p-5`}>
+        <div className={`rounded-2xl border ${cardClass} p-4 sm:p-5`}>
           <WpmRunChart samples={result.wpmSamples} bestWpm={bestWpm} isDark={isDark} />
         </div>
       )}
+
+      <div className={`relative grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6`}>
+        <div className={`rounded-2xl border ${cardClass} p-4`}>
+          <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>WPM</p>
+          <p className={`mt-2 text-3xl font-bold ${textClass} tabular-nums`}>{result.wpm}</p>
+        </div>
+        <div className={`rounded-2xl border ${cardClass} p-4`}>
+          <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Accuracy</p>
+          <p className={`mt-2 text-2xl font-bold ${textClass} tabular-nums xl:text-3xl`}>{result.accuracy}%</p>
+        </div>
+        <div className={`rounded-2xl border ${cardClass} p-4`}>
+          <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Time</p>
+          <p className={`mt-2 text-3xl font-bold ${textClass} tabular-nums`}>{result.timeUsed}s</p>
+        </div>
+        <div className={`rounded-2xl border ${cardClass} p-4`}>
+          <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Correct</p>
+          <p className={`mt-2 text-3xl font-bold text-emerald-400 tabular-nums`}>{result.correctCharacters}</p>
+        </div>
+        <div className={`rounded-2xl border ${cardClass} p-4`}>
+          <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Incorrect</p>
+          <p className={`mt-2 text-3xl font-bold text-rose-400 tabular-nums`}>{result.incorrectCharacters}</p>
+        </div>
+        <div className={`rounded-2xl border ${cardClass} p-4`}>
+          <p className={`text-[11px] font-semibold uppercase tracking-[0.15em] ${secondaryText}`}>Personal Best</p>
+          <p className={`mt-2 text-3xl font-bold text-sky-400 tabular-nums`}>{bestWpm}</p>
+        </div>
+      </div>
+
 
       {onStartDrill && Array.isArray(result.mistypedCharacters) && result.mistypedCharacters.length > 0 && (
         <div className={`flex flex-wrap items-center justify-between gap-3 rounded-2xl border ${cardClass} px-5 py-4`}>
@@ -493,7 +492,7 @@ function ResultScreenContent({
         </div>
       )}
 
-      <div className="relative flex gap-3 pt-4">
+      <div className="relative flex gap-3 pt-1">
         <button onClick={onRestart} aria-label="Restart test" className={`flex-1 rounded-full bg-gradient-to-r from-sky-600 to-sky-500 px-6 py-3 text-base font-semibold text-white shadow-lg transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/60 hover:from-sky-700 hover:to-sky-600 md:py-4 md:text-lg`}>
           {challengeFailure ? "Retry Arena" : "Try Again"}
         </button>
@@ -506,6 +505,8 @@ function ResultScreenContent({
           {shareState === "done" ? "Copied!" : shareState === "error" ? "Couldn't share" : "Share"}
         </button>
       </div>
+
+      {trendPanel}
     </section>
   );
 }

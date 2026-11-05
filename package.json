@@ -8,7 +8,8 @@
     "build": "vite build && node scripts/fix-sitemap.mjs",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "e2e": "node e2e/run.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",
@@ -23,6 +24,7 @@
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
     "jsdom": "^29.1.1",
+    "playwright-core": "^1.64.1",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.14",
     "vite": "^5.4.10",

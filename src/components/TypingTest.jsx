@@ -5,6 +5,12 @@ import confetti from "canvas-confetti";
 import AppLogo from "./AppLogo";
 import TextSelector from "./TextSelector";
 import TypingText from "./TypingText";
+import LanguagePanel from "./LanguagePanel";
+import KeyboardGuide from "./KeyboardGuide";
+import LoksewaVerdict from "./LoksewaVerdict";
+import LessonVerdict from "./LessonVerdict";
+import NepaliStatTiles from "./NepaliStatTiles";
+import { LANGUAGES, getHintText, physicalFromKey } from "../data/keyboardLayouts";
 import ResultScreen from "./ResultScreen";
 import SettingsModal from "./SettingsModal";
 import LeaderboardModal from "./LeaderboardModal";
@@ -86,7 +92,23 @@ function TypingTest({ theme, onToggleTheme }) {
     toggleActive,
     streakInfo,
     startDailyChallenge,
-    cancelDailyChallenge
+    cancelDailyChallenge,
+    language,
+    languageSettings,
+    setLanguage,
+    updateLanguageSettings,
+    startNepaliLesson,
+    lessonProgress,
+    unlockAllLessons,
+    activeLessonId,
+    translateKeyEvent,
+    usesBuiltInNepali,
+    pendingVowel,
+    clearPendingVowel,
+    typeOutput,
+    handleBackspace,
+    loksewa,
+    startLoksewaTest
   } = useTypingTest();
 
   useEffect(() => {
@@ -94,6 +116,7 @@ function TypingTest({ theme, onToggleTheme }) {
   }, [fadedWords]);
 
   const [fontScale, setFontScale] = useState(1);
+  const [pressedKey, setPressedKey] = useState(null);
   const [goalReachedShown, setGoalReachedShown] = useState(false);
   const goalReachedTimeoutRef = useRef(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -127,6 +150,8 @@ function TypingTest({ theme, onToggleTheme }) {
   const typingPanelRef = useRef(null);
   const statsBarRef = useRef(null);
   const isArenaMode = mode === TYPING_MODES.CHALLENGE_ARENA;
+  // Nepali practice uses a focused full-width layout: passage, stat tiles and a docked keyboard.
+  const isNepaliLayout = language === LANGUAGES.NE && !isArenaMode;
     const isArenaOverlayVisible = arenaOverlayOpen || showLockOverlay;
   const isCoreMode = [TYPING_MODES.TIME, TYPING_MODES.WORDS, TYPING_MODES.GOAL].includes(mode);
 
@@ -241,7 +266,9 @@ function TypingTest({ theme, onToggleTheme }) {
       }
 
       const { key } = event;
-      if (event.ctrlKey || event.metaKey || event.altKey) {
+      // Alt / AltGr is the extra-letter layer of the built-in Nepali layout; elsewhere it is a shortcut.
+      const isAltLayer = usesBuiltInNepali && event.altKey && !event.metaKey;
+      if (!isAltLayer && (event.ctrlKey || event.metaKey || event.altKey)) {
         return;
       }
 
@@ -251,23 +278,63 @@ function TypingTest({ theme, onToggleTheme }) {
 
       if (key === "Backspace") {
         event.preventDefault();
-        handleTyping(typedText.slice(0, -1));
+        handleBackspace();
         return;
       }
 
       if (key === " ") {
         event.preventDefault();
-        handleTyping(`${typedText} `);
+        const spaceOk = typeOutput(" ");
+        setPressedKey({ code: "Space", ok: spaceOk, id: event.timeStamp });
         return;
       }
 
-      if (key.length === 1) {
+      const typedCharacter = translateKeyEvent(event);
+      if (typedCharacter !== null) {
         event.preventDefault();
-        handleTyping(`${typedText}${key}`);
+        const ok = typeOutput(typedCharacter);
+        setPressedKey({ code: event.code || physicalFromKey(event.key)?.code, ok, id: event.timeStamp });
+      } else if (key.length === 1) {
+        // A printable key that the active layout does not map: swallow it.
+        event.preventDefault();
       }
     },
-    [handleTyping, isFinished, typedText, isArenaOverlayVisible]
+    [handleTyping, handleBackspace, isFinished, typedText, isArenaOverlayVisible, translateKeyEvent, typeOutput, usesBuiltInNepali]
   );
+
+  // Text the OS keyboard inserted without a usable keydown (Nepali keys that type several
+  // characters, dead keys, phone and IME keyboards): take it from the native input events.
+  // Native listeners are used because React's onBeforeInput does not fire for every source.
+  useEffect(() => {
+    const element = hiddenInputRef.current;
+    if (!element || isFinished || isArenaOverlayVisible) return undefined;
+
+    const onBeforeInput = (event) => {
+      if (event.inputType !== "insertText" || !event.data) return;
+      event.preventDefault();
+      handleTyping(`${typedText}${event.data}`);
+    };
+    const onCompositionEnd = (event) => {
+      if (!event.data) return;
+      handleTyping(`${typedText}${event.data}`);
+    };
+    // Some sources (remote keyboards, automation) insert text with an input event only.
+    // Pasting is a different inputType and stays blocked.
+    const onInput = (event) => {
+      if (event.isComposing || event.inputType !== "insertText") return;
+      const value = element.value;
+      if (value.length > typedText.length && value.startsWith(typedText)) handleTyping(value);
+    };
+
+    element.addEventListener("beforeinput", onBeforeInput);
+    element.addEventListener("compositionend", onCompositionEnd);
+    element.addEventListener("input", onInput);
+    return () => {
+      element.removeEventListener("beforeinput", onBeforeInput);
+      element.removeEventListener("compositionend", onCompositionEnd);
+      element.removeEventListener("input", onInput);
+    };
+  }, [handleTyping, isFinished, isArenaOverlayVisible, typedText]);
 
   useEffect(() => {
     if (accuracy === prevAccuracy) return;
@@ -653,7 +720,7 @@ function TypingTest({ theme, onToggleTheme }) {
         transition={{ delay: 0.05 }}
         className={`border-b backdrop-blur ${isDark ? "border-slate-700/60 bg-slate-900/90 shadow-[0_8px_30px_rgba(12,13,36,0.4)]" : "border-slate-200 bg-slate-100/95 shadow-[0_6px_24px_rgba(95,74,34,0.08)]"}`}
       >
-        <div className="flex flex-col lg:flex-row items-center justify-between gap-4 px-4 py-4 sm:px-8">
+        <div className="flex flex-col lg:flex-row items-center justify-between gap-3 px-4 py-2.5 sm:px-8">
           <div className="flex items-center gap-4 w-full lg:w-auto">
             <AppLogo isDark={isDark} />
             {/* simplified nav - removed Practice / Leaderboard / Pro Tip links per request */}
@@ -906,11 +973,11 @@ function TypingTest({ theme, onToggleTheme }) {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.2 }}
-        className={`flex-1 overflow-y-auto scrollbar-none px-4 py-6 sm:px-6 sm:py-8 ${isDark ? "bg-gray-900" : "bg-white"} ${isArenaOverlayVisible ? "pointer-events-none select-none blur-sm brightness-75" : ""}`}
+        className={`flex-1 overflow-y-auto scrollbar-none px-4 sm:px-6 ${isNepaliLayout ? "py-2 sm:py-2" : "py-6 sm:py-8"} ${isDark ? "bg-gray-900" : "bg-white"} ${isArenaOverlayVisible ? "pointer-events-none select-none blur-sm brightness-75" : ""}`}
       >
-        <div className="mx-auto grid w-full max-w-6xl gap-4 lg:grid-cols-[minmax(0,1fr)_220px] xl:grid-cols-[minmax(0,1fr)_240px]">
+        <div className={`mx-auto grid w-full gap-4 ${isNepaliLayout || isFinished ? "max-w-6xl" : "max-w-6xl lg:grid-cols-[minmax(0,1fr)_220px] xl:grid-cols-[minmax(0,1fr)_240px]"}`}>
           {!isFinished ? (
-            <div className="mx-auto w-full max-w-5xl space-y-5 lg:mx-auto xl:max-w-[58rem]">
+            <div className={`mx-auto w-full space-y-4 ${isNepaliLayout ? "max-w-[64rem] !space-y-2" : "max-w-5xl space-y-5 lg:mx-auto xl:max-w-[58rem]"}`}>
               {isArenaMode ? (
                 <ChallengeArenaBanner
                   challenge={challengeConfig || dailyChallenge?.challenge}
@@ -932,7 +999,7 @@ function TypingTest({ theme, onToggleTheme }) {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
                 ref={statsBarRef}
-                className={`flex flex-wrap justify-center gap-2 rounded-2xl border px-4 py-2 sm:px-5 sm:py-2 ${
+                className={`${isNepaliLayout ? "hidden" : "flex"} flex-wrap justify-center gap-2 rounded-2xl border px-4 py-2 sm:px-5 sm:py-2 ${
                   isDark
                     ? "bg-gray-900/70 border-gray-700"
                     : "bg-white border-slate-200"
@@ -1022,13 +1089,41 @@ function TypingTest({ theme, onToggleTheme }) {
 
               {showTourHint && !isArenaMode && <TourHint isDark={isDark} onStartTour={startWelcomeTour} onDismiss={dismissTourHint} />}
 
+              {!isArenaMode && (
+                <LanguagePanel
+                  language={language}
+                  settings={languageSettings}
+                  onLanguageChange={setLanguage}
+                  onSettingsChange={updateLanguageSettings}
+                  onStartLesson={startNepaliLesson}
+                  lessonProgress={lessonProgress}
+                  onUnlockAll={unlockAllLessons}
+                  loksewa={loksewa}
+                  onStartLoksewa={startLoksewaTest}
+                  activeLessonId={mode === TYPING_MODES.CUSTOM ? activeLessonId : null}
+                  isDark={isDark}
+                />
+              )}
+
+              {isNepaliLayout ? (
+                <NepaliStatTiles
+                  typedLength={typedText.length}
+                  correctCharacters={correctCharacters}
+                  elapsedSeconds={elapsedSeconds}
+                  accuracy={accuracy}
+                  timeLeft={timeLeft}
+                  showCountdown={mode === TYPING_MODES.TIME}
+                  isDark={isDark}
+                />
+              ) : null}
+
               {/* Typing Area */}
               <motion.div
                 initial={{ scale: 0.95, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ delay: 0.15 }}
                 ref={typingPanelRef}
-                className={`rounded-3xl border p-6 sm:p-8 min-h-[220px] shadow-[0_20px_60px_rgba(0,0,0,0.14)] leading-loose ${
+                className={`rounded-3xl border ${isNepaliLayout ? "p-2 sm:p-3" : "p-6 sm:p-8 min-h-[220px]"} shadow-[0_20px_60px_rgba(0,0,0,0.14)] leading-loose ${
                   isDark
                     ? "bg-gray-900/75 border-gray-700"
                     : "bg-white border-slate-200"
@@ -1036,7 +1131,8 @@ function TypingTest({ theme, onToggleTheme }) {
               >
                 <div
                   ref={typingSurfaceRef}
-                  className={`${isDark ? "text-slate-300 text-2xl" : "text-slate-700 text-2xl"} outline-none focus:outline-none`}
+                  lang={language === LANGUAGES.NE ? "ne" : undefined}
+                  className={`${isDark ? "text-slate-300 text-2xl" : "text-slate-700 text-2xl"} ${language === LANGUAGES.NE ? "ne-typing" : ""} outline-none focus:outline-none`}
                   onFocusCapture={syncTypingFocusState}
                   onBlurCapture={() => window.setTimeout(syncTypingFocusState, 0)}
                 >
@@ -1049,6 +1145,8 @@ function TypingTest({ theme, onToggleTheme }) {
                     isDark={isDark}
                     fontScale={fontScale}
                     focused={isTypingAreaFocused}
+                    className={isNepaliLayout ? "ne-passage" : ""}
+                    pendingActive={Boolean(pendingVowel)}
                     hideContent={false}
                     fadedWords={fadedWords}
                     challengePromptHidden={challengePromptHidden}
@@ -1073,8 +1171,8 @@ function TypingTest({ theme, onToggleTheme }) {
                   />
                 </div>
 
-                <div className="mt-4">
-                  <div id="typing-input-instructions" className="mt-2 text-center text-sm text-slate-400">
+                <div className={isNepaliLayout ? "mt-0.5" : "mt-4"}>
+                  <div id="typing-input-instructions" className={`${isNepaliLayout ? "text-[11px] [@media(max-height:850px)]:sr-only" : "mt-2 text-sm"} text-center text-slate-400`}>
                     Click the text and type directly. Paste is blocked. Characters typed {typedText.length} / {Math.max((paragraph || customText || "").length, 0)}
                   </div>
                   {challengeWarningMessage ? (
@@ -1089,6 +1187,22 @@ function TypingTest({ theme, onToggleTheme }) {
                   ) : null}
                 </div>
               </motion.div>
+
+              {isNepaliLayout && (
+                <div>
+                <KeyboardGuide
+                  language={language}
+                  upcomingText={usesBuiltInNepali ? getHintText((paragraph || customText || "").slice(typedText.length, typedText.length + 12), pendingVowel) : (paragraph || customText || "").slice(typedText.length, typedText.length + 12)}
+                  nextCharacter={(paragraph || customText || "")[typedText.length] || ""}
+                  pendingVowel={pendingVowel}
+                  pressed={pressedKey}
+                  showKeyboard={languageSettings.showKeyboard}
+                  showFingerHints={languageSettings.showFingerHints}
+                  isDark={isDark}
+                  isFinished={isFinished}
+                />
+                </div>
+              )}
 
               {/* Mode Switcher removed (moved to top bar) */}
 
@@ -1106,8 +1220,12 @@ function TypingTest({ theme, onToggleTheme }) {
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 100 }}
-              className="lg:col-span-1"
+              className="mx-auto w-full max-w-4xl lg:col-span-1"
             >
+              {finalResult?.loksewa ? <LoksewaVerdict result={finalResult} isDark={isDark} /> : null}
+              {finalResult?.lesson ? (
+                <LessonVerdict result={finalResult} onStartLesson={startNepaliLesson} isDark={isDark} />
+              ) : null}
               <ResultScreen
                 result={finalResult}
                 bestWpm={bestWpm}
@@ -1122,7 +1240,7 @@ function TypingTest({ theme, onToggleTheme }) {
           )}
 
           {/* Right Sidebar */}
-          {!isFinished ? (
+          {!isFinished && !isNepaliLayout ? (
             <aside ref={rightSidebarRef} className="hidden lg:block w-full max-w-[260px]">
               <div className="sticky top-24">
                 <RightSidebar
@@ -1144,7 +1262,7 @@ function TypingTest({ theme, onToggleTheme }) {
           ) : null}
 
           {/* Mobile floating toggle */}
-          {!isFinished && (
+          {!isFinished && !isNepaliLayout && (
             <div className="lg:hidden">
               <motion.button
                 initial={{ opacity: 0, y: 20 }}

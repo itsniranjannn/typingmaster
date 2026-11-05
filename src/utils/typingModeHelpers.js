@@ -7,11 +7,21 @@ import {
 } from "../constants/typingModes";
 import { getRandomQuote } from "../data/quotes";
 import { generateRandomParagraph, getFirstNWords, generateNumbersParagraph } from "./paragraphGenerator";
+import { getNepaliNumbers, getNepaliParagraph, getNepaliQuote, getNepaliWords } from "../data/nepaliText";
 
 export const DEFAULT_WORD_COUNT = 25;
 export const QUOTE_LOADING_PLACEHOLDER = "Loading quote...";
 export const getWordList = (text) => text.split(" ").filter((word) => word.length > 0);
-export const getGeneratedTextForMode = (mode, wordCount) => {
+const getNepaliTextForMode = (mode, wordCount) => {
+  if (mode === TYPING_MODES.WORDS) return getNepaliWords(wordCount);
+  if (mode === TYPING_MODES.NUMBERS) return getNepaliNumbers();
+  if (mode === TYPING_MODES.QUOTE) return getNepaliQuote();
+  return getNepaliParagraph(30);
+};
+
+export const getGeneratedTextForMode = (mode, wordCount, language = "en") => {
+  if (language === "ne") return getNepaliTextForMode(mode, wordCount);
+
   if (mode === TYPING_MODES.WORDS) {
     const sourceMin = Math.max(wordCount + 10, 35);
     const sourceMax = Math.max(wordCount + 25, sourceMin + 10);
@@ -40,7 +50,12 @@ export const normalizeTimeLimitSeconds = (value) => {
   return Math.min(Math.max(Math.round(parsed), CUSTOM_TIME_MIN_SECONDS), CUSTOM_TIME_MAX_SECONDS);
 };
 
-export const getBestWpmModeKey = ({ mode, wordCount, goalVariant }) => {
+export const getBestWpmModeKey = ({ mode, wordCount, goalVariant, language = "en" }) => {
+  const baseKey = getBaseBestWpmModeKey({ mode, wordCount, goalVariant });
+  return language === "ne" && mode !== TYPING_MODES.CHALLENGE_ARENA ? `ne_${baseKey}` : baseKey;
+};
+
+const getBaseBestWpmModeKey = ({ mode, wordCount, goalVariant }) => {
   if (mode === TYPING_MODES.WORDS) {
     const count = Number.isFinite(Number(wordCount)) ? Number(wordCount) : DEFAULT_WORD_COUNT;
     return `words${count}`;
