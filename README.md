@@ -149,6 +149,17 @@
 </td>
 <td width="50%" valign="top">
 
+### नेपाली Nepali Typing
+
+Switch the language bar above the typing panel to **नेपाली** to practice Nepali (Devanagari) in every classic mode (Time, Words, Quotes, Numbers, Goal).
+
+- **Built-in Nepali layout:** uses the physical key you press (`KeyboardEvent.code`), like Monkeytype's layout emulator, so it works with any OS keyboard and needs no setup. The mapping follows the standard Nepali layout from xkeyboard-config (`symbols/np`, "basic"); every key produces exactly one Unicode character. Choose **My system keyboard** to use a Nepali keyboard installed in your OS instead.
+- **On-screen keyboard:** shows the next key, whether Shift is needed, and flashes green/red on each press. Toggle it with the **Keyboard** button.
+- **Finger hints:** a hand diagram plus a sentence ("Hold Shift with your right pinky, press T with your left index finger"), colour-matched to the keys. Toggle with **Finger hints**.
+- **Learn Nepali typing:** 13 guided lessons (home row, top/bottom rows, vowel signs, Shift consonants, halant and conjuncts, digits, everyday words).
+- Nepali personal bests are tracked separately from English (`ne_*` keys). Weak-key drills only use your Nepali mistakes while Nepali is selected.
+- WPM uses the usual 5 characters per word, counted per Unicode character.
+
 ### 🖱️ Smart Auto-Scroll
 - Custom margin-aware scroll (not plain `scrollIntoView`)
 - Adjustable bottom margin (default 50px)

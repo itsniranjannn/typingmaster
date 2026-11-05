@@ -359,6 +359,7 @@ const sanitizeResult = (result) => {
     goalVariant: sanitizeGoalVariant(result.goalVariant),
     goalSuccess: typeof result.goalSuccess === "boolean" ? result.goalSuccess : null,
     modeKey: typeof result.modeKey === "string" ? result.modeKey : null,
+    language: result.language === "ne" ? "ne" : "en",
     previousBest: sanitizeNumber(result.previousBest, 0),
     improvedBest: typeof result.improvedBest === "boolean" ? result.improvedBest : false,
     challengeId: typeof result.challengeId === "string" ? result.challengeId : null,
@@ -394,7 +395,17 @@ const createDefaultBestWpmByMode = () => ({
   quote: 0,
   custom: 0,
   numbers: 0,
-  challengeArena: 0
+  challengeArena: 0,
+  ne_time: 0,
+  ne_words25: 0,
+  ne_words35: 0,
+  ne_words50: 0,
+  ne_words100: 0,
+  ne_goalSustain: 0,
+  ne_goalReach: 0,
+  ne_quote: 0,
+  ne_custom: 0,
+  ne_numbers: 0
 });
 
 const sanitizeBestWpmByMode = (value) => {

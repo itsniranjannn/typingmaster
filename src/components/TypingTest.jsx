@@ -5,6 +5,9 @@ import confetti from "canvas-confetti";
 import AppLogo from "./AppLogo";
 import TextSelector from "./TextSelector";
 import TypingText from "./TypingText";
+import LanguagePanel from "./LanguagePanel";
+import KeyboardGuide from "./KeyboardGuide";
+import { LANGUAGES } from "../data/keyboardLayouts";
 import ResultScreen from "./ResultScreen";
 import SettingsModal from "./SettingsModal";
 import LeaderboardModal from "./LeaderboardModal";
@@ -86,7 +89,14 @@ function TypingTest({ theme, onToggleTheme }) {
     toggleActive,
     streakInfo,
     startDailyChallenge,
-    cancelDailyChallenge
+    cancelDailyChallenge,
+    language,
+    languageSettings,
+    setLanguage,
+    updateLanguageSettings,
+    startNepaliLesson,
+    activeLessonId,
+    translateKeyEvent
   } = useTypingTest();
 
   useEffect(() => {
@@ -94,6 +104,7 @@ function TypingTest({ theme, onToggleTheme }) {
   }, [fadedWords]);
 
   const [fontScale, setFontScale] = useState(1);
+  const [pressedKey, setPressedKey] = useState(null);
   const [goalReachedShown, setGoalReachedShown] = useState(false);
   const goalReachedTimeoutRef = useRef(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -257,16 +268,22 @@ function TypingTest({ theme, onToggleTheme }) {
 
       if (key === " ") {
         event.preventDefault();
+        setPressedKey({ code: "Space", ok: (paragraph || customText || "")[typedText.length] === " ", id: event.timeStamp });
         handleTyping(`${typedText} `);
         return;
       }
 
-      if (key.length === 1) {
+      const typedCharacter = translateKeyEvent(event);
+      if (typedCharacter !== null) {
         event.preventDefault();
-        handleTyping(`${typedText}${key}`);
+        setPressedKey({ code: event.code, ok: typedCharacter === (paragraph || customText || "")[typedText.length], id: event.timeStamp });
+        handleTyping(`${typedText}${typedCharacter}`);
+      } else if (key.length === 1) {
+        // A printable key that the active layout does not map: swallow it.
+        event.preventDefault();
       }
     },
-    [handleTyping, isFinished, typedText, isArenaOverlayVisible]
+    [handleTyping, isFinished, typedText, isArenaOverlayVisible, translateKeyEvent, paragraph, customText]
   );
 
   useEffect(() => {
@@ -1022,6 +1039,18 @@ function TypingTest({ theme, onToggleTheme }) {
 
               {showTourHint && !isArenaMode && <TourHint isDark={isDark} onStartTour={startWelcomeTour} onDismiss={dismissTourHint} />}
 
+              {!isArenaMode && (
+                <LanguagePanel
+                  language={language}
+                  settings={languageSettings}
+                  onLanguageChange={setLanguage}
+                  onSettingsChange={updateLanguageSettings}
+                  onStartLesson={startNepaliLesson}
+                  activeLessonId={mode === TYPING_MODES.CUSTOM ? activeLessonId : null}
+                  isDark={isDark}
+                />
+              )}
+
               {/* Typing Area */}
               <motion.div
                 initial={{ scale: 0.95, opacity: 0 }}
@@ -1036,7 +1065,8 @@ function TypingTest({ theme, onToggleTheme }) {
               >
                 <div
                   ref={typingSurfaceRef}
-                  className={`${isDark ? "text-slate-300 text-2xl" : "text-slate-700 text-2xl"} outline-none focus:outline-none`}
+                  lang={language === LANGUAGES.NE ? "ne" : undefined}
+                  className={`${isDark ? "text-slate-300 text-2xl" : "text-slate-700 text-2xl"} ${language === LANGUAGES.NE ? "ne-typing" : ""} outline-none focus:outline-none`}
                   onFocusCapture={syncTypingFocusState}
                   onBlurCapture={() => window.setTimeout(syncTypingFocusState, 0)}
                 >
@@ -1089,6 +1119,18 @@ function TypingTest({ theme, onToggleTheme }) {
                   ) : null}
                 </div>
               </motion.div>
+
+              {!isArenaMode && (
+                <KeyboardGuide
+                  language={language}
+                  nextCharacter={(paragraph || customText || "")[typedText.length] || ""}
+                  pressed={pressedKey}
+                  showKeyboard={languageSettings.showKeyboard}
+                  showFingerHints={languageSettings.showFingerHints}
+                  isDark={isDark}
+                  isFinished={isFinished}
+                />
+              )}
 
               {/* Mode Switcher removed (moved to top bar) */}
 

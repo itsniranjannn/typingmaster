@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@500;600;700;800&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -414,4 +414,17 @@ body {
   font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+}
+
+
+/* Nepali / Devanagari: JetBrains Mono and Inter have no Devanagari glyphs, so name a real font. */
+[lang="ne"],
+[lang="ne"] * {
+  font-family: "Noto Sans Devanagari", "Nirmala UI", "Mukta", "Mangal", sans-serif !important;
+  font-variant-ligatures: normal;
+  letter-spacing: 0 !important;
+}
+
+.ne-typing {
+  line-height: 2.1;
 }
