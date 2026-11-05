@@ -428,3 +428,13 @@ body {
 .ne-typing {
   line-height: 2.1;
 }
+
+/* Nepali passage box: a fixed four-line window that scrolls, like Nepali typing-test sites. */
+.typing-area.ne-passage {
+  max-height: min(13rem, 27vh);
+  min-height: 8rem;
+  font-size: calc(clamp(1.45rem, 3vh, 2rem) * var(--typing-scale, 1));
+  line-height: 2;
+  text-align: left !important;
+  padding: 0.75rem 1.25rem;
+}

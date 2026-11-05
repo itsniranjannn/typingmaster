@@ -20,6 +20,22 @@ export const LOKSEWA_PASSAGES = [
   "कृषि नेपालको अर्थतन्त्रको मेरुदण्ड हो। किसानहरूलाई उन्नत बीउ, मल र सिँचाइको सुविधा उपलब्ध गराएमा उत्पादन बढ्ने र गरिबी घट्ने अपेक्षा गरिन्छ।"
 ];
 
+/** Short titles, shown in the passage dropdown (same order as LOKSEWA_PASSAGES). */
+export const LOKSEWA_TITLES = [
+  "सार्वजनिक सेवा",
+  "लोक सेवा आयोग",
+  "कर्मचारीको जिम्मेवारी",
+  "सूचना प्रविधि",
+  "राज्यको दायित्व",
+  "बजेट र आर्थिक अनुशासन",
+  "स्थानीय सरकार",
+  "वातावरण संरक्षण",
+  "टाइपिङ परीक्षा",
+  "सार्वजनिक खरिद",
+  "सुशासन",
+  "कृषि"
+];
+
 const shuffled = (list) => {
   const copy = [...list];
   for (let i = copy.length - 1; i > 0; i -= 1) {
@@ -29,11 +45,17 @@ const shuffled = (list) => {
   return copy;
 };
 
-/** A test sheet: whole passages until there are at least `minWords` words. */
-export const getLoksewaPassage = (minWords = 90) => {
+/**
+ * A test sheet: whole passages until there are at least `minWords` words. When
+ * `firstIndex` is given, that passage comes first (the learner picked it).
+ */
+export const getLoksewaPassage = (minWords = 90, firstIndex = null) => {
   const parts = [];
   let total = 0;
-  for (const passage of shuffled(LOKSEWA_PASSAGES)) {
+  const chosen = Number.isInteger(firstIndex) ? LOKSEWA_PASSAGES[firstIndex] : null;
+  const rest = shuffled(LOKSEWA_PASSAGES.filter((passage) => passage !== chosen));
+  const ordered = chosen ? [chosen, ...rest] : rest;
+  for (const passage of ordered) {
     parts.push(passage);
     total += countWords(passage);
     if (total >= minWords) break;
@@ -46,8 +68,12 @@ export const getLoksewaChunk = () => getLoksewaPassage(30);
 
 /** Loksewa-style presets. Real parameters differ per vacancy notice. */
 export const LOKSEWA_DURATIONS = [
+  { seconds: 60, label: "1 min" },
+  { seconds: 120, label: "2 min" },
+  { seconds: 180, label: "3 min" },
   { seconds: 300, label: "5 min" },
-  { seconds: 600, label: "10 min" }
+  { seconds: 600, label: "10 min" },
+  { seconds: 900, label: "15 min" }
 ];
 export const LOKSEWA_TARGETS = [20, 25, 30, 35];
 export const LOKSEWA_MIN_ACCURACY = 95;
@@ -56,9 +82,10 @@ export const LOKSEWA_MIN_ACCURACY = 95;
  * Net WPM = correct characters / 5 / minutes. Wrong characters earn nothing, so
  * errors lower the score on their own. Passing needs the target speed AND accuracy.
  */
-export const evaluateLoksewa = ({ wpm, accuracy, targetWpm, minAccuracy = LOKSEWA_MIN_ACCURACY }) => ({
+export const evaluateLoksewa = ({ wpm, accuracy, targetWpm, grossWpm = null, minAccuracy = LOKSEWA_MIN_ACCURACY }) => ({
   targetWpm,
   minAccuracy,
+  grossWpm,
   netWpm: wpm,
   accuracy,
   speedOk: wpm >= targetWpm,

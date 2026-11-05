@@ -49,13 +49,15 @@ function Key({ code, grow = 1, finger, tint, primary, secondary, alt, latin, sta
       style={{
         flexGrow: grow,
         flexBasis: 0,
+        // keys shrink on short screens so the whole keyboard stays visible next to the text
+        height: "clamp(28px, 4.5vh, 46px)",
         background,
         color: textColor,
         boxShadow: isTarget
           ? `0 0 0 2px ${isDark ? "#fff" : "#2a2a55"}, 0 0 18px ${glow}`
           : `inset 0 -2px 0 ${isDark ? "rgba(0,0,0,0.35)" : "rgba(0,0,0,0.12)"}`
       }}
-      className={`relative flex h-9 min-w-0 select-none items-center justify-center rounded-md text-center transition-[background,box-shadow,transform] duration-100 sm:h-11 md:h-12 ${
+      className={`relative flex min-w-0 select-none items-center justify-center rounded-md text-center transition-[background,box-shadow,transform] duration-100 ${
         isTarget ? "z-10 scale-105 animate-pulse" : ""
       } ${isHit || isMiss ? "scale-95" : ""}`}
     >
@@ -64,14 +66,14 @@ function Key({ code, grow = 1, finger, tint, primary, secondary, alt, latin, sta
       ) : (
         <>
           <span
-            className={`font-semibold leading-none ${primary && primary.length > 2 ? "text-sm sm:text-base" : "text-base sm:text-xl"}`}
+            className={`font-semibold leading-none ${primary && primary.length > 2 ? "text-[15px] sm:text-lg" : "text-lg sm:text-2xl"}`}
             lang={primary && DEVANAGARI.test(primary) ? "ne" : undefined}
           >
             {primary}
           </span>
           {secondary ? (
             <span
-              className="absolute right-1 top-0.5 text-[9px] leading-none opacity-75 sm:text-[11px]"
+              className="absolute right-1 top-0.5 text-[10px] leading-none opacity-80 sm:text-[13px]"
               lang={DEVANAGARI.test(secondary) ? "ne" : undefined}
             >
               {secondary}
@@ -79,7 +81,7 @@ function Key({ code, grow = 1, finger, tint, primary, secondary, alt, latin, sta
           ) : null}
           {alt ? (
             <span
-              className="absolute bottom-0.5 right-1 text-[9px] font-bold leading-none sm:text-[11px]"
+              className="absolute bottom-0.5 right-1 text-[10px] font-bold leading-none sm:text-[13px]"
               style={{ color: isTarget ? "#0c0d24" : ALT_COLOR }}
               lang="ne"
               title="Alt + key"
@@ -88,7 +90,7 @@ function Key({ code, grow = 1, finger, tint, primary, secondary, alt, latin, sta
             </span>
           ) : null}
           {latin ? (
-            <span className="absolute bottom-0.5 left-1 text-[8px] font-medium leading-none opacity-45 sm:text-[9px]">{latin}</span>
+            <span className="absolute bottom-0.5 left-1 text-[9px] font-medium leading-none opacity-50 sm:text-[10px]">{latin}</span>
           ) : null}
         </>
       )}
@@ -122,7 +124,7 @@ function Hands({ activeFingers, isDark }) {
   const palm = (x) => <rect x={x} y="52" width="84" height="44" rx="20" fill={isDark ? "rgba(148,163,184,0.12)" : "rgba(15,23,42,0.06)"} />;
 
   return (
-    <svg viewBox="0 0 400 110" className="mx-auto h-28 w-full max-w-md sm:h-36" role="img" aria-label="Hands with the finger to use highlighted">
+    <svg viewBox="0 0 400 110" className="h-12 w-auto sm:h-14" role="img" aria-label="Hands with the finger to use highlighted">
       <g>
         {palm(20)}
         {fingerShape("LP", 22, 26)}
@@ -257,10 +259,10 @@ function KeyboardGuide({
   return (
     <section
       aria-label={language === LANGUAGES.NE ? "Nepali keyboard guide" : "Keyboard guide"}
-      className={`rounded-3xl border p-4 sm:p-5 ${isDark ? "border-slate-700/70 bg-slate-950/50" : "border-slate-200 bg-white/90"}`}
+      className={`rounded-2xl border p-3 shadow-2xl backdrop-blur-md sm:p-4 ${isDark ? "border-slate-600/70 bg-slate-950/90" : "border-slate-300 bg-white/95"}`}
     >
       {showFingerHints ? (
-        <div className="mb-3 flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-between sm:text-left">
+        <div className="mb-2 flex flex-col items-center gap-2 text-center sm:flex-row sm:justify-between sm:text-left">
           <div className="flex items-center gap-3">
             <div
               className={`flex h-12 min-w-12 items-center justify-center rounded-xl px-3 text-2xl font-semibold sm:text-3xl ${isDark ? "bg-slate-900 text-slate-50" : "bg-slate-100 text-slate-900"}`}
@@ -270,7 +272,7 @@ function KeyboardGuide({
               {bigGlyph}
             </div>
             <div className="text-left">
-              <p className={`text-sm font-medium ${isDark ? "text-slate-200" : "text-slate-700"}`} aria-live="polite">{hintLine}</p>
+              <p className={`text-sm font-semibold sm:text-base ${isDark ? "text-slate-100" : "text-slate-800"}`} aria-live="polite">{hintLine}</p>
               {composed ? (
                 <p className="mt-0.5 text-xs text-slate-400" lang="ne">
                   {showGlyph(composed)} is typed as {[...DECOMPOSITION[composed]].map((part) => showGlyph(part)).join(" + ")}
@@ -278,14 +280,7 @@ function KeyboardGuide({
               ) : null}
             </div>
           </div>
-          <div className="flex items-center gap-3 text-[11px] text-slate-400">
-            {[["LP", "Pinky"], ["LR", "Ring"], ["LM", "Middle"], ["LI", "Index"], ["LT", "Thumb"]].map(([id, name]) => (
-              <span key={id} className="inline-flex items-center gap-1">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ background: FINGER_COLORS[id] }} />
-                {name}
-              </span>
-            ))}
-          </div>
+          <Hands activeFingers={activeFingers} isDark={isDark} />
         </div>
       ) : null}
 
@@ -308,10 +303,8 @@ function KeyboardGuide({
         </div>
       ) : null}
 
-      {showFingerHints ? <Hands activeFingers={activeFingers} isDark={isDark} /> : null}
-
       {language === LANGUAGES.NE && showKeyboard ? (
-        <p className="mt-2 text-center text-[11px] text-slate-400">
+        <p className="mt-1.5 hidden text-center text-[11px] text-slate-400 [@media(min-height:880px)]:block">
           Big letter: normal press · small letter, top right: with Shift · <span style={{ color: ALT_COLOR }}>orange letter</span>: with Alt (extra letters) · tiny letter: the key on an English keyboard
         </p>
       ) : null}

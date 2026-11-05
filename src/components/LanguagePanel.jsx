@@ -3,7 +3,7 @@ import { BookOpen, Hand, Keyboard, Landmark } from "lucide-react";
 import { LANGUAGES } from "../data/keyboardLayouts";
 import { NEPALI_LESSONS, getLessonById } from "../data/nepaliLessons";
 import { INPUT_METHODS } from "../utils/languageSettings";
-import { LOKSEWA_DURATIONS, LOKSEWA_MIN_ACCURACY, LOKSEWA_TARGETS } from "../data/loksewaPassages";
+import { LOKSEWA_DURATIONS, LOKSEWA_MIN_ACCURACY, LOKSEWA_TARGETS, LOKSEWA_TITLES } from "../data/loksewaPassages";
 
 function Toggle({ checked, onChange, label, icon: Icon, isDark }) {
   return (
@@ -11,6 +11,8 @@ function Toggle({ checked, onChange, label, icon: Icon, isDark }) {
       type="button"
       role="switch"
       aria-checked={checked}
+      aria-label={label}
+      title={label}
       onClick={() => onChange(!checked)}
       className={`inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
         checked
@@ -21,7 +23,7 @@ function Toggle({ checked, onChange, label, icon: Icon, isDark }) {
       } ${checked && !isDark ? "!text-sky-700" : ""}`}
     >
       {Icon ? <Icon size={14} aria-hidden="true" /> : null}
-      {label}
+      <span className="hidden 2xl:inline">{label}</span>
     </button>
   );
 }
@@ -41,6 +43,7 @@ function LanguagePanel({
   const [loksewaOpen, setLoksewaOpen] = useState(false);
   const [duration, setDuration] = useState(300);
   const [target, setTarget] = useState(30);
+  const [passageIndex, setPassageIndex] = useState("random");
   const isNepali = language === LANGUAGES.NE;
   const activeLesson = getLessonById(activeLessonId);
 
@@ -64,7 +67,7 @@ function LanguagePanel({
 
   return (
     <div
-      className={`rounded-2xl border px-3 py-3 sm:px-4 ${isDark ? "border-slate-700/60 bg-slate-950/50" : "border-slate-200/80 bg-white/90"}`}
+      className={`rounded-2xl border px-3 py-2 sm:px-4 ${isDark ? "border-slate-700/60 bg-slate-950/50" : "border-slate-200/80 bg-white/90"}`}
       data-testid="language-panel"
     >
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -161,28 +164,44 @@ function LanguagePanel({
       {isNepali && loksewaOpen ? (
         <div className="mt-3 border-t border-slate-700/40 pt-3" data-testid="loksewa-setup">
           <p className={`mb-3 text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-            Practice like a government typing exam: a timed test on formal Nepali passages with a pass mark. Time, speed target and font vary by
-            vacancy notice, so set them to match yours. Accuracy must be at least {LOKSEWA_MIN_ACCURACY}%.
+            Practice like a government typing exam: a timed test on a formal Nepali passage, with a pass mark. Time, speed target and font vary
+            by vacancy notice, so set them to match yours. Accuracy must be at least {LOKSEWA_MIN_ACCURACY}%.
           </p>
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-3">
-            <div className="flex items-center gap-2 text-xs">
-              <span className={isDark ? "text-slate-400" : "text-slate-500"}>Time</span>
-              <div role="group" aria-label="Loksewa test duration" className="inline-flex gap-1">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="block text-xs">
+              <span className={`mb-1 block font-semibold ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                समय <span className="font-normal opacity-70">(Time)</span>
+              </span>
+              <select
+                value={duration}
+                onChange={(event) => setDuration(Number(event.target.value))}
+                aria-label="Loksewa test duration"
+                className={`w-full rounded-lg border px-3 py-2 text-sm ${isDark ? "border-slate-600 bg-slate-900 text-slate-100" : "border-slate-300 bg-white text-slate-800"}`}
+              >
                 {LOKSEWA_DURATIONS.map((option) => (
-                  <button
-                    key={option.seconds}
-                    type="button"
-                    aria-pressed={duration === option.seconds}
-                    onClick={() => setDuration(option.seconds)}
-                    className={`rounded-full px-3 py-1.5 font-semibold transition ${
-                      duration === option.seconds ? "bg-sky-500/25 text-sky-200" : isDark ? "bg-slate-900/70 text-slate-300" : "bg-slate-100 text-slate-600"
-                    } ${duration === option.seconds && !isDark ? "!text-sky-700" : ""}`}
-                  >
-                    {option.label}
-                  </button>
+                  <option key={option.seconds} value={option.seconds}>{option.label}</option>
                 ))}
-              </div>
-            </div>
+              </select>
+            </label>
+            <label className="block text-xs sm:col-span-2">
+              <span className={`mb-1 block font-semibold ${isDark ? "text-slate-300" : "text-slate-600"}`}>
+                अनुच्छेद <span className="font-normal opacity-70">(Passage)</span>
+              </span>
+              <select
+                value={passageIndex}
+                onChange={(event) => setPassageIndex(event.target.value)}
+                aria-label="Loksewa passage"
+                lang="ne"
+                className={`w-full rounded-lg border px-3 py-2 text-sm ${isDark ? "border-slate-600 bg-slate-900 text-slate-100" : "border-slate-300 bg-white text-slate-800"}`}
+              >
+                <option value="random">अनियमित छान्नुहोस् (Random)</option>
+                {LOKSEWA_TITLES.map((title, index) => (
+                  <option key={title} value={index}>{title}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-3">
             <div className="flex items-center gap-2 text-xs">
               <span className={isDark ? "text-slate-400" : "text-slate-500"}>Target</span>
               <div role="group" aria-label="Loksewa target speed" className="inline-flex gap-1">
@@ -203,10 +222,10 @@ function LanguagePanel({
             </div>
             <button
               type="button"
-              onClick={() => onStartLoksewa({ durationSeconds: duration, targetWpm: target })}
+              onClick={() => onStartLoksewa({ durationSeconds: duration, targetWpm: target, passageIndex: passageIndex === "random" ? null : Number(passageIndex) })}
               className="rounded-full bg-gradient-to-r from-sky-600 to-sky-500 px-5 py-2 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(141,134,214,0.2)] transition hover:brightness-110"
             >
-              Start test
+              परीक्षण सुरु गर्नुहोस् (Start test)
             </button>
           </div>
         </div>

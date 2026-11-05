@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
 import KeyboardGuide from "../../components/KeyboardGuide";
 import LoksewaVerdict from "../../components/LoksewaVerdict";
+import NepaliStatTiles from "../../components/NepaliStatTiles";
+import { LOKSEWA_DURATIONS, LOKSEWA_PASSAGES, LOKSEWA_TITLES, getLoksewaPassage } from "../loksewaPassages";
 import { physicalFromKey } from "../keyboardLayouts";
 import { getBestWpmModeKey, getGeneratedTextForMode } from "../../utils/typingModeHelpers";
 import { TYPING_MODES } from "../../constants/typingModes";
@@ -89,5 +91,38 @@ describe("physicalFromKey (events without a code)", () => {
     expect(physicalFromKey("k")).toEqual({ code: "KeyK", shift: false });
     expect(physicalFromKey("K")).toEqual({ code: "KeyK", shift: true });
     expect(physicalFromKey("Shift")).toBeNull();
+  });
+});
+
+describe("Loksewa passages and settings", () => {
+  it("has a title for every passage", () => {
+    expect(LOKSEWA_TITLES).toHaveLength(LOKSEWA_PASSAGES.length);
+  });
+
+  it("starts with the passage the learner picked", () => {
+    expect(getLoksewaPassage(90, 1).startsWith(LOKSEWA_PASSAGES[1])).toBe(true);
+    expect(getLoksewaPassage(90, 8).startsWith(LOKSEWA_PASSAGES[8])).toBe(true);
+  });
+
+  it("offers the same time choices as Nepali typing-test sites", () => {
+    expect(LOKSEWA_DURATIONS.map((option) => option.seconds)).toEqual([60, 120, 180, 300, 600, 900]);
+  });
+});
+
+describe("NepaliStatTiles", () => {
+  it("shows CPM, gross and net WPM, accuracy and time left", () => {
+    // 150 typed characters, 120 correct, in 60 seconds
+    render(<NepaliStatTiles typedLength={150} correctCharacters={120} elapsedSeconds={60} accuracy={80} timeLeft={65} showCountdown />);
+    const text = screen.getByTestId("nepali-stats").textContent;
+    expect(text).toContain("150"); // CPM
+    expect(text).toContain("30"); // gross: 150 / 5 per minute
+    expect(text).toContain("24"); // net: 120 / 5 per minute
+    expect(text).toContain("80%");
+    expect(text).toContain("1:05");
+  });
+
+  it("shows zeros before the first key", () => {
+    render(<NepaliStatTiles typedLength={0} correctCharacters={0} elapsedSeconds={0} accuracy={0} timeLeft={25} showCountdown />);
+    expect(screen.getByTestId("nepali-stats").textContent).toContain("0:25");
   });
 });

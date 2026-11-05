@@ -1078,7 +1078,7 @@ export const useTypingTest = () => {
     if (loksewaRef.current) {
       resetTypingState({
         nextMode: TYPING_MODES.TIME,
-        nextParagraph: getLoksewaPassage(),
+        nextParagraph: getLoksewaPassage(90, loksewaRef.current.passageIndex),
         nextTimeLimitSeconds: loksewaRef.current.durationSeconds
       });
       return;
@@ -1648,8 +1648,8 @@ export const useTypingTest = () => {
   );
 
   const startLoksewaTest = useCallback(
-    ({ durationSeconds = 300, targetWpm = 30 } = {}) => {
-      const config = { durationSeconds, targetWpm };
+    ({ durationSeconds = 300, targetWpm = 30, passageIndex = null } = {}) => {
+      const config = { durationSeconds, targetWpm, passageIndex };
       if (languageRef.current !== LANGUAGES.NE) {
         languageRef.current = LANGUAGES.NE;
         setLanguageSettings((previous) => {
@@ -1663,7 +1663,7 @@ export const useTypingTest = () => {
       setLoksewa(config);
       resetTypingState({
         nextMode: TYPING_MODES.TIME,
-        nextParagraph: getLoksewaPassage(),
+        nextParagraph: getLoksewaPassage(90, passageIndex),
         nextTimeLimitSeconds: durationSeconds
       });
     },
@@ -1706,7 +1706,12 @@ export const useTypingTest = () => {
       modeKey: currentBestKey,
       language: languageRef.current,
       loksewa: loksewaRef.current
-        ? { ...evaluateLoksewa({ wpm: finalWpm, accuracy, targetWpm: loksewaRef.current.targetWpm }), durationSeconds: loksewaRef.current.durationSeconds }
+        ? { ...evaluateLoksewa({
+            wpm: finalWpm,
+            accuracy,
+            targetWpm: loksewaRef.current.targetWpm,
+            grossWpm: Math.round(((typedText.length / 5) / (timeUsed / 60)) * 10) / 10
+          }), durationSeconds: loksewaRef.current.durationSeconds }
         : null,
       wpm: finalWpm,
       accuracy,

@@ -44,6 +44,12 @@ function LoksewaVerdict({ result, isDark = true }) {
         </div>
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        {check.grossWpm !== null && check.grossWpm !== undefined ? (
+          <div className={`flex items-center justify-between rounded-xl px-3 py-2 text-sm ${isDark ? "bg-slate-900/70 text-slate-300" : "bg-slate-100 text-slate-600"}`}>
+            <span>Gross WPM (all typing)</span>
+            <span className="font-semibold">{check.grossWpm}</span>
+          </div>
+        ) : null}
         <Row label={`Speed (need ${check.targetWpm})`} value={`${Math.round(check.netWpm)} WPM`} ok={check.speedOk} isDark={isDark} />
         <Row label={`Accuracy (need ${check.minAccuracy}%)`} value={`${Math.round(check.accuracy * 10) / 10}%`} ok={check.accuracyOk} isDark={isDark} />
       </div>
